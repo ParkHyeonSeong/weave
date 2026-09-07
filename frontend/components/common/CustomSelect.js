@@ -14,8 +14,13 @@ import DropdownPortal from './DropdownPortal';
  * @param {string} [placeholder='Select...']
  * @param {string} [size='md'] - 'sm' | 'md'
  * @param {string} [className='']
+ * @param {string} [ariaLabel] - 화면에 보이는 라벨이 없는 셀렉트(목록 행 안 등)의 접근 가능한 이름
+ * @param {boolean} [disabled=false] - 저장 중 등 일시적으로 조작을 막을 때
  */
-export default function CustomSelect({ value, options, onChange, placeholder = 'Select...', size = 'md', className = '', hideArrow = false }) {
+export default function CustomSelect({
+  value, options, onChange, placeholder = 'Select...', size = 'md', className = '',
+  hideArrow = false, ariaLabel, disabled = false,
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null); // 트리거
   const dropdownRef = useRef(null); // 포털된 드롭다운
@@ -54,10 +59,13 @@ export default function CustomSelect({ value, options, onChange, placeholder = '
     setOpen((prev) => !prev);
   };
 
+  // disabled로 바뀌는 순간 열려 있던 드롭다운이 남지 않도록 렌더 시점에도 닫힌 것으로 취급
+  const isOpen = open && !disabled;
+
   return (
     <div
       ref={ref}
-      className={`CustomSelect CustomSelect--${size} ${open ? 'CustomSelect--open' : ''} ${className}`}
+      className={`CustomSelect CustomSelect--${size} ${isOpen ? 'CustomSelect--open' : ''} ${className}`}
       onClick={(e) => e.stopPropagation()}
     >
       {/* 트리거 */}
@@ -65,6 +73,8 @@ export default function CustomSelect({ value, options, onChange, placeholder = '
         type="button"
         className="CustomSelect__Trigger"
         onClick={handleTriggerClick}
+        aria-label={ariaLabel}
+        disabled={disabled}
       >
         <span className="CustomSelect__Value">
           {selected ? (
@@ -86,7 +96,7 @@ export default function CustomSelect({ value, options, onChange, placeholder = '
       </button>
 
       {/* 드롭다운 (body 포털) — 루트 밖에 렌더되므로 size 모디파이어를 드롭다운에 직접 부여 */}
-      <DropdownPortal anchorRef={ref} open={open} dropdownRef={dropdownRef}>
+      <DropdownPortal anchorRef={ref} open={isOpen} dropdownRef={dropdownRef}>
         <div className={`CustomSelect__Dropdown CustomSelect__Dropdown--${size}`}>
           {options.map((opt) => (
             <button

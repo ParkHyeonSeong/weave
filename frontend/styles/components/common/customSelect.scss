@@ -23,6 +23,14 @@
     &:hover {
       border-color: $color-input-border-hover;
     }
+
+    // 저장 중 등 일시적 비활성. pointer-events: none 으로 크기 모디파이어(--sm 등)의
+    // hover 강조까지 한 번에 끈다 — 비활성인데 hover가 살아 있으면 눌리는 것처럼 보인다.
+    &:disabled {
+      cursor: default;
+      opacity: 0.55;
+      pointer-events: none;
+    }
   }
 
   &--open &__Trigger {

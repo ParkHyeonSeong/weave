@@ -60,14 +60,29 @@
     overflow: hidden;
   }
 
+  // 진행도 바 — 섹션 헤더의 done/total과 같은 값. 하위가 없거나 workflowStatuses
+  // 미로딩(progress=null)이면 아예 렌더하지 않는다.
+  &__Progress {
+    height: 4px;
+    border-radius: 2px;
+    background: $color-border;
+    overflow: hidden;
+  }
+
+  &__ProgressFill {
+    display: block;
+    height: 100%;
+    background: $color-success;
+    transition: width $transition-fast;
+  }
+
+  // 행은 더 이상 통짜 버튼이 아니다 — 여는 버튼 + 상태 셀렉트가 형제로 들어간다
+  // (버튼 중첩 불가). hover는 행 전체에 주고 실제 클릭 대상은 __ItemOpen이다.
   &__Item {
     display: flex;
     align-items: center;
     gap: $space-2;
     padding: $space-2 $space-3;
-    width: 100%;
-    text-align: left;
-    cursor: pointer;
     border-bottom: 1px solid $color-border;
     transition: background $transition-fast;
 
@@ -80,13 +95,36 @@
     }
   }
 
-  &__StatusIcon {
+  // 저장 중 — 상태 점 자리의 스피너 + 흐려진 제목으로 진행 중임을 알린다.
+  // (셀렉트 자체의 비활성 표시는 CustomSelect__Trigger:disabled가 담당)
+  &__Item--pending &__ItemTitle {
+    opacity: 0.6;
+  }
+
+  &__ItemOpen {
+    display: flex;
+    align-items: center;
+    gap: $space-2;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  &__Dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  &__Spinner {
     flex-shrink: 0;
     color: $color-text-tertiary;
+    animation: taskSubtaskSpin 1s linear infinite;
+  }
 
-    &--done {
-      color: var(--color-success);
-    }
+  &__StatusSelect {
+    flex-shrink: 0;
   }
 
   &__ItemId {
@@ -104,14 +142,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  &__Pill {
-    flex-shrink: 0;
-    font-size: $font-size-xs;
-    padding: 1px $space-2;
-    border: 1px solid;
-    border-radius: 999px;
   }
 
   &__Assignee {
@@ -175,4 +205,8 @@
     color: $color-error;
     padding-top: $space-1;
   }
+}
+
+@keyframes taskSubtaskSpin {
+  to { transform: rotate(360deg); }
 }

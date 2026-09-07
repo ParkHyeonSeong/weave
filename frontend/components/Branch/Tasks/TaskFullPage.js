@@ -16,6 +16,7 @@ import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
 import { errorText } from '@/library/errorText';
 import { orderMembersForPicker } from '@/library/memberOrder';
+import { progressFromRows, progressLabel } from '@/library/subtaskProgress';
 import Avatar from '@/components/common/Avatar';
 import TaskIssueSection from './TaskIssueSection';
 import TaskSubtaskSection from './TaskSubtaskSection';
@@ -48,8 +49,14 @@ export default function TaskFullPage() {
   const {
     task, loading, error, sprints, epics, members, labels,
     workflowStatuses, taskTypes, customFields,
-    fetchTask, updateField, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
+    refreshTask, updateField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
   } = useTaskDetail(branchId, taskId);
+
+  // 진행도 파생 규칙은 library/subtaskProgress.js progressFromRows의 JSDoc 참조.
+  const subtaskProgress = useMemo(
+    () => progressFromRows(task?.subtasks, workflowStatuses),
+    [task?.subtasks, workflowStatuses],
+  );
 
   const { starred, toggle: toggleStar } = useStar('task', task?.task_id);
 
@@ -212,7 +219,29 @@ export default function TaskFullPage() {
               }
               onChange={(val) => updateField('status', val)}
             />
+            {subtaskProgress?.total > 0 && (
+              <span className="TaskFullPage__SubtaskBadge" title="완료된 하위태스크">
+                {progressLabel(subtaskProgress)}
+              </span>
+            )}
           </div>
+
+          {/* 하위태스크 — 제목/상태 바로 아래. 긴 설명을 지나 스크롤하지 않고 바로 체크하기 위해서다. */}
+          <TaskSubtaskSection
+            key={`${branchId}:${task.task_id}`}
+            branchId={branchId}
+            taskId={task.task_id}
+            subtasks={task.subtasks || []}
+            progress={subtaskProgress}
+            workflowStatuses={workflowStatuses}
+            taskTypes={taskTypes}
+            defaultTaskType={task.task_type}
+            onSelectTask={(st) => router.push(`/branch/${branchId}/task/${st.task_id}`)}
+            onChanged={refreshTask}
+            onStatusChange={updateSubtaskStatus}
+          />
+
+          <div className="TaskFullPage__Divider" />
 
           {/* 설명 */}
           <div className="TaskFullPage__Section">
@@ -268,21 +297,6 @@ export default function TaskFullPage() {
             branchId={branchId}
             taskId={task.task_id}
             onSelectTask={(dep) => router.push(`/branch/${branchId}/task/${dep.task_id}`)}
-          />
-
-          <div className="TaskFullPage__Divider" />
-
-          {/* 하위태스크 */}
-          <TaskSubtaskSection
-            branchId={branchId}
-            taskId={task.task_id}
-            subtasks={task.subtasks || []}
-            progress={task.subtask_progress}
-            workflowStatuses={workflowStatuses}
-            taskTypes={taskTypes}
-            defaultTaskType={task.task_type}
-            onSelectTask={(st) => router.push(`/branch/${branchId}/task/${st.task_id}`)}
-            onChanged={() => fetchTask({ silent: true })}
           />
 
           <div className="TaskFullPage__Divider" />

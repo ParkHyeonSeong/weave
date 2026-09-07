@@ -184,6 +184,24 @@
   // -- 상태 --
   &__StatusWrap {
     display: flex;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  // 하위태스크 진행도 배지 — 섹션 카운트와 같은 값(둘 다 task.subtasks에서 파생).
+  // 최초 화면에서 스크롤 없이 완료 비율을 보게 하려고 상태 옆에 둔다.
+  &__SubtaskBadge {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 $space-2;
+    border: 1px solid $color-border;
+    border-radius: 999px;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    font-variant-numeric: tabular-nums;
+    color: $color-text-secondary;
+    white-space: nowrap;
   }
 
   // -- 섹션 --

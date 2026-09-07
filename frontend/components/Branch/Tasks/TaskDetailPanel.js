@@ -14,6 +14,7 @@ import { selectableEpics } from '@/library/epics';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
 import { orderMembersForPicker } from '@/library/memberOrder';
+import { progressFromRows, progressLabel } from '@/library/subtaskProgress';
 import Avatar from '@/components/common/Avatar';
 import TaskIssueSection from './TaskIssueSection';
 import TaskGithubRefSection from './TaskGithubRefSection';
@@ -43,11 +44,17 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
   const {
     task, loading, error, sprints, epics, members, labels,
     workflowStatuses: hookStatuses, taskTypes: hookTaskTypes, customFields,
-    fetchTask, updateField, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
+    refreshTask, updateField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
   } = useTaskDetail(branchId, taskSummary?.task_id);
 
   const workflowStatuses = (externalStatuses && externalStatuses.length > 0) ? externalStatuses : hookStatuses;
   const taskTypes = (externalTaskTypes && externalTaskTypes.length > 0) ? externalTaskTypes : hookTaskTypes;
+
+  // 진행도 파생 규칙은 library/subtaskProgress.js progressFromRows의 JSDoc 참조.
+  const subtaskProgress = useMemo(
+    () => progressFromRows(task?.subtasks, workflowStatuses),
+    [task?.subtasks, workflowStatuses],
+  );
 
   // 패널 내부 체이닝(부모 크럼·하위태스크·의존성·설명 칩) 선택 시 branch_id를 보강한다.
   // 칩이 cross-branch면 자기 branch_id를 싣고, 없으면(부모/의존성=동일 브랜치) 이 패널의 branchId로.
@@ -207,8 +214,30 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
                 : DEFAULT_STATUS_FALLBACK}
               onChange={(val) => updateField('status', val)}
             />
+            {subtaskProgress?.total > 0 && (
+              <span className="TaskDetailPanel__SubtaskBadge" title="완료된 하위태스크">
+                {progressLabel(subtaskProgress)}
+              </span>
+            )}
           </div>
         </div>
+
+        {/* 하위태스크 — 제목/상태 바로 아래. 긴 설명을 지나 스크롤하지 않고 바로 체크하기 위해서다. */}
+        <TaskSubtaskSection
+          key={`${branchId}:${task.task_id}`}
+          branchId={branchId}
+          taskId={task.task_id}
+          subtasks={task.subtasks || []}
+          progress={subtaskProgress}
+          workflowStatuses={workflowStatuses}
+          taskTypes={taskTypes}
+          defaultTaskType={task.task_type}
+          onSelectTask={selectChainedTask}
+          onChanged={refreshTask}
+          onStatusChange={updateSubtaskStatus}
+        />
+
+        <div className="TaskDetailPanel__Divider" />
 
         {/* 설명 */}
         <div className="TaskDetailPanel__Section">
@@ -456,21 +485,6 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
           branchId={branchId}
           taskId={task.task_id}
           onSelectTask={selectChainedTask}
-        />
-
-        <div className="TaskDetailPanel__Divider" />
-
-        {/* 하위태스크 섹션 */}
-        <TaskSubtaskSection
-          branchId={branchId}
-          taskId={task.task_id}
-          subtasks={task.subtasks || []}
-          progress={task.subtask_progress}
-          workflowStatuses={workflowStatuses}
-          taskTypes={taskTypes}
-          defaultTaskType={task.task_type}
-          onSelectTask={selectChainedTask}
-          onChanged={() => fetchTask({ silent: true })}
         />
 
         <div className="TaskDetailPanel__Divider" />

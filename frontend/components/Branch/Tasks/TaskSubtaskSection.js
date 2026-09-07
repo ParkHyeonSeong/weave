@@ -1,48 +1,85 @@
 import { useState } from 'react';
-import { Plus, Circle, CheckCircle2, X } from 'lucide-react';
+import { Plus, X, Loader } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import Avatar from '@/components/common/Avatar';
+import CustomSelect from '@/components/common/CustomSelect';
+import { progressLabel, progressPercent } from '@/library/subtaskProgress';
+import { DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
 
-// status.category === 'done' 인 status key 집합 → done 카운트 폴백
-function progressFromRows(subtasks, workflowStatuses) {
-  const cat = {};
-  (workflowStatuses || []).forEach((ws) => { cat[ws.key] = ws.category; });
-  let done = 0;
-  let total = 0;
-  subtasks.forEach((s) => {
-    const c = cat[s.status];
-    if (c === 'cancelled') return;        // 분모 제외
-    total += 1;
-    if (c === 'done') done += 1;
-  });
-  return { done, total };
-}
-
+/**
+ * 상세 패널/풀페이지의 Subtasks 섹션.
+ *
+ * 행에서 바로 상태를 바꿀 수 있다(WEAVE-40) — 하위태스크로 들어갔다 돌아오지 않고
+ * 부모를 연 채로 여러 개를 연속 처리하기 위해서다. 상태 저장은 부모가 내려준
+ * onStatusChange(=useTaskDetail.updateSubtaskStatus)에 위임한다. 섹션이 자체
+ * 오버레이를 들고 있으면 행만 바뀌고 부모의 제목 배지는 이전 값을 보여주므로,
+ * 낙관적 상태는 부모의 task.subtasks 한 곳에만 둔다.
+ *
+ * 이 섹션의 로컬 상태(pending·에러·입력)는 태스크마다 새것이어야 한다. 호출부가
+ * key={`${branchId}:${task_id}`}로 리마운트시키므로 여기서 따로 초기화하지 않는다 —
+ * 상태가 늘어도 갱신해야 할 리셋 목록이 없다.
+ *
+ * @param {{done:number,total:number}|null|undefined} progress
+ *   부모가 task.subtasks로 계산한 진행도. null = workflowStatuses 미로딩(계산 불가)이라
+ *   진행도 UI를 감춘다 — 잘못된 0/N을 잠깐 보여주지 않기 위해서다.
+ */
 export default function TaskSubtaskSection({
-  branchId, taskId, subtasks = [], progress, workflowStatuses = [], taskTypes = [], defaultTaskType, onSelectTask, onChanged,
+  branchId, taskId, subtasks = [], progress, workflowStatuses = [], taskTypes = [],
+  defaultTaskType, onSelectTask, onChanged, onStatusChange,
 }) {
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
-  const [subtaskError, setSubtaskError] = useState('');
+  const [createError, setCreateError] = useState('');
+  const [statusError, setStatusError] = useState('');
+  const [pendingIds, setPendingIds] = useState(() => new Set());
 
-  const prog = progress || progressFromRows(subtasks, workflowStatuses);
+  // 상세 GET이 브랜치 옵션 6요청보다 먼저 오는 게 보통이라, 행이 그려진 뒤에도
+  // workflowStatuses가 잠깐 빈 창이 있다. 그 사이 폴백 키('todo'…)로 PATCH가 나가면
+  // 커스텀 상태만 쓰는 브랜치에서 INVALID_STATUS로 실패한다 — 그래서 폴백은 **표시 전용**이고
+  // (category가 없어 진행도 계산에도 넘기지 않는다) 쓰기는 상태가 로드된 뒤에만 연다.
+  const statusesReady = workflowStatuses.length > 0;
+  const statusOptions = statusesReady
+    ? workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
+    : DEFAULT_STATUS_FALLBACK;
+  const statusColor = (key) => statusOptions.find((o) => o.value === key)?.color || '#9CA3AF';
 
-  const doneKeys = new Set(
-    (workflowStatuses || []).filter((w) => w.category === 'done').map((w) => w.key),
-  );
-  const statusColor = (key) =>
-    (workflowStatuses || []).find((w) => w.key === key)?.color || '#9CA3AF';
-  const statusLabel = (key) =>
-    (workflowStatuses || []).find((w) => w.key === key)?.label || key;
+  const showProgress = !!progress && progress.total > 0;
+
+  const changeStatus = async (subtask, nextStatus) => {
+    if (!onStatusChange) return;
+    if (!statusesReady) return; // 셀렉트도 비활성이지만, 이 브랜치에 없는 키가 실리지 않게 여기서도 막는다
+    if (nextStatus === subtask.status || pendingIds.has(subtask.task_id)) return; // 같은 행 중복 제출 차단
+    setPendingIds((prev) => new Set(prev).add(subtask.task_id));
+    setStatusError('');
+    const res = await onStatusChange(subtask.task_id, nextStatus);
+    setPendingIds((prev) => {
+      const next = new Set(prev);
+      next.delete(subtask.task_id);
+      return next;
+    });
+    if (res && !res.ok) {
+      // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약) — 부모가 코드를 넘겨준다
+      setStatusError(
+        errorText(res.code, res.category)
+        ?? '상태를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
+      );
+    }
+  };
+
+  const closeAddForm = () => {
+    setAdding(false);
+    setTitle('');
+    setCreateError('');
+  };
 
   const submit = async () => {
     const t = title.trim();
     if (!t || busy) return;
     setBusy(true);
-    setSubtaskError('');
+    setCreateError('');
     try {
       const res = await axios.post(`/branches/${branchId}/tasks`, {
         title: t,
@@ -53,19 +90,18 @@ export default function TaskSubtaskSection({
       if (res.data.status) {
         setTitle('');
         setAdding(false);
-        setSubtaskError('');
-        window.dispatchEvent(new Event('task:updated'));
+        setCreateError('');
+        // 재조회 + 외부 알림은 onChanged(=useTaskDetail.refreshTask) 한 경로로만 —
+        // 여기서 task:updated를 직접 쏘면 부모 훅의 리스너가 받아 GET이 두 번 나간다.
         onChanged?.();
       } else {
         // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약). 호출부에서 확인.
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? {
-          INVALID_TASK_TYPE: '이 브랜치에 없는 작업 유형이에요. 유형을 다시 선택해 주세요.',
-        }[err.code] ?? '하위태스크를 만들지 못했어요.';
-        setSubtaskError(msg);
+        const msg = errorText(err.code, err.category) ?? '하위태스크를 만들지 못했어요.';
+        setCreateError(msg);
       }
     } catch {
-      setSubtaskError('하위태스크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+      setCreateError('하위태스크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setBusy(false);
     }
@@ -76,44 +112,75 @@ export default function TaskSubtaskSection({
       <div className="TaskSubtaskSection__Header">
         <span className="TaskSubtaskSection__Label">
           Subtasks
-          {prog.total > 0 && (
-            <span className="TaskSubtaskSection__Count">{prog.done}/{prog.total}</span>
+          {showProgress && (
+            <span className="TaskSubtaskSection__Count">{progressLabel(progress)}</span>
           )}
         </span>
         <button
           type="button"
           className="TaskSubtaskSection__AddBtn"
-          onClick={() => { setAdding((v) => !v); setSubtaskError(''); }}
+          onClick={() => (adding ? closeAddForm() : setAdding(true))}
+          aria-label="Add subtask"
         >
           <Plus size={14} />
         </button>
       </div>
+
+      {showProgress && (
+        <div
+          className="TaskSubtaskSection__Progress"
+          role="progressbar"
+          aria-label="Subtask progress"
+          aria-valuemin={0}
+          aria-valuemax={progress.total}
+          aria-valuenow={progress.done}
+        >
+          <span
+            className="TaskSubtaskSection__ProgressFill"
+            style={{ width: `${progressPercent(progress)}%` }}
+          />
+        </div>
+      )}
 
       {subtasks.length === 0 && !adding ? (
         <div className="TaskSubtaskSection__Empty">No subtasks yet.</div>
       ) : (
         <div className="TaskSubtaskSection__List">
           {subtasks.map((st) => {
-            const done = doneKeys.has(st.status);
+            const pending = pendingIds.has(st.task_id);
             const main = (st.assignees || []).find((a) => a.role === 'main');
             return (
-              <button
+              <div
                 key={st.task_id}
-                type="button"
-                className="TaskSubtaskSection__Item"
-                onClick={() => onSelectTask?.({ task_id: st.task_id, branch_id: st.branch_id, title: st.title })}
+                className={`TaskSubtaskSection__Item ${pending ? 'TaskSubtaskSection__Item--pending' : ''}`}
               >
-                {done
-                  ? <CheckCircle2 size={14} className="TaskSubtaskSection__StatusIcon TaskSubtaskSection__StatusIcon--done" />
-                  : <Circle size={14} className="TaskSubtaskSection__StatusIcon" />}
-                <span className="TaskSubtaskSection__ItemId">{st.display_id}</span>
-                <span className="TaskSubtaskSection__ItemTitle">{st.title}</span>
-                <span
-                  className="TaskSubtaskSection__Pill"
-                  style={{ color: statusColor(st.status), borderColor: statusColor(st.status) }}
+                <button
+                  type="button"
+                  className="TaskSubtaskSection__ItemOpen"
+                  aria-label={`Open subtask ${st.display_id}: ${st.title}`}
+                  onClick={() => onSelectTask?.({ task_id: st.task_id, branch_id: st.branch_id, title: st.title })}
                 >
-                  {statusLabel(st.status)}
-                </span>
+                  {pending ? (
+                    <Loader size={12} className="TaskSubtaskSection__Spinner" aria-hidden="true" />
+                  ) : (
+                    <span
+                      className="TaskSubtaskSection__Dot"
+                      style={{ backgroundColor: statusColor(st.status) }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="TaskSubtaskSection__ItemId">{st.display_id}</span>
+                  <span className="TaskSubtaskSection__ItemTitle">{st.title}</span>
+                </button>
+                <CustomSelect
+                  className="TaskSubtaskSection__StatusSelect"
+                  value={st.status}
+                  options={statusOptions}
+                  size="sm"
+                  ariaLabel={`Status for subtask ${st.display_id}`}
+                  disabled={pending || !statusesReady}
+                  onChange={(val) => changeStatus(st, val)}
+                />
                 {main && (
                   <Avatar
                     name={main.username}
@@ -124,10 +191,15 @@ export default function TaskSubtaskSection({
                     className="TaskSubtaskSection__Assignee"
                   />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
+      )}
+
+      {/* 상태 변경 오류는 추가 폼과 무관하게 항상 보인다 */}
+      {statusError && (
+        <div className="TaskSubtaskSection__Error" role="status" aria-live="polite">{statusError}</div>
       )}
 
       {adding && (
@@ -140,19 +212,20 @@ export default function TaskSubtaskSection({
             value={title}
             autoFocus
             placeholder="Subtask title…"
+            aria-label="Subtask title"
             onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setAdding(false); setTitle(''); setSubtaskError(''); } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') closeAddForm(); }}
           />
           <button type="submit" className="TaskSubtaskSection__AddSubmit" disabled={busy || !title.trim()}>
             Add
           </button>
-          <button type="button" className="TaskSubtaskSection__AddCancel" onClick={() => { setAdding(false); setTitle(''); setSubtaskError(''); }}>
+          <button type="button" className="TaskSubtaskSection__AddCancel" onClick={closeAddForm} aria-label="Cancel">
             <X size={14} />
           </button>
         </form>
       )}
-      {adding && subtaskError && (
-        <div className="TaskSubtaskSection__Error">{subtaskError}</div>
+      {createError && (
+        <div className="TaskSubtaskSection__Error" role="status" aria-live="polite">{createError}</div>
       )}
     </div>
   );
