@@ -145,6 +145,62 @@ async def _type_labels(branch_id: int, db: AsyncSession) -> dict:
     return {t['type_key']: t['type_name'] for t in await type_model.find_by_branch(branch_id, db)}
 
 
+# status·task_type 라벨이 붙기 시작한 것은 이번 변경부터다. 그 전에 쌓인 activity_log 행에는
+# old_label/new_label이 없어 화면에 내부 key(todo, bug)가 그대로 보였다.
+#
+# 과거 시점의 정확한 라벨은 **어디에도 저장돼 있지 않다** — 그 뒤 이름이 바뀌었거나 삭제된
+# 상태/유형이라면 복원할 방법이 없다. 그래서 조회 시점에 branch의 **현재** 설정으로
+# best-effort 보강만 한다:
+#   · 저장된 라벨이 있으면 그것이 권위다(현재 이름으로 덮어쓰지 않는다).
+#   · 현재 설정에도 없는 key는 라벨을 만들지 않고 비워 둔다 — 프런트가 읽는 사람의 언어로
+#     "삭제된 상태 (key)" 폴백을 렌더한다(서버가 한 언어로 굳히지 않는다).
+_LABELLED_KEY_FIELDS = ('status', 'task_type')
+
+
+def _needs_label(change: dict, side: str) -> bool:
+    """이 change의 한쪽 값이 key만 있고 라벨이 없는가."""
+    return change.get(side) is not None and change.get(f'{side}_label') is None
+
+
+def _labelled_changes(activities):
+    """보강 대상이 될 수 있는 (change) 만 훑는다 — Canvas 등 다른 흐름은 건드리지 않는다."""
+    for activity in activities or []:
+        changes = activity.get('changes')
+        if not isinstance(changes, list):
+            continue
+        for ch in changes:
+            if isinstance(ch, dict) and ch.get('field') in _LABELLED_KEY_FIELDS:
+                yield ch
+
+
+async def backfill_missing_key_labels(activities: list, branch_id: int, db: AsyncSession) -> list:
+    """구버전 행의 status·task_type 라벨을 branch의 현재 설정으로 보강한다(best-effort).
+
+    branch당 **요청 1회**만 조회한다(행·change마다 쿼리하지 않는다). 보강할 것이 없으면
+    쿼리도 하지 않는다. 저장된 라벨은 건드리지 않는다.
+    """
+    pending = {'status': False, 'task_type': False}
+    for ch in _labelled_changes(activities):
+        if _needs_label(ch, 'old') or _needs_label(ch, 'new'):
+            pending[ch['field']] = True
+
+    if not any(pending.values()):
+        return activities
+
+    labels = {
+        'status': await _status_labels(branch_id, db) if pending['status'] else {},
+        'task_type': await _type_labels(branch_id, db) if pending['task_type'] else {},
+    }
+
+    for ch in _labelled_changes(activities):
+        table = labels[ch['field']]
+        for side in ('old', 'new'):
+            if _needs_label(ch, side):
+                # 현재 설정에 없으면 None 그대로 — 프런트가 locale 폴백을 렌더한다.
+                ch[f'{side}_label'] = table.get(ch[side])
+    return activities
+
+
 async def log_task_change(task_id: int, branch_id: int, actor_id: int,
                           old_task: dict, new_fields: dict,
                           updated_task: dict, db: AsyncSession):

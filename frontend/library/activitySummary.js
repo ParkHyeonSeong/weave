@@ -37,6 +37,15 @@ const PRIORITY_KEYS = {
 };
 const DATE_ONLY_FIELDS = new Set(['start_date', 'due_date']);
 
+// status·task_type은 DB에 내부 key로 저장된다. 라벨은 기록 시점(신규 행) 또는 조회 시점
+// 보강(구버전 행)으로 채워지는데, **삭제된** 상태/유형은 어느 쪽으로도 채울 수 없다.
+// 그때 key만 덩그러니 보여주면(in_progress) 어떤 언어 사용자에게도 의미가 없으므로,
+// 읽는 사람의 언어로 "삭제된 상태 (in_progress)"처럼 낸다 — key는 식별 정보로 보존한다.
+const MISSING_LABEL_KEYS = {
+  status: 'common.activity.deletedStatus',
+  task_type: 'common.activity.deletedType',
+};
+
 function entityLabel(entityType, t) {
   const key = ENTITY_KEYS[entityType];
   return key ? t(key) : (entityType || '');
@@ -65,6 +74,9 @@ export function changeValueText(change, side, { t, formatDateOnly } = {}) {
 
   if (label == null && change?.field === 'priority' && PRIORITY_KEYS[value]) {
     return t(PRIORITY_KEYS[value]);
+  }
+  if (label == null && MISSING_LABEL_KEYS[change?.field]) {
+    return t(MISSING_LABEL_KEYS[change.field], { key: String(value) });
   }
   if (label == null && DATE_ONLY_FIELDS.has(change?.field) && formatDateOnly) {
     return formatDateOnly(String(value)) || String(value);

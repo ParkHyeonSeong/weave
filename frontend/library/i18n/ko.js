@@ -64,6 +64,8 @@ const ko = {
       empty: '아직 활동이 없습니다.',
       unknownUser: '알 수 없음',
       noValue: '없음',
+      deletedStatus: '삭제된 상태 ({{key}})',
+      deletedType: '삭제된 유형 ({{key}})',
       entity: { task: 'Task', page: '페이지' },
       field: {
         title: '제목', description: '설명', taskType: '유형', status: '상태',

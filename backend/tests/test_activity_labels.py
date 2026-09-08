@@ -120,3 +120,160 @@ async def test_priority_and_date_changes_keep_raw_values_for_the_client(db_sessi
     assert changes['due_date']['old'] == '2026-09-01'
     assert changes['due_date']['new'] == '2026-12-31'
     assert await task_model.find_by_id(tid, db_session) is not None
+
+
+# ---------------------------------------------------------------------------
+# 구버전 행 보강 — 조회 시점에 branch의 **현재** 설정으로 best-effort
+# ---------------------------------------------------------------------------
+#
+# 과거 시점의 라벨은 저장돼 있지 않다. 그 뒤 이름이 바뀌었으면 지금 이름으로 보이고,
+# 삭제된 key는 라벨을 만들 수 없다(프런트가 locale 폴백을 렌더한다).
+
+from core.controller import activity_log as activity_ctrl   # noqa: E402
+
+
+async def _legacy_log(db, branch_id, task_id, actor_id, changes):
+    """라벨 없이 저장된 예전 행(migration 042 이후 ~ 이번 변경 전 형태)."""
+    row = await db.execute(text("""
+        INSERT INTO activity_log (entity_type, entity_id, branch_id, actor_id, action,
+                                  changes, summary)
+        VALUES ('task', :e, :b, :u, 'updated', CAST(:c AS jsonb), '상태 todo -> in_progress')
+        RETURNING log_id
+    """), {"e": task_id, "b": branch_id, "u": actor_id, "c": json.dumps(changes)})
+    return row.scalar_one()
+
+
+def _change_by_field(activities, field):
+    for activity in activities:
+        for ch in activity['changes']:
+            if ch.get('field') == field:
+                return ch
+    raise AssertionError(f'{field} change를 찾지 못했다')
+
+
+async def test_legacy_rows_are_backfilled_with_current_labels_on_task_activity(db_session):
+    """라벨 없이 저장된 예전 행도 조회하면 현재 표시 라벨이 붙는다(내부 key 단독 노출 없음)."""
+    user = await _make_user(db_session, 'act-legacy@test.local', 'act-legacy')
+    bid = await _make_branch(db_session, user, 'ACTL')
+    tid = await _make_task(db_session, bid, user)
+    await _legacy_log(db_session, bid, tid, user, [
+        {'field': 'status', 'old': 'todo', 'new': 'in_progress'},
+        {'field': 'task_type', 'old': 'task', 'new': 'bug'},
+    ])
+
+    res = await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    assert res['status'] is True
+    status = _change_by_field(res['activities'], 'status')
+    ttype = _change_by_field(res['activities'], 'task_type')
+    assert status['old_label'] == '해야 할 일' and status['new_label'] == '진행 중'
+    assert ttype['old_label'] == '업무' and ttype['new_label'] == '버그'
+    # 원본 key는 그대로 남는다(식별 정보).
+    assert status['old'] == 'todo' and status['new'] == 'in_progress'
+
+
+async def test_branch_activity_uses_the_same_backfill(db_session):
+    """같은 행을 branch 피드에서 열어도 결과가 같다."""
+    user = await _make_user(db_session, 'act-legacy2@test.local', 'act-legacy2')
+    bid = await _make_branch(db_session, user, 'ACTL2')
+    tid = await _make_task(db_session, bid, user)
+    await _legacy_log(db_session, bid, tid, user,
+                      [{'field': 'status', 'old': 'todo', 'new': 'in_progress'}])
+
+    task_res = await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    branch_res = await activity_ctrl.get_branch_activity(bid, 30, 0, _req(user), db_session)
+    task_change = _change_by_field(task_res['activities'], 'status')
+    branch_change = _change_by_field(branch_res['activities'], 'status')
+    assert task_change['old_label'] == branch_change['old_label'] == '해야 할 일'
+    assert task_change['new_label'] == branch_change['new_label'] == '진행 중'
+
+
+async def test_stored_labels_are_never_overwritten_by_current_config(db_session):
+    """기록 당시 라벨이 있으면 현재 이름이 달라도 그대로 둔다(그때 보이던 이름을 지킨다)."""
+    user = await _make_user(db_session, 'act-keep@test.local', 'act-keep')
+    bid = await _make_branch(db_session, user, 'ACTK')
+    tid = await _make_task(db_session, bid, user)
+    await _legacy_log(db_session, bid, tid, user, [{
+        'field': 'status', 'old': 'todo', 'new': 'in_progress',
+        'old_label': '옛 이름', 'new_label': '옛 진행',
+    }])
+
+    res = await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    status = _change_by_field(res['activities'], 'status')
+    assert status['old_label'] == '옛 이름'      # 현재 설정은 '해야 할 일'이지만 덮어쓰지 않는다
+    assert status['new_label'] == '옛 진행'
+
+
+async def test_deleted_key_gets_no_invented_label(db_session):
+    """현재 설정에도 없는 key는 서버가 문구를 만들지 않는다 — 프런트가 읽는 사람 언어로 낸다."""
+    user = await _make_user(db_session, 'act-del@test.local', 'act-del')
+    bid = await _make_branch(db_session, user, 'ACTD')
+    tid = await _make_task(db_session, bid, user)
+    await _legacy_log(db_session, bid, tid, user, [
+        {'field': 'status', 'old': 'todo', 'new': 'archived_long_ago'},
+        {'field': 'task_type', 'old': 'task', 'new': 'gone_type'},
+    ])
+
+    res = await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    status = _change_by_field(res['activities'], 'status')
+    ttype = _change_by_field(res['activities'], 'task_type')
+    assert status['old_label'] == '해야 할 일'          # 살아 있는 쪽은 보강된다
+    assert status['new_label'] is None                  # 삭제된 key는 비워 둔다
+    assert ttype['new_label'] is None
+    assert status['new'] == 'archived_long_ago'         # key는 식별 정보로 남는다
+
+
+async def test_backfill_queries_branch_config_once_per_request(db_session, monkeypatch):
+    """행·change마다 조회하지 않는다 — branch당 status 1회, task_type 1회."""
+    from library import activity_service
+
+    user = await _make_user(db_session, 'act-once@test.local', 'act-once')
+    bid = await _make_branch(db_session, user, 'ACTO')
+    tid = await _make_task(db_session, bid, user)
+    for _ in range(5):
+        await _legacy_log(db_session, bid, tid, user, [
+            {'field': 'status', 'old': 'todo', 'new': 'in_progress'},
+            {'field': 'task_type', 'old': 'task', 'new': 'bug'},
+        ])
+
+    calls = {'status': 0, 'type': 0}
+    real_status = activity_service._status_labels
+    real_type = activity_service._type_labels
+
+    async def counted_status(branch_id, db):
+        calls['status'] += 1
+        return await real_status(branch_id, db)
+
+    async def counted_type(branch_id, db):
+        calls['type'] += 1
+        return await real_type(branch_id, db)
+
+    monkeypatch.setattr(activity_service, '_status_labels', counted_status)
+    monkeypatch.setattr(activity_service, '_type_labels', counted_type)
+
+    res = await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    assert len(res['activities']) == 5
+    assert calls == {'status': 1, 'type': 1}
+
+
+async def test_backfill_skips_the_query_when_nothing_needs_labels(db_session, monkeypatch):
+    """보강할 것이 없으면 조회 자체를 하지 않는다(신규 행만 있는 흐름)."""
+    from library import activity_service
+
+    user = await _make_user(db_session, 'act-skip@test.local', 'act-skip')
+    bid = await _make_branch(db_session, user, 'ACTS')
+    tid = await _make_task(db_session, bid, user)
+    await _legacy_log(db_session, bid, tid, user, [{
+        'field': 'status', 'old': 'todo', 'new': 'in_progress',
+        'old_label': '해야 할 일', 'new_label': '진행 중',
+    }])
+
+    called = {'n': 0}
+
+    async def boom(branch_id, db):
+        called['n'] += 1
+        return {}
+
+    monkeypatch.setattr(activity_service, '_status_labels', boom)
+    monkeypatch.setattr(activity_service, '_type_labels', boom)
+    await activity_ctrl.get_task_activity(tid, bid, 30, 0, _req(user), db_session)
+    assert called['n'] == 0

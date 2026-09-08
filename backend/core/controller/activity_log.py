@@ -6,6 +6,7 @@ from core.model import activity_log as log_model
 from core.model import branch_member as member_model
 from core.model import canvas_member as canvas_member_model
 from core.guard.branch_scope import find_resource_in_branch
+from library import activity_service
 
 
 async def get_task_activity(task_id: int, branch_id: int, limit: int, offset: int,
@@ -20,6 +21,8 @@ async def get_task_activity(task_id: int, branch_id: int, limit: int, offset: in
         return error_response(ErrorCode.TASK_NOT_FOUND)
 
     activities = await log_model.find_by_entity('task', task_id, limit, offset, db)
+    # 구버전 행(status·task_type 라벨 없음)을 현재 설정으로 보강 — branch당 1회 조회.
+    activities = await activity_service.backfill_missing_key_labels(activities, branch_id, db)
     return {'status': True, 'activities': activities}
 
 
@@ -31,6 +34,8 @@ async def get_branch_activity(branch_id: int, limit: int, offset: int,
         return error_response(ErrorCode.NOT_BRANCH_MEMBER)
 
     activities = await log_model.find_by_branch(branch_id, limit, offset, db)
+    # task 활동과 같은 규칙으로 보강한다(같은 행을 두 화면에서 다르게 보여주지 않는다).
+    activities = await activity_service.backfill_missing_key_labels(activities, branch_id, db)
     return {'status': True, 'activities': activities}
 
 

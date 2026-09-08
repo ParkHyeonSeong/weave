@@ -251,6 +251,31 @@ describe('활동 변경값 표시', () => {
     expect(changeValueText({ field: 'due_date', old: null }, 'old', ctx('ko'))).toBe('없음');
   });
 
+  it('삭제된 status·task_type은 raw key만 단독으로 보이지 않는다 (en/ko 폴백)', async () => {
+    // 서버는 현재 설정에 없는 key의 라벨을 만들지 않는다(old_label/new_label = null).
+    // 읽는 사람의 언어로 의미를 주되 key는 식별 정보로 남긴다.
+    const status = { field: 'status', old: 'todo', new: 'archived_long_ago',
+                     old_label: '해야 할 일', new_label: null };
+    const type = { field: 'task_type', old: 'task', new: 'gone_type',
+                   old_label: '업무', new_label: null };
+
+    await i18next.changeLanguage('en');
+    expect(changeValueText(status, 'new', ctx('en'))).toBe('Deleted status (archived_long_ago)');
+    expect(changeValueText(type, 'new', ctx('en'))).toBe('Deleted type (gone_type)');
+    await i18next.changeLanguage('ko');
+    expect(changeValueText(status, 'new', ctx('ko'))).toBe('삭제된 상태 (archived_long_ago)');
+    expect(changeValueText(type, 'new', ctx('ko'))).toBe('삭제된 유형 (gone_type)');
+
+    // 살아 있는 쪽(보강된 라벨)은 그대로 — 사용자 정의 이름은 번역하지 않는다.
+    expect(changeValueText(status, 'old', ctx('ko'))).toBe('해야 할 일');
+    // key만 단독으로 보이는 경우는 없다.
+    for (const locale of ['en', 'ko']) {
+      await i18next.changeLanguage(locale);
+      expect(changeValueText(status, 'new', ctx(locale))).not.toBe('archived_long_ago');
+      expect(changeValueText(status, 'new', ctx(locale))).toContain('archived_long_ago');
+    }
+  });
+
   it('요약 문장이 펼친 상세와 같은 값 표기를 쓴다', async () => {
     await i18next.changeLanguage('ko');
     const activity = {
@@ -258,7 +283,8 @@ describe('활동 변경값 표시', () => {
       changes: [
         { field: 'priority', old: 'low', new: 'urgent' },
         { field: 'due_date', old: '2026-09-01', new: '2026-12-31' },
-        { field: 'status', old: 'todo', new: 'in_progress', old_label: '해야 할 일', new_label: '진행 중' },
+        { field: 'status', old: 'todo', new: 'archived_long_ago',
+          old_label: '해야 할 일', new_label: null },
       ],
     };
     const summary = activitySummary(activity, t, ctx('ko'));
@@ -269,6 +295,7 @@ describe('활동 변경값 표시', () => {
     }
     expect(summary).not.toContain('urgent');    // 제품 enum이 새어나오지 않는다
     expect(summary).not.toContain('2026-12-31'); // date-only 원문이 새어나오지 않는다
-    expect(summary).not.toContain('in_progress'); // 내부 status key가 새어나오지 않는다
+    // 삭제된 status도 key 단독이 아니라 '삭제된 상태 (key)'로 요약에 들어간다
+    expect(summary).toContain('삭제된 상태 (archived_long_ago)');
   });
 });

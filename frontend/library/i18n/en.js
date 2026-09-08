@@ -66,6 +66,8 @@ const en = {
       empty: 'No activity yet.',
       unknownUser: 'Unknown',
       noValue: 'none',
+      deletedStatus: 'Deleted status ({{key}})',
+      deletedType: 'Deleted type ({{key}})',
       entity: { task: 'Task', page: 'Page' },
       field: {
         title: 'Title', description: 'Description', taskType: 'Type', status: 'Status',
