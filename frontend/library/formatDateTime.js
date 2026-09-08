@@ -134,6 +134,19 @@ export function formatDateOnlyShort(dateStr, { locale = 'en' } = {}) {
   return formatDateOnly(dateStr, { locale, options: { month: '2-digit', day: '2-digit' } });
 }
 
+/**
+ * date-only 짧은 범위 — 'Sep 1 – Sep 5' / '9월 1일 – 9월 5일'.
+ * 공유 기간(Scrum 주·회고)처럼 **날짜 자체는 그대로 두고 표기만 locale에 맞춰야** 하는 자리에 쓴다.
+ * 월/일을 손으로 이어 붙이면(m/d) 어떤 locale에서도 어색하고 순서가 틀린다.
+ */
+export function formatDateOnlyRange(start, end, { locale = 'en' } = {}) {
+  const options = { month: 'short', day: 'numeric' };
+  const fs = formatDateOnly(start, { locale, options });
+  const fe = formatDateOnly(end, { locale, options });
+  if (fs && fe) return `${fs} – ${fe}`;
+  return fs || fe || '';
+}
+
 /** 날짜 범위 — 'YYYY.MM.DD – YYYY.MM.DD'. 문자열 슬라이스라 timezone 무관(기존 계약 유지). */
 export function formatDateRange(start, end) {
   const one = (s) => {

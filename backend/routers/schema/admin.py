@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, field_validator
 
 from library.crypto import MIN_PASSWORD_LENGTH
 
@@ -67,3 +67,17 @@ class ResetUserPassword(BaseModel):
     과거의 new_password(관리자 지정 평문)는 컨트롤러가 무시하던 사일런트 풋건이라 제거했다.
     """
     pass
+
+
+class UpdateWorkspaceTimeZone(BaseModel):
+    """워크스페이스 공용 timezone 변경 — 저장 값은 canonical IANA ID다."""
+    time_zone: str
+
+    @field_validator('time_zone')
+    @classmethod
+    def _valid_zone(cls, v):
+        from library.locale_prefs import normalize_time_zone
+        tz = normalize_time_zone(v)
+        if not tz:
+            raise ValueError('INVALID_TIME_ZONE')
+        return tz

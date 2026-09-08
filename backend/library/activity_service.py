@@ -179,15 +179,18 @@ async def _log_main_role_change(task_id: int, branch_id: int, actor_id: int,
                                 assignee: dict, became_main: bool, db: AsyncSession):
     """담당자 role-only 전이(main 승격/강등) summary 로그.
 
-    user_id set은 그대로라 _compute_set_diff에 안 잡히므로 summary로 기록한다.
-    changes는 비워둔다 — 프론트 ChangeDetail은 added/removed 칩만 렌더하므로
-    role-only 변경을 added로 넣으면 '신규 추가'로 오인된다.
+    user_id set은 그대로라 _compute_set_diff에 안 잡히므로 role 필드로 기록한다.
+    added/removed로 넣으면 프론트 ChangeDetail이 '신규 추가'로 오인하므로 전용 필드를 쓴다.
+    summary는 구버전 클라이언트용 폴백이고, 지금 프론트는 이 change에서 읽는 사람의
+    언어로 문장을 만든다.
     """
-    name = assignee.get('username') or '담당자'
+    name = assignee.get('username') or ''
     role_label = '메인' if became_main else '서브'
+    change = {'field': 'assignee_role', 'username': name, 'role': 'main' if became_main else 'sub'}
     await log_model.create(
         entity_type='task', entity_id=task_id, actor_id=actor_id,
-        action='updated', changes=[], summary=f'{name}을(를) {role_label} 담당자로 변경',
+        action='updated', changes=[change],
+        summary=f'{name or "담당자"}을(를) {role_label} 담당자로 변경',
         branch_id=branch_id, db=db,
     )
 
@@ -242,7 +245,8 @@ async def log_canvas_page_created(page_id: int, canvas_id: int, actor_id: int,
     """Canvas 페이지 생성 로그"""
     await log_model.create(
         entity_type='canvas_page', entity_id=page_id, actor_id=actor_id,
-        action='created', changes=[], summary=f'페이지 "{title}" 생성',
+        action='created', changes=[{'field': 'title', 'new': title}],
+        summary=f'페이지 "{title}" 생성',
         canvas_id=canvas_id, db=db,
     )
 
@@ -290,6 +294,7 @@ async def log_canvas_page_deleted(page_id: int, canvas_id: int, actor_id: int,
     """Canvas 페이지 삭제 로그"""
     await log_model.create(
         entity_type='canvas_page', entity_id=page_id, actor_id=actor_id,
-        action='deleted', changes=[], summary=f'페이지 "{title}" 삭제',
+        action='deleted', changes=[{'field': 'title', 'old': title}],
+        summary=f'페이지 "{title}" 삭제',
         canvas_id=canvas_id, db=db,
     )

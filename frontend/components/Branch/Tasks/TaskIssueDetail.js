@@ -16,7 +16,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function TaskIssueDetail() {
   const { t } = useTranslation();
-  const { formatTimestamp } = useDateFormat();
+  const { formatTimestamp, formatRelative } = useDateFormat();
   const router = useRouter();
   const { id: branchId, taskId, issueId } = router.query;
 
@@ -234,18 +234,10 @@ export default function TaskIssueDetail() {
 
   const isAuthor = myProfile.user_id === issue.created_by;
 
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    const diff = Date.now() - d.getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return t('common.time.justNow');
-    if (mins < 60) return t('branchTasks.issue.minutesAgo', { n: mins });
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return t('branchTasks.issue.hoursAgo', { n: hours });
-    const days = Math.floor(hours / 24);
-    if (days < 30) return t('branchTasks.issue.daysAgo', { n: days });
-    return formatTimestamp(d, { month: 'short', day: 'numeric', year: 'numeric' });
-  };
+  // 상대시간은 공용 formatter 하나(useDateFormat().formatRelative)로 통일한다 —
+  // 단위 문구는 Intl.RelativeTimeFormat이 locale에 맞게 내고, '어제'만 개인 시간대의
+  // 달력 날짜로 판정한다. 여기서 사다리를 다시 구현하면 화면마다 경계가 달라진다.
+  const formatDate = (dateStr) => formatRelative(dateStr);
 
   const isEdited = (item) => item.updated_at && item.updated_at !== item.created_at;
 

@@ -50,8 +50,9 @@ async def cascade_main_assignee_to_subtasks(parent_task_id: int, old_main, new_m
         if new_main not in {a['user_id'] for a in old_list}:
             await notification_service.notify_bulk(
                 [new_main], 'task_assigned', actor_id,
-                f'{actor_name}님이 {child["display_id"]} {child["title"]}에 회원님을 담당자로 지정했습니다',
+                'taskAssigned',
                 f'/branch/{branch_id}/task/{child["task_id"]}', 'task', child['task_id'], db,
+                actor=actor_name, ref=f'{child["display_id"]} {child["title"]}',
             )
         changed.append(child['task_id'])
     return changed

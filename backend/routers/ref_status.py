@@ -24,7 +24,7 @@ class RefStatusRequest(BaseModel):
     @classmethod
     def limit_ids(cls, v):
         if len(v) > 200:
-            raise ValueError('최대 200개까지 가능합니다')
+            raise ValueError('at most 200 ids')   # API 스키마 검증 메시지(개발자용) — 화면 문구가 아니다
         return v
 
 

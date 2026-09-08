@@ -61,16 +61,9 @@ def _hydrate(row: dict) -> dict:
     }
 
 
-def _mention_notification_title(username: str, task: dict) -> str:
-    display_id = task.get('display_id', '')
-    title = task.get('title', '')
-    return f'{username}님이 {display_id} {title}의 댓글에서 회원님을 멘션했습니다'
-
-
-def _reply_notification_title(username: str, task: dict) -> str:
-    display_id = task.get('display_id', '')
-    title = task.get('title', '')
-    return f'{username}님이 {display_id} {title}에서 회원님의 댓글에 답글을 남겼습니다'
+def _task_ref(task: dict) -> str:
+    """알림 문구에 넣을 태스크 참조 — 'WV-12 제목'. 문장은 수신자 언어로 조립된다."""
+    return f'{task.get("display_id", "")} {task.get("title", "")}'.strip()
 
 
 def _comment_link(branch_id: int, task_id: int, comment_id: int) -> str:
@@ -85,9 +78,10 @@ async def _notify_mentions(recipients: list[int], actor_id: int, username: str,
     """멘션된 사용자에게 알림 발송 (actor 본인 제외는 notify_bulk 내부에서 처리)."""
     await notification_service.notify_bulk(
         recipients, 'mention', actor_id,
-        _mention_notification_title(username, task),
+        'taskCommentMention',
         _comment_link(branch_id, task_id, comment_id),
         'task_comment', comment_id, db,
+        actor=username, ref=_task_ref(task),
     )
 
 
@@ -169,9 +163,10 @@ async def create_comment(body, branch_id: int, task_id: int, request: Request,
             and await member_model.is_member(branch_id, parent_author_id, db)):
         await notification_service.notify_bulk(
             [parent_author_id], 'comment_reply', user_id,
-            _reply_notification_title(username, task),
+            'taskCommentReply',
             _comment_link(branch_id, task_id, comment_id),
             'task_comment', comment_id, db,
+            actor=username, ref=_task_ref(task),
         )
 
     row = await comment_model.find_by_id(comment_id, db)

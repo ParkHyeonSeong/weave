@@ -58,13 +58,19 @@ export function priorityInkVar(priority) {
 }
 
 // workflowStatuses가 **빈 배열일 때만** 쓰는 폴백. 서버가 상태를 내려주면 이건 절대 안 쓰인다.
-// 순서·key·label은 시드(backend/core/model/workflow_status.py:97-100)와 같게 둔다.
+// 순서·key는 시드(backend/core/model/workflow_status.py:97-100)와 같게 둔다.
+// 라벨은 모듈 상수라 t를 쓸 수 없으므로 카탈로그 **키**만 두고, 렌더 시점에 defaultStatusOptions(t)가 푼다.
 export const DEFAULT_STATUS_FALLBACK = [
-  { value: 'todo',        label: 'To Do',       color: statusCategoryVar('todo') },
-  { value: 'in_progress', label: 'In Progress', color: statusCategoryVar('in_progress') },
-  { value: 'done',        label: 'Done',        color: statusCategoryVar('done') },
-  { value: 'cancelled',   label: 'Cancelled',   color: statusCategoryVar('cancelled') },
+  { value: 'todo',        labelKey: 'branch.statusCategory.todo',       color: statusCategoryVar('todo') },
+  { value: 'in_progress', labelKey: 'branch.statusCategory.inProgress', color: statusCategoryVar('in_progress') },
+  { value: 'done',        labelKey: 'branch.statusCategory.done',       color: statusCategoryVar('done') },
+  { value: 'cancelled',   labelKey: 'branch.statusCategory.cancelled',  color: statusCategoryVar('cancelled') },
 ];
+
+/** 폴백 상태 목록을 현재 언어로 푼 형태({value,label,color})로 돌려준다. */
+export function defaultStatusOptions(t) {
+  return DEFAULT_STATUS_FALLBACK.map((s) => ({ value: s.value, label: t(s.labelKey), color: s.color }));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 색 위에 얹는 **알파 틴트**의 단일 원천.

@@ -4,9 +4,12 @@ import { useRouter } from 'next/router';
 import { CalendarCheck, History, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { useUiPrefs } from '@/library/UiPrefsContext';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function ScrumHomeCards() {
   const { t } = useTranslation();
+  // 회고 기간은 공유 date-only 값이다 — 시간대 변환 없이 표기만 locale에 맞춘다.
+  const { formatDateOnlyRange } = useDateFormat();
   const router = useRouter();
   const [data, setData] = useState(null);
   const [dismissed, setDismissed] = useState(() => new Set());
@@ -43,7 +46,7 @@ export default function ScrumHomeCards() {
         <div key={`r${b.board_id}`} className="ScrumCard ScrumCard--retro">
           <div className="ScrumCard__Main" onClick={() => router.push(`/scrum/${b.board_id}?tab=retro`)}>
             <History size={16} />
-            <span><b>{b.name}</b> · {t('home.scrumCards.retroDue')} ({b.period_start.slice(5)}~{b.period_end.slice(5)})</span>
+            <span><b>{b.name}</b> · {t('home.scrumCards.retroDue')} ({formatDateOnlyRange(b.period_start, b.period_end)})</span>
           </div>
           <button className="ScrumCard__Go ScrumCard__Go--retro" onClick={() => router.push(`/scrum/${b.board_id}?tab=retro`)}>{t('home.scrumCards.writeRetro')}</button>
           <button className="ScrumCard__X" onClick={() => dismiss(`r${b.board_id}`)} aria-label={t('common.actions.close')}><X size={14} /></button>

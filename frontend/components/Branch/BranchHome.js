@@ -21,18 +21,7 @@ import { buildSpaceMenu } from '@/components/Layout/spaceMenu';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { showToast } from '@/components/Layout/Toast';
 import { useTranslation } from 'react-i18next';
-
-// t는 호출부(useTranslation)가 넘긴다 — 모듈 레벨 헬퍼라 훅을 쓸 수 없다.
-const getRelativeTime = (dateStr, t) => {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return t('common.time.justNow');
-  if (diff < 3600) return t('branch.time.minutesAgo', { count: Math.floor(diff / 60) });
-  if (diff < 86400) return t('branch.time.hoursAgo', { count: Math.floor(diff / 3600) });
-  if (diff < 172800) return t('common.time.yesterday');
-  return t('branch.time.daysAgo', { count: Math.floor(diff / 86400) });
-};
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 const getMyName = () => {
   try {
@@ -77,6 +66,7 @@ const buildBranchControls = (t) => ({
 
 export default function BranchHome() {
   const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const router = useRouter();
   const { isHidden, hide, unhide } = useUiPrefs();
   const ctx = useContextMenu();
@@ -238,7 +228,7 @@ export default function BranchHome() {
         items={recentTasks.map((it) => ({
           title: it.title,
           dotColor: it.status_color,
-          meta: `${it.display_number} · ${getRelativeTime(it.viewed_at, t)}`,
+          meta: `${it.display_number} · ${formatRelative(it.viewed_at)}`,
           href: `/branch/${it.branch_id}/task/${it.task_id}`,
         }))}
         emptyText={t('branch.home.continueEmpty')}

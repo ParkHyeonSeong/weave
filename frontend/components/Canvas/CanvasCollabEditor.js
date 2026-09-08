@@ -5,6 +5,7 @@ import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror';
 import CanvasEditorToolbar from './CanvasEditorToolbar';
 import TableBubbleMenu from './TableBubbleMenu';
 import LinkHoverPopover from '@/components/shared/LinkHoverPopover';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { getBaseURL } from '@/library/_axios';
 import { buildAvatarDOM } from '@/library/userAvatar';
 import { useEditorRefHydration } from '@/library/refHydration';
@@ -31,6 +32,8 @@ function CollabEditorInner({
   onHtmlChange,
 }) {
   const [charCount, setCharCount] = useState(0);
+  // 글자 수 표기도 사용자 언어를 따른다(브라우저 기본 locale이 아니라).
+  const { formatNumber } = useDateFormat();
   const isOverLimit = charCount > MAX_PLAIN_TEXT_LENGTH;
 
   const extensions = useMemo(() => {
@@ -101,7 +104,7 @@ function CollabEditorInner({
       <LinkHoverPopover editor={editor} />
       <EditorContent editor={editor} className="CanvasEditor__Content" />
       <div className={`CanvasEditor__Counter ${isOverLimit ? 'CanvasEditor__Counter--over' : ''}`}>
-        {charCount.toLocaleString()} / {MAX_PLAIN_TEXT_LENGTH.toLocaleString()}
+        {formatNumber(charCount)} / {formatNumber(MAX_PLAIN_TEXT_LENGTH)}
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
 // 옛 offline.html을 영원히 본다. 버전 숫자만으로는 단조 래칫이라 그 실수를
 // 못 잡는다 — 해시 결속이 그것을 RED로 만든다. 이름 변경은 동시에
 // (a) /sw.js 바이트 변경을 보장하고 (b) 아래 activate의 filter가 옛 캐시를 지우게 한다.
-const CACHE_NAME = 'weave-offline-v3-92f2de73';
+const CACHE_NAME = 'weave-offline-v4-de3f9ba2';
 const OFFLINE_URL = '/offline.html';
 
 // 설치: 오프라인 페이지 캐시
@@ -26,13 +26,46 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// 오프라인 페이지의 언어. 서버에 물어볼 수 없고 서비스워커에는 localStorage가 없으므로
+// 브라우저 언어(navigator.languages)를 쓴다 — 앱의 감지 규칙과 같은 순서로 첫 지원 언어를 고른다.
+function offlineLocale() {
+  try {
+    const list = (self.navigator.languages && self.navigator.languages.length)
+      ? self.navigator.languages
+      : [self.navigator.language || ''];
+    for (const raw of list) {
+      const base = String(raw || '').trim().toLowerCase().split(/[-_]/)[0];
+      if (base === 'ko') return 'ko';
+      if (base === 'en') return 'en';
+    }
+  } catch (e) { /* 감지 실패 시 기본값 */ }
+  return 'en';
+}
+
+// 캐시된 오프라인 HTML의 <html lang>을 브라우저 언어로 바꿔 돌려준다.
+// (offline.html은 두 언어를 모두 담고 CSS가 lang에 맞는 쪽만 보여준다.)
+async function offlineResponse() {
+  const cached = await caches.match(OFFLINE_URL);
+  if (!cached) return Response.error();
+  const locale = offlineLocale();
+  if (locale === 'en') return cached;          // 기본값 그대로 — 치환 불필요
+  try {
+    const html = (await cached.text()).replace('<html lang="en">', `<html lang="${locale}">`);
+    const headers = new Headers(cached.headers);
+    return new Response(html, { status: 200, statusText: 'OK', headers });
+  } catch (e) {
+    return (await caches.match(OFFLINE_URL)) || Response.error();
+  }
+}
+
 // Fetch: navigation 실패 시 오프라인 페이지 반환
 self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       // respondWith(undefined)는 네트워크 오류로 취급돼 브라우저 기본 에러
-      // 페이지가 뜬다(캐시 미스 시 현행 동작). 명시적으로 Response.error()를 준다.
-      fetch(event.request).catch(async () => (await caches.match(OFFLINE_URL)) || Response.error())
+      // 페이지가 뜬다(캐시 미스 시 현행 동작). offlineResponse가 캐시 미스에서
+      // Response.error()를 준다.
+      fetch(event.request).catch(() => offlineResponse())
     );
   }
 });

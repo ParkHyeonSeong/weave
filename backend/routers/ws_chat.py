@@ -181,11 +181,12 @@ async def websocket_chat(ws: WebSocket):
                             mentioned_user_ids,
                             'chat_mention',
                             user_id,
-                            f'{username}님이 채팅에서 회원님을 멘션했습니다',
+                            'chatMention',
                             None,
                             'chat_room',
                             room_id,
                             session,
+                            actor=username,
                         )
 
                     # room 멤버에게 broadcast

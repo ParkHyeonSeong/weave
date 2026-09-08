@@ -7,6 +7,7 @@ import NavLink from '@/components/common/NavLink';
 
 export default function RecentItems() {
   const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isHidden } = useUiPrefs();
@@ -28,16 +29,8 @@ export default function RecentItems() {
     }
   };
 
-  const getRelativeTime = (dateStr) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diff = Math.floor((now - date) / 1000);
-    if (diff < 60) return t('common.time.justNow');
-    if (diff < 3600) return t('home.relativeTime.minutesAgo', { value: Math.floor(diff / 60) });
-    if (diff < 86400) return t('home.relativeTime.hoursAgo', { value: Math.floor(diff / 3600) });
-    if (diff < 172800) return t('common.time.yesterday');
-    return t('home.relativeTime.daysAgo', { value: Math.floor(diff / 86400) });
-  };
+  // 상대시간은 공용 formatter 하나만 쓴다 — '어제'는 경과 24~48시간이 아니라
+  // **개인 시간대의 달력 날짜**로 판정해야 한다(useDateFormat → library/formatDateTime).
 
 
 
@@ -99,7 +92,7 @@ export default function RecentItems() {
                   </span>
                   <span className="RecentItems__TaskTitle">{item.title}</span>
                   <span className="RecentItems__TaskTime">
-                    {getRelativeTime(item.viewed_at)}
+                    {formatRelative(item.viewed_at)}
                   </span>
                 </NavLink>
               );

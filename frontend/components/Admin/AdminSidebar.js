@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { ArrowLeft, Users, Blocks } from 'lucide-react';
+import { ArrowLeft, Users, Blocks, Globe2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function AdminSidebar() {
@@ -30,6 +30,13 @@ export default function AdminSidebar() {
           >
             <Blocks size={16} className="AdminSidebar__MenuIcon" />
             {t('authAdmin.nav.integrations')}
+          </button>
+          <button
+            className={`AdminSidebar__MenuItem ${router.pathname === '/admin/workspace' ? 'AdminSidebar__MenuItem--active' : ''}`}
+            onClick={() => router.push('/admin/workspace')}
+          >
+            <Globe2 size={16} className="AdminSidebar__MenuIcon" />
+            {t('authAdmin.nav.workspace')}
           </button>
         </nav>
       </div>

@@ -349,3 +349,71 @@ async def test_sprint_start_and_complete_store_workspace_today(db_session, monke
     ended = (await db_session.execute(
         text("SELECT end_date FROM sprint WHERE sprint_id = :s"), {"s": sprint_id})).scalar_one()
     assert ended == sentinel
+
+
+# ---------------------------------------------------------------------------
+# 워크스페이스 시간대 변경 — 관리자 전용 · 앞으로의 기준만 바꾼다
+# ---------------------------------------------------------------------------
+
+async def test_workspace_time_zone_change_applies_forward_only(db_session):
+    """관리자가 공용 시간대를 바꾸면 **앞으로의** workspace 오늘만 바뀐다.
+
+    이미 저장된 date-only 값(스프린트 시작·종료일)은 소급 변환하지 않는다 —
+    변환하면 지난 스프린트·주차 문서가 다른 날짜로 이동해 버린다.
+    """
+    from core.controller import admin as admin_ctrl
+    from routers.schema import admin as admin_schema
+
+    await _set_workspace_tz(db_session, 'Asia/Seoul')
+    admin = await _make_user(db_session, 'wstz-admin@test.local', 'wstz-admin')
+    bid = await _make_branch(db_session, admin, 'TZW')
+    sprint_id = (await db_session.execute(text("""
+        INSERT INTO sprint (branch_id, sprint_name, goal, created_by, status, start_date, end_date)
+        VALUES (:b, 'S', 'g', :u, 'closed', DATE '2026-09-01', DATE '2026-09-05')
+        RETURNING sprint_id
+    """), {"b": bid, "u": admin})).scalar_one()
+
+    now = datetime.datetime(2026, 9, 8, 3, 0, tzinfo=datetime.timezone.utc)
+    assert await workspace_today(db_session, now) == datetime.date(2026, 9, 8)     # 서울
+
+    body = admin_schema.UpdateWorkspaceTimeZone(time_zone='America/New_York')
+    res = await admin_ctrl.update_workspace_time_zone(body, _req(admin), db_session)
+    assert res['status'] is True and res['time_zone'] == 'America/New_York'
+
+    # 앞으로의 공용 오늘은 새 시간대를 따른다
+    assert await workspace_today(db_session, now) == datetime.date(2026, 9, 7)
+
+    # 이미 저장된 date-only 값은 그대로다
+    row = (await db_session.execute(text(
+        "SELECT start_date, end_date FROM sprint WHERE sprint_id = :s"), {"s": sprint_id})).fetchone()
+    assert row.start_date == datetime.date(2026, 9, 1)
+    assert row.end_date == datetime.date(2026, 9, 5)
+
+
+def test_workspace_time_zone_rejects_invalid_zone():
+    """저장 값은 canonical IANA ID뿐이다 — 임의 문자열은 스키마에서 막힌다."""
+    import pytest
+    from pydantic import ValidationError
+    from routers.schema import admin as admin_schema
+
+    assert admin_schema.UpdateWorkspaceTimeZone(time_zone='America/New_York').time_zone \
+        == 'America/New_York'
+    for bad in ('KST', 'GMT+9', '', 'Not/AZone'):
+        with pytest.raises(ValidationError):
+            admin_schema.UpdateWorkspaceTimeZone(time_zone=bad)
+
+
+def test_workspace_time_zone_routes_require_admin():
+    """조회·변경 모두 관리자 전용이다(일반 멤버가 공용 기준을 바꿀 수 없다)."""
+    from routers import admin as admin_router
+
+    def dep_names(route):
+        names = []
+        for d in getattr(route, 'dependencies', []):
+            names.append(getattr(getattr(d, 'dependency', None), '__name__', ''))
+        return names
+
+    routes = {(r.path, tuple(sorted(r.methods))): dep_names(r)
+              for r in admin_router.router.routes if hasattr(r, 'methods')}
+    assert 'require_admin' in routes[('/workspace', ('GET',))]
+    assert 'require_admin' in routes[('/workspace/time-zone', ('PATCH',))]

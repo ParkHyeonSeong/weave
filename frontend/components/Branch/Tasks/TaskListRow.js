@@ -11,7 +11,7 @@ import DropdownPortal from '@/components/common/DropdownPortal';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import Avatar from '@/components/common/Avatar';
 import { progressLabel, progressPercent } from '@/library/subtaskProgress';
-import { priorityVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
+import { priorityVar, defaultStatusOptions } from '@/library/themePalette';
 import { entityTintStyle } from '@/library/entityTint';
 import { orderMembersForPicker } from '@/library/memberOrder';
 
@@ -39,7 +39,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
   const priorityOptions = useMemo(() => buildPriorityOptions(t), [t]);
   const statusOptions = (workflowStatuses && workflowStatuses.length > 0)
     ? workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
-    : DEFAULT_STATUS_FALLBACK;
+    : defaultStatusOptions(t);
   const typeConfig = (taskTypes || []).find((tt) => tt.type_key === task.task_type);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const assigneeRef = useRef(null); // 트리거

@@ -60,3 +60,16 @@ async def update_smtp_config(body: admin_schema.SmtpConfigUpdate, request: Reque
 async def test_smtp(body: admin_schema.SmtpTestRequest, request: Request,
                     session: AsyncSession = Depends(db.session)):
     return await admin_controller.test_smtp(body, request, session)
+
+
+@router.get("/workspace", summary="워크스페이스 설정 조회", dependencies=[Depends(require_admin)])
+async def get_workspace(request: Request, session: AsyncSession = Depends(db.session)):
+    return await admin_controller.get_workspace_settings(request, session)
+
+
+@router.patch("/workspace/time-zone", summary="워크스페이스 시간대 변경",
+              dependencies=[Depends(require_admin)])
+async def update_workspace_time_zone(body: admin_schema.UpdateWorkspaceTimeZone,
+                                     request: Request,
+                                     session: AsyncSession = Depends(db.session)):
+    return await admin_controller.update_workspace_time_zone(body, request, session)

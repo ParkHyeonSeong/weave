@@ -10,6 +10,7 @@ import {
   formatTimestampYMD,
   formatTimestampTime,
   formatDateOnly,
+  formatDateOnlyRange,
   formatDateOnlyShort,
   formatDateRange,
   formatRelative,
@@ -265,5 +266,25 @@ describe('formatNumber', () => {
   it('잘못된 입력은 빈 문자열', () => {
     expect(formatNumber(null, { locale: 'en' })).toBe('');
     expect(formatNumber('abc', { locale: 'en' })).toBe('');
+  });
+});
+
+describe('formatDateOnlyRange — 공유 기간 표기', () => {
+  it('date-only 범위를 locale 표기로 낸다 (시간대 변환 없음)', () => {
+    expect(formatDateOnlyRange('2026-09-01', '2026-09-05', { locale: 'en' }))
+      .toBe('Sep 1 – Sep 5');
+    expect(formatDateOnlyRange('2026-09-01', '2026-09-05', { locale: 'ko' }))
+      .toBe('9월 1일 – 9월 5일');
+  });
+
+  it('경계 날짜가 시간대에 따라 이동하지 않는다', () => {
+    // 같은 문자열은 어떤 환경에서도 같은 날짜로 표시된다 — instant가 아니기 때문.
+    expect(formatDateOnlyRange('2026-01-01', '2026-12-31', { locale: 'en' }))
+      .toBe('Jan 1 – Dec 31');
+  });
+
+  it('한쪽만 있으면 그 쪽만 낸다', () => {
+    expect(formatDateOnlyRange('2026-09-01', null, { locale: 'en' })).toBe('Sep 1');
+    expect(formatDateOnlyRange(null, null, { locale: 'en' })).toBe('');
   });
 });

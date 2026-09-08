@@ -26,10 +26,11 @@ async def _check_task(task_id: int, branch_id: int, db: AsyncSession):
     return None
 
 
-async def _notify_issue_mentions(content, branch_id, task_id, issue_id, actor_id, title, db):
+async def _notify_issue_mentions(content, branch_id, task_id, issue_id, actor_id,
+                                 message_key, db, **params):
     """이슈 본문/댓글 @멘션 알림 — 브랜치 멤버만 (비멤버 딥링크 누수 차단).
 
-    title은 이미 포맷된 알림 문구("{username}님이 … 회원님을 멘션했습니다").
+    문구는 수신자 언어로 notification_service가 만든다 — message_key + params만 넘긴다.
     """
     if not content:
         return
@@ -41,7 +42,7 @@ async def _notify_issue_mentions(content, branch_id, task_id, issue_id, actor_id
         return
     link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
     await notification_service.notify_bulk(
-        members, 'mention', actor_id, title, link, 'issue', issue_id, db,
+        members, 'mention', actor_id, message_key, link, 'issue', issue_id, db, **params,
     )
 
 
@@ -72,15 +73,15 @@ async def create_issue(body, branch_id: int, task_id: int, request: Request, db:
             link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
             await notification_service.notify_bulk(
                 assignee_ids, 'issue_created', user_id,
-                f'{username}님이 {display_id}에 이슈 "{body.title}"를 생성했습니다',
-                link, 'issue', issue_id, db,
+                'issueCreated', link, 'issue', issue_id, db,
+                actor=username, displayId=display_id, issue=body.title,
             )
 
     # 이슈 body 멘션 알림 — 멤버만
     username = request.state.payload.get('username', '')
     await _notify_issue_mentions(
         body.body, branch_id, task_id, issue_id, user_id,
-        f'{username}님이 이슈 "{body.title}"에서 회원님을 멘션했습니다', db,
+        'issueMention', db, actor=username, issue=body.title,
     )
 
     return {'status': True, 'issue_id': issue_id}
@@ -180,8 +181,8 @@ async def update_issue(body, branch_id: int, task_id: int, issue_id: int, reques
                 link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
                 await notification_service.notify_bulk(
                     added_members, 'mention', user_id,
-                    f'{username}님이 이슈 "{effective_title}"에서 회원님을 멘션했습니다',
-                    link, 'issue', issue_id, db,
+                    'issueMention', link, 'issue', issue_id, db,
+                    actor=username, issue=effective_title,
                 )
 
     # status는 전환 헬퍼 단일 경로 (이벤트·folded 알림 발생)
@@ -206,25 +207,28 @@ async def _notify_transition(issue, target_status, status_changed, comment, bran
 
     if status_changed:
         if target_status == 'closed':
-            ntype, verb = 'issue_closed', '닫았습니다'
+            ntype = 'issue_closed'
+            key = 'issueClosedWithComment' if comment is not None else 'issueClosed'
         else:
-            ntype, verb = 'issue_reopened', '다시 열었습니다'
-        if comment is not None:
-            msg = f'{username}님이 댓글과 함께 이슈 "{title}"을(를) {verb}'
-        else:
-            msg = f'{username}님이 이슈 "{title}"을(를) {verb}'
+            ntype = 'issue_reopened'
+            key = 'issueReopenedWithComment' if comment is not None else 'issueReopened'
         if recipients:
-            await notification_service.notify_bulk(list(recipients), ntype, user_id, msg, link, 'issue', issue_id, db)
+            await notification_service.notify_bulk(
+                list(recipients), ntype, user_id, key, link, 'issue', issue_id, db,
+                actor=username, issue=title,
+            )
     elif comment is not None and recipients:
         # 상태 변화 없음 + 댓글 → 일반 댓글 알림
-        msg = f'{username}님이 "{title}"에 댓글을 남겼습니다'
-        await notification_service.notify_bulk(list(recipients), 'issue_comment', user_id, msg, link, 'issue', issue_id, db)
+        await notification_service.notify_bulk(
+            list(recipients), 'issue_comment', user_id, 'issueComment',
+            link, 'issue', issue_id, db, actor=username, issue=title,
+        )
 
     # 멘션은 status와 무관하게 항상 (멤버 필터)
     if comment is not None:
         await _notify_issue_mentions(
             comment, branch_id, task_id, issue_id, user_id,
-            f'{username}님이 "{title}" 댓글에서 회원님을 멘션했습니다', db,
+            'issueCommentMention', db, actor=username, issue=title,
         )
 
 
@@ -330,8 +334,8 @@ async def create_comment(body, branch_id: int, task_id: int, issue_id: int, requ
         link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
         await notification_service.notify_bulk(
             list(recipients), 'issue_comment', user_id,
-            f'{username}님이 "{issue_title}"에 댓글을 남겼습니다',
-            link, 'issue', issue_id, db,
+            'issueComment', link, 'issue', issue_id, db,
+            actor=username, issue=issue_title,
         )
 
     # 댓글 content 멘션 알림 (issue_comment 알림과 별도로) — 멤버만
@@ -339,7 +343,7 @@ async def create_comment(body, branch_id: int, task_id: int, issue_id: int, requ
     issue_title = issue.get('title', '')
     await _notify_issue_mentions(
         body.content, branch_id, task_id, issue_id, user_id,
-        f'{username}님이 "{issue_title}" 댓글에서 회원님을 멘션했습니다', db,
+        'issueCommentMention', db, actor=username, issue=issue_title,
     )
 
     return {'status': True, 'comment_id': comment_id}

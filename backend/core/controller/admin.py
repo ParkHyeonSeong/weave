@@ -11,10 +11,21 @@ from config import FRONTEND_URL, PASSWORD_RESET_TOKEN_EXPIRE_HOURS
 from core.model import user as user_model
 from core.model import smtp_config as smtp_config_model
 from core.model import password_reset_token as reset_token_model
-from library import smtp_client, crypto
+from core.model import workspace as workspace_model
+from library.locale_prefs import COMPAT_TIME_ZONE
+from library import smtp_client, crypto, messages
+from library.locale_prefs import normalize_language_region
 
 RESET_TOKEN_BYTES = 32
 RESET_PATH = "/auth/reset"
+
+
+async def _user_locale(user_id, db: AsyncSession) -> str:
+    """이메일 수신자의 표시 언어. 설정이 없거나 손상됐으면 en."""
+    if user_id is None:
+        return messages.DEFAULT_LOCALE
+    region = normalize_language_region(await user_model.get_language_region(user_id, db))
+    return messages.normalize_locale(region['locale'] if region else None)
 
 
 def _build_reset_link(raw_token: str) -> str:
@@ -107,28 +118,28 @@ async def reset_user_password(user_id: int, body, request: Request, db: AsyncSes
     # SMTP 설정이 있으면 링크를 이메일로 발송
     smtp_config = await smtp_config_model.get_config_for_sending(db)
     if smtp_config:
-        email_html = f"""
-        <div style="max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:32px;">
-            <h2 style="color:#5E6AD2;margin-bottom:16px;">Password Reset</h2>
-            <p style="color:#333;line-height:1.6;">
-                An administrator has initiated a password reset for your account.<br>
-                Click the button below to set a new password. This link can be used once
-                and expires in {PASSWORD_RESET_TOKEN_EXPIRE_HOURS} hour(s).
-            </p>
-            <div style="text-align:center;margin:24px 0;">
-                <a href="{reset_link}" style="display:inline-block;background:#5E6AD2;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">Set a new password</a>
-            </div>
-            <p style="color:#999;font-size:12px;line-height:1.6;">
-                If you did not request this, you can safely ignore this email.
-            </p>
-            <hr style="border:none;border-top:1px solid #E5E5E5;margin:24px 0;">
-            <p style="color:#999;font-size:12px;">Sent from Weave</p>
-        </div>
-        """
+        # 수신자가 정해진 메일이므로 **그 사용자의 언어**로 렌더한다(관리자 언어가 아니다).
+        locale = await _user_locale(user_id, db)
+        email_html = smtp_client.email_shell(
+            f'<h2 style="color:#5E6AD2;margin-bottom:16px;">'
+            f'{messages.render(locale, "email.passwordReset.heading")}</h2>'
+            f'<p style="color:#333;line-height:1.6;">'
+            f'{messages.render(locale, "email.passwordReset.body")}<br>'
+            f'{messages.render(locale, "email.passwordReset.expiry", hours=PASSWORD_RESET_TOKEN_EXPIRE_HOURS)}</p>'
+            f'<div style="text-align:center;margin:24px 0;">'
+            f'<a href="{reset_link}" style="display:inline-block;background:#5E6AD2;color:#fff;'
+            f'text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">'
+            f'{messages.render(locale, "email.passwordReset.button")}</a></div>'
+            f'<p style="color:#999;font-size:12px;line-height:1.6;">'
+            f'{messages.render(locale, "email.passwordReset.ignore")}</p>'
+            '<hr style="border:none;border-top:1px solid #E5E5E5;margin:24px 0;">'
+            f'<p style="color:#999;font-size:12px;">{messages.render(locale, "email.footer")}</p>'
+        )
         try:
             asyncio.create_task(
                 smtp_client.send_email(smtp_config, [target['email']],
-                                       "Weave - Reset your password", email_html)
+                                       messages.render(locale, 'email.passwordReset.subject'),
+                                       email_html)
             )
             return {'status': True, 'email_sent': True}
         except Exception as e:
@@ -177,7 +188,9 @@ async def test_smtp(body, request: Request, db: AsyncSession):
     if not config:
         return {'status': False, 'message': 'SMTP_NOT_CONFIGURED'}
 
-    result = await smtp_client.send_test_email(config, body.test_email)
+    # 테스트 메일은 요청한 관리자가 읽는다 — 관리자의 언어로 보낸다.
+    locale = await _user_locale(request.state.payload.get('user_id'), db)
+    result = await smtp_client.send_test_email(config, body.test_email, locale)
     return result
 
 
@@ -196,3 +209,28 @@ async def delete_user(user_id: int, request: Request, db: AsyncSession):
 
     await user_model.soft_delete(user_id, db)
     return {'status': True}
+
+
+# ── 워크스페이스 설정 ─────────────────────────────────────────────────────────
+
+async def get_workspace_settings(request: Request, db: AsyncSession):
+    """관리자용 워크스페이스 설정 조회 — 공용 timezone 포함."""
+    settings = await workspace_model.get_settings(db)
+    if not settings:
+        return {'status': False, 'message': 'NOT_INITIALIZED'}
+    return {
+        'status': True,
+        'workspace_name': settings['workspace_name'],
+        'time_zone': settings['time_zone'] or COMPAT_TIME_ZONE,
+    }
+
+
+async def update_workspace_time_zone(body, request: Request, db: AsyncSession):
+    """워크스페이스 공용 timezone 변경(관리자 전용).
+
+    앞으로의 Scrum 주차·회고 기간·스프린트 기본 날짜만 이 값을 따른다. 이미 저장된
+    date-only 값은 그대로 둔다(소급 변환 금지).
+    """
+    if not await workspace_model.update_time_zone(body.time_zone, db):
+        return {'status': False, 'message': 'NOT_INITIALIZED'}
+    return {'status': True, 'time_zone': body.time_zone}

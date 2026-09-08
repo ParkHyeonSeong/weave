@@ -98,8 +98,8 @@ async def add_task_assignee(task_id: int, user_id_to_add: int, role: str,
         link = f'/branch/{branch_id}/task/{task_id}'
         await notification_service.notify_bulk(
             [user_id_to_add], 'task_assigned', actor_id,
-            f'{username}님이 {display_id} {title}에 회원님을 담당자로 지정했습니다',
-            link, 'task', task_id, db,
+            'taskAssigned', link, 'task', task_id, db,
+            actor=username, ref=f'{display_id} {title}',
         )
     # main 지정이면 부모 Main 변경을 직접 하위에 전파(WEAVE-43, replace 경로와 같은 헬퍼·규칙).
     # sub 추가는 무전파. 멱등 no-op(current_role == 'main')은 위에서 이미 return.

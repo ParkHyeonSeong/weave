@@ -1,18 +1,34 @@
+import json
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _payload_json(payload):
+    """payload(dict) → JSONB 문자열. None이면 그대로 NULL로 저장한다(구버전 행과 같은 모양)."""
+    return json.dumps(payload) if payload else None
+
+
 async def create(user_id: int, ntype: str, actor_id: int, title: str,
-                 link: str, entity_type: str, entity_id: int, db: AsyncSession) -> int:
-    """알림 생성, notification_id 반환"""
+                 link: str, entity_type: str, entity_id: int, db: AsyncSession,
+                 payload: dict | None = None) -> int:
+    """알림 생성, notification_id 반환.
+
+    payload는 {'key': 메시지 키, 'params': {...}} — 읽는 사람의 언어로 다시 렌더하기 위한
+    구조화 데이터다. title은 수신자 언어로 완성된 문장(구버전 행·Web Push 폴백).
+    """
     result = await db.execute(text("""
-        INSERT INTO notification (user_id, type, actor_id, title, link, entity_type, entity_id)
-        VALUES (:user_id, :type, :actor_id, :title, :link, :entity_type, :entity_id)
+        INSERT INTO notification
+            (user_id, type, actor_id, title, link, entity_type, entity_id, payload)
+        VALUES
+            (:user_id, :type, :actor_id, :title, :link, :entity_type, :entity_id,
+             CAST(:payload AS jsonb))
         RETURNING notification_id
     """), {
         'user_id': user_id, 'type': ntype, 'actor_id': actor_id,
         'title': title, 'link': link,
         'entity_type': entity_type, 'entity_id': entity_id,
+        'payload': _payload_json(payload),
     })
     return result.scalar_one()
 
@@ -23,16 +39,19 @@ async def create_bulk(notifications: list[dict], db: AsyncSession):
         return
     for n in notifications:
         await db.execute(text("""
-            INSERT INTO notification (user_id, type, actor_id, title, link, entity_type, entity_id)
-            VALUES (:user_id, :type, :actor_id, :title, :link, :entity_type, :entity_id)
-        """), n)
+            INSERT INTO notification
+                (user_id, type, actor_id, title, link, entity_type, entity_id, payload)
+            VALUES
+                (:user_id, :type, :actor_id, :title, :link, :entity_type, :entity_id,
+                 CAST(:payload AS jsonb))
+        """), {**n, 'payload': _payload_json(n.get('payload'))})
 
 
 async def find_by_user(user_id: int, limit: int = 30, offset: int = 0, db: AsyncSession = None):
     """사용자 알림 목록 (최신순)"""
     result = await db.execute(text("""
         SELECT n.notification_id, n.type, n.actor_id, n.title, n.link,
-               n.entity_type, n.entity_id, n.is_read, n.created_at,
+               n.entity_type, n.entity_id, n.is_read, n.created_at, n.payload,
                u.username AS actor_name,
                u.avatar_url AS actor_avatar_url, u.avatar_color AS actor_avatar_color
         FROM notification n

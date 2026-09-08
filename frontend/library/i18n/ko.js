@@ -63,6 +63,28 @@ const ko = {
       title: '활동',
       empty: '아직 활동이 없습니다.',
       unknownUser: '알 수 없음',
+      noValue: '없음',
+      entity: { task: 'Task', page: '페이지' },
+      field: {
+        title: '제목', description: '설명', taskType: '유형', status: '상태',
+        priority: '우선순위', epic: '에픽', sprint: '스프린트', parentTask: '상위 Task',
+        startDate: '시작일', dueDate: '마감일', content: '내용',
+        assignees: '담당자', labels: '라벨',
+      },
+      action: {
+        created: '{{entity}} 생성',
+        createdNamed: '{{entity}} “{{name}}” 생성',
+        deleted: '{{entity}} 삭제',
+        deletedNamed: '{{entity}} “{{name}}” 삭제',
+        moved: '{{entity}} 이동',
+        updated: '{{entity}} 수정',
+      },
+      change: {
+        edited: '{{field}} 수정',
+        replaced: '{{field}} {{from}} → {{to}}',
+        assigneeMain: '{{name}}을(를) 메인 담당자로 변경',
+        assigneeSub: '{{name}}을(를) 서브 담당자로 변경',
+      },
     },
     appearance: {
       iconLabel: '아이콘',
@@ -135,6 +157,30 @@ const ko = {
     },
   },
   notifications: {
+    // 서버 알림 본문 — backend/library/messages.py의 notifications.* 와 키가 1:1이어야 한다
+    // (같은 알림을 Web Push는 서버가, 목록은 프런트가 렌더하기 때문).
+    messages: {
+      canvasCommentCreated: '{{actor}}님이 페이지에 코멘트를 남겼습니다',
+      canvasCommentMention: '{{actor}}님이 페이지 코멘트에서 회원님을 멘션했습니다',
+      canvasCommentResolved: '{{actor}}님이 코멘트를 해결했습니다',
+      canvasReplyCreated: '{{actor}}님이 코멘트에 답글을 남겼습니다',
+      canvasReplyMention: '{{actor}}님이 코멘트 답글에서 회원님을 멘션했습니다',
+      canvasPageMention: '{{actor}}님이 “{{page}}”에서 회원님을 멘션했습니다',
+      taskMention: '{{actor}}님이 {{ref}}에서 회원님을 멘션했습니다',
+      taskAssigned: '{{actor}}님이 {{ref}}에 회원님을 담당자로 지정했습니다',
+      taskCommentMention: '{{actor}}님이 {{ref}} 댓글에서 회원님을 멘션했습니다',
+      taskCommentReply: '{{actor}}님이 {{ref}}에서 회원님의 댓글에 답글을 남겼습니다',
+      taskStatusChanged: '{{ref}} 상태가 변경되었습니다',
+      issueCreated: '{{actor}}님이 {{displayId}}에 이슈 “{{issue}}”를 열었습니다',
+      issueMention: '{{actor}}님이 이슈 “{{issue}}”에서 회원님을 멘션했습니다',
+      issueComment: '{{actor}}님이 “{{issue}}”에 댓글을 남겼습니다',
+      issueCommentMention: '{{actor}}님이 “{{issue}}” 댓글에서 회원님을 멘션했습니다',
+      issueClosed: '{{actor}}님이 이슈 “{{issue}}”를 닫았습니다',
+      issueClosedWithComment: '{{actor}}님이 댓글과 함께 이슈 “{{issue}}”를 닫았습니다',
+      issueReopened: '{{actor}}님이 이슈 “{{issue}}”를 다시 열었습니다',
+      issueReopenedWithComment: '{{actor}}님이 댓글과 함께 이슈 “{{issue}}”를 다시 열었습니다',
+      chatMention: '{{actor}}님이 채팅에서 회원님을 멘션했습니다',
+    },
     types: {
       mention: '멘션',
       reply: '답글',
@@ -351,7 +397,7 @@ const ko = {
       dangerZone: '위험 구역',
       archiveBoard: '보드 아카이브',
       archiveBoardDesc: '이 스크럼 보드와 모든 주간 보드·회고가 아카이브됩니다. 멤버는 더 이상 접근할 수 없어요.',
-      archiveWarningPrefix: '되돌릴 수 없습니다. 확정하려면 보드 이름',
+      archiveWarningPrefix: '보관함에서 되돌릴 수 있어요. 확정하려면 보드 이름',
       archiveWarningSuffix: '을(를) 입력하세요.',
       archiving: '아카이브 중…',
       archiveConfirm: '확인했습니다, 아카이브',
@@ -792,6 +838,7 @@ const ko = {
     nav: {
       members: '멤버',
       integrations: '연동',
+      workspace: '워크스페이스',
     },
     password: {
       forceSubtitle: '계속하려면 비밀번호를 변경해야 합니다.',
@@ -910,14 +957,6 @@ const ko = {
       future: '예정',
       active: '진행 중',
       closed: '종료',
-    },
-    time: {
-      minutesAgo_one: '{{count}}분 전',
-      minutesAgo_other: '{{count}}분 전',
-      hoursAgo_one: '{{count}}시간 전',
-      hoursAgo_other: '{{count}}시간 전',
-      daysAgo_one: '{{count}}일 전',
-      daysAgo_other: '{{count}}일 전',
     },
     archive: {
       emptyTitle: '아카이브된 태스크가 없습니다',
@@ -1472,9 +1511,6 @@ const ko = {
       commenting: '등록 중...',
       deleteTitle: '이슈 삭제',
       deleteConfirm: '"{{title}}" 을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
-      minutesAgo: '{{n}}분 전',
-      hoursAgo: '{{n}}시간 전',
-      daysAgo: '{{n}}일 전',
     },
     createIssue: {
       heading: '새 이슈',
@@ -1666,11 +1702,6 @@ const ko = {
         title: '메시지',
         empty: '읽지 않은 메시지가 없어요',
       },
-    },
-    relativeTime: {
-      minutesAgo: '{{value}}분 전',
-      hoursAgo: '{{value}}시간 전',
-      daysAgo: '{{value}}일 전',
     },
     aiChat: {
       title: 'AI 어시스턴트',
@@ -1868,6 +1899,17 @@ const ko = {
       urgent: '긴급',
     },
   },
+  workspaceSettings: {
+    pageTitle: '워크스페이스 — Weave',
+    title: '워크스페이스',
+    timeZoneSection: '워크스페이스 시간대',
+    timeZoneHint: '워크스페이스가 공유하는 날짜의 기준 시간대입니다.',
+    timeZoneLabel: '시간대',
+    scopeNote: '앞으로의 Scrum 주차·회고 기간·스프린트 기본 날짜에 적용됩니다. 이미 저장된 날짜는 그대로 두고, 각자의 화면과 연체 표시는 Profile의 개인 시간대를 따릅니다.',
+    loadFailed: '워크스페이스 설정을 불러오지 못했습니다.',
+    saveFailed: '워크스페이스 시간대를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+  },
+
   misc: {
     pageTitles: {
       issue: '이슈 — Weave',

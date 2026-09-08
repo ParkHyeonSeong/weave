@@ -31,7 +31,9 @@ class MyDocument extends Document {
           <meta charSet="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
           <meta name="robots" content="noindex, nofollow" />
-          <meta name="description" content="Weave — Project management and knowledge base" />
+          {/* 초기 locale을 알 수 없는 정적 문서다 — 언어에 묶이는 설명 대신 제품 이름만 둔다.
+              실제 설명은 각 페이지가 <Head>에서 현재 언어(t)로 덮어쓴다(misc.meta.*). */}
+          <meta name="description" content="Weave" />
           <link rel="icon" type="image/svg+xml" href="/icons/weave_square.svg" />
           <link rel="manifest" href="/manifest.json" />
           <link rel="apple-touch-icon" href="/icons/weave-192.png" />

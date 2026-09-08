@@ -29,7 +29,12 @@ export function weekDates(isoYear, isoWeek) {
   return Array.from({ length: 5 }, (_, i) => {           // 월~금
     const d = new Date(monday);
     d.setUTCDate(monday.getUTCDate() + i);
-    return { month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+    const m = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    // date: 'YYYY-MM-DD' — 표시는 locale formatter(formatDateOnly)가 맡는다.
+    // month/day는 정렬·키 등 비표시 용도로 남긴다.
+    const iso = `${d.getUTCFullYear()}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return { month: m, day, date: iso };
   });
 }
 

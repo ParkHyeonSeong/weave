@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Weave — Offline · 오프라인</title>
+  <!-- 제목은 언어 중립(제품 이름) — CSS로 못 바꾸는 자리라 어느 언어에서도 어색하지 않게 둔다. -->
+  <title>Weave</title>
   <!--
     서비스워커(public/sw.js)의 오프라인 폴백. 세 제약이 설계를 결정한다.
     1) CSP가 적용된다 — middleware.js의 matcher가 이 파일을 제외하지 않고 cache.add가
@@ -59,18 +60,21 @@
     }
     .retry:hover { background: var(--off-accent-hover); }
     .retry:focus-visible { outline: 2px solid var(--off-accent); outline-offset: 2px; }
-    /* 오프라인에서는 런타임 locale을 알 수 없어 두 언어를 함께 보여준다. */
-    .alt { display: block; font-size: 13px; color: var(--off-muted); font-weight: 400; margin-top: 4px; }
-    .alt-inline { margin-left: 6px; opacity: 0.85; }
+    /* 두 언어를 모두 담고 <html lang>에 맞는 쪽만 보여준다. lang은 서비스워커가 응답을 돌려줄 때
+       브라우저 언어로 바꿔 넣는다(sw.js) — 오프라인이라 서버에 물어볼 수 없기 때문이다.
+       스크립트가 없으므로 CSP(script-src에 unsafe-inline 없음)와도 무관하다.
+       lang이 ko가 아니면(치환 실패 포함) 영어가 보인다 = 안전한 기본값. */
+    html[lang="ko"] .lang-en { display: none; }
+    html:not([lang="ko"]) .lang-ko { display: none; }
   </style>
 </head>
 <body>
   <div class="container">
     <img class="icon" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjUwMCIgdmlld0JveD0iMCAwIDUwMCA1MDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MDAiIGhlaWdodD0iNTAwIiByeD0iMTIwIiBmaWxsPSJ3aGl0ZSIvPgo8bGluZSB4MT0iNjgiIHkxPSIyMjgiIHgyPSI2OCIgeTI9IjcwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjQiLz4KPGxpbmUgeDE9IjQyOCIgeTE9IjQzMCIgeDI9IjQyOCIgeTI9IjcwIiBzdHJva2U9ImJsYWNrIiBzdHJva2Utd2lkdGg9IjQiLz4KPGxpbmUgeDE9IjQyOSIgeTE9IjcyIiB4Mj0iNjkiIHkyPSI3MiIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxsaW5lIHgxPSI0MjkiIHkxPSI0MjkiIHgyPSI2OSIgeTI9IjQyOSIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSI0Ii8+CjxwYXRoIGQ9Ik0xOTMuNjUyIDMyNUwxNTMuMjIzIDE4My41OTRIMTg1LjI1NEwyMDkuMDgyIDI4Mi40MjJIMjEwLjI1NEwyMzYuMjMgMTgzLjU5NEgyNjMuNzdMMjg5Ljc0NiAyODIuNjE3SDI5MC45MThMMzE0Ljc0NiAxODMuNTk0SDM0Ni43NzdMMzA2LjM0OCAzMjVIMjc3LjYzN0wyNTAuNjg0IDIzMS42NDFIMjQ5LjUxMkwyMjIuMzYzIDMyNUgxOTMuNjUyWiIgZmlsbD0iYmxhY2siLz4KPC9zdmc+Cg==" alt="Weave" />
-    <h1>Offline<span class="alt" lang="ko">오프라인</span></h1>
-    <p>Internet connection is unavailable. Please check your network and try again.</p>
-    <p class="alt" lang="ko">인터넷에 연결되어 있지 않습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.</p>
-    <a class="retry" href="">Retry<span class="alt-inline" lang="ko">다시 시도</span></a>
+    <h1><span class="lang-en">Offline</span><span class="lang-ko" lang="ko">오프라인</span></h1>
+    <p class="lang-en">Internet connection is unavailable. Please check your network and try again.</p>
+    <p class="lang-ko" lang="ko">인터넷에 연결되어 있지 않습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+    <a class="retry" href=""><span class="lang-en">Retry</span><span class="lang-ko" lang="ko">다시 시도</span></a>
   </div>
 </body>
 </html>

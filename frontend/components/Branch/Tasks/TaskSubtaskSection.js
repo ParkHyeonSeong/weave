@@ -7,7 +7,7 @@ import { errorText } from '@/library/errorText';
 import Avatar from '@/components/common/Avatar';
 import CustomSelect from '@/components/common/CustomSelect';
 import { progressLabel, progressPercent } from '@/library/subtaskProgress';
-import { DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
+import { defaultStatusOptions } from '@/library/themePalette';
 
 /**
  * 상세 패널/풀페이지의 Subtasks 섹션.
@@ -45,7 +45,7 @@ export default function TaskSubtaskSection({
   const statusesReady = workflowStatuses.length > 0;
   const statusOptions = statusesReady
     ? workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
-    : DEFAULT_STATUS_FALLBACK;
+    : defaultStatusOptions(t);
   const statusColor = (key) => statusOptions.find((o) => o.value === key)?.color || '#9CA3AF';
 
   const showProgress = !!progress && progress.total > 0;

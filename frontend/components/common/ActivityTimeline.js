@@ -5,6 +5,7 @@ import Avatar from '@/components/common/Avatar';
 import { useTranslation } from 'react-i18next';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { addDaysToDateOnly, dateOnlyInTimeZone, todayInTimeZone } from '@/library/formatDateTime';
+import { activitySummary } from '@/library/activitySummary';
 
 /**
  * ActivityTimeline - Task/Canvas 페이지의 활동 이력 타임라인
@@ -124,7 +125,9 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
 function ActivityItem({ activity }) {
   const { t } = useTranslation();
   const { formatRelative } = useDateFormat();
-  const { actor_id, actor_name, actor_avatar, actor_avatar_color, summary, changes, created_at } = activity;
+  const { actor_id, actor_name, actor_avatar, actor_avatar_color, changes, created_at } = activity;
+  // 요약은 action·changes에서 **읽는 시점의 언어**로 만든다(저장된 summary는 구버전 행 폴백).
+  const summary = activitySummary(activity, t);
 
   return (
     <div className="ActivityTimeline__Item">

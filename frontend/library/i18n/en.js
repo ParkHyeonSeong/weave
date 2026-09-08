@@ -65,6 +65,28 @@ const en = {
       title: 'Activity',
       empty: 'No activity yet.',
       unknownUser: 'Unknown',
+      noValue: 'none',
+      entity: { task: 'Task', page: 'Page' },
+      field: {
+        title: 'Title', description: 'Description', taskType: 'Type', status: 'Status',
+        priority: 'Priority', epic: 'Epic', sprint: 'Sprint', parentTask: 'Parent task',
+        startDate: 'Start date', dueDate: 'Due date', content: 'Content',
+        assignees: 'Assignees', labels: 'Labels',
+      },
+      action: {
+        created: 'Created the {{entity}}',
+        createdNamed: 'Created the {{entity}} “{{name}}”',
+        deleted: 'Deleted the {{entity}}',
+        deletedNamed: 'Deleted the {{entity}} “{{name}}”',
+        moved: 'Moved the {{entity}}',
+        updated: 'Updated the {{entity}}',
+      },
+      change: {
+        edited: '{{field}} edited',
+        replaced: '{{field}} {{from}} → {{to}}',
+        assigneeMain: 'Made {{name}} the main assignee',
+        assigneeSub: 'Moved {{name}} to sub assignee',
+      },
     },
     appearance: {
       iconLabel: 'Icon',
@@ -137,6 +159,30 @@ const en = {
     },
   },
   notifications: {
+    // 서버 알림 본문 — backend/library/messages.py의 notifications.* 와 키가 1:1이어야 한다
+    // (같은 알림을 Web Push는 서버가, 목록은 프런트가 렌더하기 때문).
+    messages: {
+      canvasCommentCreated: '{{actor}} commented on a page',
+      canvasCommentMention: '{{actor}} mentioned you in a page comment',
+      canvasCommentResolved: '{{actor}} resolved a comment',
+      canvasReplyCreated: '{{actor}} replied to a comment',
+      canvasReplyMention: '{{actor}} mentioned you in a comment reply',
+      canvasPageMention: '{{actor}} mentioned you on “{{page}}”',
+      taskMention: '{{actor}} mentioned you on {{ref}}',
+      taskAssigned: '{{actor}} assigned you to {{ref}}',
+      taskCommentMention: '{{actor}} mentioned you in a comment on {{ref}}',
+      taskCommentReply: '{{actor}} replied to your comment on {{ref}}',
+      taskStatusChanged: '{{ref}} changed status',
+      issueCreated: '{{actor}} opened issue “{{issue}}” on {{displayId}}',
+      issueMention: '{{actor}} mentioned you in issue “{{issue}}”',
+      issueComment: '{{actor}} commented on “{{issue}}”',
+      issueCommentMention: '{{actor}} mentioned you in a comment on “{{issue}}”',
+      issueClosed: '{{actor}} closed issue “{{issue}}”',
+      issueClosedWithComment: '{{actor}} closed issue “{{issue}}” with a comment',
+      issueReopened: '{{actor}} reopened issue “{{issue}}”',
+      issueReopenedWithComment: '{{actor}} reopened issue “{{issue}}” with a comment',
+      chatMention: '{{actor}} mentioned you in chat',
+    },
     types: {
       mention: 'Mention',
       reply: 'Reply',
@@ -353,8 +399,8 @@ const en = {
       dangerZone: 'Danger Zone',
       archiveBoard: 'Archive board',
       archiveBoardDesc: 'This scrum board and all of its week boards and retros will be archived. Members will no longer have access.',
-      archiveWarningPrefix: 'This cannot be undone. Type the board name',
-      archiveWarningSuffix: ' to confirm.',
+      archiveWarningPrefix: 'You can restore it from the archive. To confirm, type the board name',
+      archiveWarningSuffix: '.',
       archiving: 'Archiving…',
       archiveConfirm: 'I understand, archive',
     },
@@ -794,6 +840,7 @@ const en = {
     nav: {
       members: 'Members',
       integrations: 'Integrations',
+      workspace: 'Workspace',
     },
     password: {
       forceSubtitle: 'You must change your password before continuing.',
@@ -912,14 +959,6 @@ const en = {
       future: 'Future',
       active: 'Active',
       closed: 'Closed',
-    },
-    time: {
-      minutesAgo_one: '{{count}} minute ago',
-      minutesAgo_other: '{{count}} minutes ago',
-      hoursAgo_one: '{{count}} hour ago',
-      hoursAgo_other: '{{count}} hours ago',
-      daysAgo_one: '{{count}} day ago',
-      daysAgo_other: '{{count}} days ago',
     },
     archive: {
       emptyTitle: 'No archived tasks',
@@ -1474,9 +1513,6 @@ const en = {
       commenting: 'Commenting...',
       deleteTitle: 'Delete Issue',
       deleteConfirm: 'Delete "{{title}}"? This cannot be undone.',
-      minutesAgo: '{{n}}m ago',
-      hoursAgo: '{{n}}h ago',
-      daysAgo: '{{n}}d ago',
     },
     createIssue: {
       heading: 'New Issue',
@@ -1668,11 +1704,6 @@ const en = {
         title: 'Messages',
         empty: 'No unread messages',
       },
-    },
-    relativeTime: {
-      minutesAgo: '{{value}}m ago',
-      hoursAgo: '{{value}}h ago',
-      daysAgo: '{{value}}d ago',
     },
     aiChat: {
       title: 'AI Assistant',
@@ -1870,6 +1901,17 @@ const en = {
       urgent: 'Urgent',
     },
   },
+  workspaceSettings: {
+    pageTitle: 'Workspace — Weave',
+    title: 'Workspace',
+    timeZoneSection: 'Workspace time zone',
+    timeZoneHint: 'Shared dates across the workspace are based on this time zone.',
+    timeZoneLabel: 'Time zone',
+    scopeNote: 'Applies to shared Scrum weeks, retro periods, and default sprint dates from now on. Dates already saved stay as they are, and each member’s own screens follow their personal time zone in Profile.',
+    loadFailed: 'Could not load the workspace settings.',
+    saveFailed: 'Could not save the workspace time zone. Please try again.',
+  },
+
   misc: {
     pageTitles: {
       issue: 'Issue — Weave',

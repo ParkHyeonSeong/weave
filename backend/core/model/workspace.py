@@ -32,6 +32,19 @@ async def get_time_zone(db: AsyncSession) -> str:
     return (row._mapping['time_zone'] if row else None) or COMPAT_TIME_ZONE
 
 
+async def update_time_zone(time_zone: str, db: AsyncSession) -> bool:
+    """워크스페이스 공용 timezone 변경(관리자 전용).
+
+    **앞으로의** workspace 오늘/공유 기간 기준만 바뀐다 — 이미 저장된 date-only 값
+    (스프린트 시작·종료일, scrum_week의 iso_year/iso_week, 회고 기간)은 손대지 않는다.
+    날짜를 소급 변환하면 지난 주차 문서가 다른 주로 이동해 버린다.
+    """
+    result = await db.execute(text("""
+        UPDATE workspace_settings SET time_zone = :tz WHERE setting_id = 1
+    """), {'tz': time_zone})
+    return result.rowcount > 0
+
+
 async def create_settings(workspace_name: str, registration_policy: str,
                           admin_user_id: int, db: AsyncSession,
                           time_zone: str = COMPAT_TIME_ZONE) -> bool:

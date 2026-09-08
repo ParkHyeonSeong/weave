@@ -74,8 +74,7 @@ async def create_annotation(body, canvas_id: int, page_id: int, request: Request
         link = f'/canvas/{canvas_id}/{page_id}'
         await notification_service.notify_bulk(
             [page['created_by']], 'annotation_created', user_id,
-            f'{username}님이 문서에 코멘트를 남겼습니다',
-            link, 'canvas_page', page_id, db,
+            'canvasCommentCreated', link, 'canvas_page', page_id, db, actor=username,
         )
 
     # 멘션 알림
@@ -85,8 +84,7 @@ async def create_annotation(body, canvas_id: int, page_id: int, request: Request
         link = f'/canvas/{canvas_id}/{page_id}'
         await notification_service.notify_bulk(
             mentioned, 'mention', user_id,
-            f'{username}님이 문서 코멘트에서 회원님을 멘션했습니다',
-            link, 'canvas_page', page_id, db,
+            'canvasCommentMention', link, 'canvas_page', page_id, db, actor=username,
         )
 
     # 실시간 브로드캐스트
@@ -135,8 +133,7 @@ async def update_annotation(body, canvas_id: int, page_id: int, annotation_id: i
         link = f'/canvas/{canvas_id}/{page_id}'
         await notification_service.notify_bulk(
             [annotation['created_by']], 'annotation_resolved', user_id,
-            f'{username}님이 코멘트를 해결했습니다',
-            link, 'canvas_page', page_id, db,
+            'canvasCommentResolved', link, 'canvas_page', page_id, db, actor=username,
         )
 
     await _broadcast_annotation_event(canvas_id, page_id, 'updated', user_id, db)
@@ -189,8 +186,7 @@ async def create_reply(body, canvas_id: int, page_id: int, annotation_id: int,
         link = f'/canvas/{canvas_id}/{page_id}'
         await notification_service.notify_bulk(
             list(recipients), 'annotation_reply', user_id,
-            f'{username}님이 코멘트에 답글을 남겼습니다',
-            link, 'canvas_page', page_id, db,
+            'canvasReplyCreated', link, 'canvas_page', page_id, db, actor=username,
         )
 
     # 멘션 알림
@@ -200,8 +196,7 @@ async def create_reply(body, canvas_id: int, page_id: int, annotation_id: int,
         link = f'/canvas/{canvas_id}/{page_id}'
         await notification_service.notify_bulk(
             mentioned, 'mention', user_id,
-            f'{username}님이 코멘트 답글에서 회원님을 멘션했습니다',
-            link, 'canvas_page', page_id, db,
+            'canvasReplyMention', link, 'canvas_page', page_id, db, actor=username,
         )
 
     await _broadcast_annotation_event(canvas_id, page_id, 'replied', user_id, db)

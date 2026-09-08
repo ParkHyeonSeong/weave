@@ -30,7 +30,7 @@ import NavLink from '@/components/common/NavLink';
 import { taskDeleteMessage } from '@/library/taskDeleteMessage';
 import { buildTaskDescriptionExtensions } from './taskDescriptionExtensions';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
-import { priorityVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
+import { priorityVar, defaultStatusOptions } from '@/library/themePalette';
 
 // 라벨은 렌더 시 t()로 해석한다(모듈 로드 시점에는 locale이 확정되지 않는다).
 const priorityOptions = (t) => [
@@ -215,7 +215,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
               value={task.status}
               options={workflowStatuses.length > 0
                 ? workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
-                : DEFAULT_STATUS_FALLBACK}
+                : defaultStatusOptions(t)}
               onChange={(val) => updateField('status', val)}
             />
             {subtaskProgress?.total > 0 && (

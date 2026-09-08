@@ -33,6 +33,7 @@ export function useDateFormat() {
     formatDateOnly: (dateStr, options) => F.formatDateOnly(dateStr, { locale, options }),
     formatDateOnlyShort: (dateStr) => F.formatDateOnlyShort(dateStr, { locale }),
     formatDateRange: F.formatDateRange,
+    formatDateOnlyRange: (start, end) => F.formatDateOnlyRange(start, end, { locale }),
 
     formatNumber: (value, options) => F.formatNumber(value, { locale, options }),
 
@@ -72,6 +73,7 @@ export function useWorkspaceDateFormat() {
       // date-only 포맷은 timezone 변환이 없다(문자열 → 문자열) — status와 무관하게 쓴다.
       formatDateOnly: (dateStr, options) => F.formatDateOnly(dateStr, { locale, options }),
       formatDateRange: F.formatDateRange,
+      formatDateOnlyRange: (start, end) => F.formatDateOnlyRange(start, end, { locale }),
     };
   }, [locale, status, timeZone]);
 }

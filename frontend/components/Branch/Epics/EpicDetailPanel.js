@@ -4,7 +4,7 @@ import { X, Trash2 } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
 import DatePicker from '@/components/common/DatePicker';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
-import { statusCategoryVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
+import { statusCategoryVar, defaultStatusOptions } from '@/library/themePalette';
 import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#5E6AD2', '#2563EB', '#DC2626', '#16A34A', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
@@ -173,7 +173,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
             value={epic.status}
             options={statuses.length > 0
               ? statuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
-              : DEFAULT_STATUS_FALLBACK
+              : defaultStatusOptions(t)
             }
             onChange={(val) => updateField('status', val)}
           />

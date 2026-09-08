@@ -229,8 +229,8 @@ async def create(body, branch_id: int, request: Request, db: AsyncSession):
         link = f'/branch/{branch_id}/task/{task_id}'
         await notification_service.notify_bulk(
             mentioned, 'mention', user_id,
-            f'{username}님이 {prefix} {body.title}에서 회원님을 멘션했습니다',
-            link, 'task', task_id, db,
+            'taskMention', link, 'task', task_id, db,
+            actor=username, ref=f'{prefix} {body.title}',
         )
 
     # 활동 로그
@@ -475,8 +475,8 @@ async def update(task_id: int, body, branch_id: int, request: Request, db: Async
             link = f'/branch/{branch_id}/task/{task_id}'
             await notification_service.notify_bulk(
                 list(added_mentions), 'mention', user_id,
-                f'{username}님이 {display_id} {task.get("title", "")}에서 회원님을 멘션했습니다',
-                link, 'task', task_id, db,
+                'taskMention', link, 'task', task_id, db,
+                actor=username, ref=f'{display_id} {task.get("title", "")}',
             )
 
     # 라벨 업데이트 (위에서 검증/dedupe 완료)
@@ -524,8 +524,8 @@ async def update(task_id: int, body, branch_id: int, request: Request, db: Async
             link = f'/branch/{branch_id}/task/{task_id}'
             await notification_service.notify_bulk(
                 list(added), 'task_assigned', user_id,
-                f'{username}님이 {display_id} {title}에 회원님을 담당자로 지정했습니다',
-                link, 'task', task_id, db,
+                'taskAssigned', link, 'task', task_id, db,
+                actor=username, ref=f'{display_id} {title}',
             )
 
         # 부모 Main 변경을 갈라지지 않은 직접 하위에 전파(WEAVE-43). 이 task가 하위면 대상 없음.

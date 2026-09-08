@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.model import notification as noti_model
 from core.model import user as user_model
 from core.model import push_subscription as push_sub_model
+from library import messages
+from library.locale_prefs import normalize_language_region
 from library.ws_manager import manager
 from config import VAPID_PRIVATE_KEY, VAPID_SUBJECT
 
@@ -54,13 +56,30 @@ async def _send_web_push(user_id: int, title: str, link: str, db: AsyncSession):
             logger.warning(f"Web Push error: {e}")
 
 
-async def notify(user_id: int, ntype: str, actor_id: int, title: str,
-                 link: str, entity_type: str, entity_id: int, db: AsyncSession):
-    """DB 저장 + WebSocket 실시간 푸시 (본인에게는 알림하지 않음)"""
+async def recipient_locale(user_id: int, db: AsyncSession) -> str:
+    """수신자의 표시 언어. 설정이 없거나 손상됐으면 en."""
+    region = normalize_language_region(await user_model.get_language_region(user_id, db))
+    return messages.normalize_locale(region['locale'] if region else None)
+
+
+async def notify(user_id: int, ntype: str, actor_id: int, message_key: str,
+                 link: str, entity_type: str, entity_id: int, db: AsyncSession,
+                 **params):
+    """DB 저장 + WebSocket 실시간 푸시 (본인에게는 알림하지 않음).
+
+    문구는 **수신자 언어**로 렌더한다(title). 동시에 payload에 {key, params}를 남겨,
+    사용자가 나중에 언어를 바꾸면 프런트가 같은 키로 다시 렌더할 수 있게 한다 —
+    공유 활동을 생성 시점의 한 언어로 굳히지 않기 위해서다.
+    """
     if user_id == actor_id:
         return
 
-    noti_id = await noti_model.create(user_id, ntype, actor_id, title, link, entity_type, entity_id, db)
+    locale = await recipient_locale(user_id, db)
+    title = messages.render(locale, f'notifications.{message_key}', **params)
+    payload = {'key': message_key, 'params': params}
+
+    noti_id = await noti_model.create(user_id, ntype, actor_id, title, link,
+                                      entity_type, entity_id, db, payload=payload)
     unread = await noti_model.count_unread(user_id, db)
 
     # actor 조회 (이름 + 아바타) — 라이브 payload를 reload 후(find_by_user)와 동일하게
@@ -84,6 +103,7 @@ async def notify(user_id: int, ntype: str, actor_id: int, title: str,
             'actor_avatar_url': actor_avatar_url,
             'actor_avatar_color': actor_avatar_color,
             'title': title,
+            'payload': payload,
             'link': link,
             'entity_type': entity_type,
             'entity_id': entity_id,
@@ -101,11 +121,15 @@ async def notify(user_id: int, ntype: str, actor_id: int, title: str,
             logger.warning(f"Web Push fallback failed: {e}")
 
 
-async def notify_bulk(user_ids: list[int], ntype: str, actor_id: int, title: str,
-                      link: str, entity_type: str, entity_id: int, db: AsyncSession):
-    """여러 수신자에게 일괄 알림 (actor 제외, 중복 제거)"""
+async def notify_bulk(user_ids: list[int], ntype: str, actor_id: int, message_key: str,
+                      link: str, entity_type: str, entity_id: int, db: AsyncSession,
+                      **params):
+    """여러 수신자에게 일괄 알림 (actor 제외, 중복 제거).
+
+    수신자마다 언어가 다를 수 있으므로 문구는 notify()가 각자의 언어로 만든다.
+    """
     for uid in set(user_ids):
-        await notify(uid, ntype, actor_id, title, link, entity_type, entity_id, db)
+        await notify(uid, ntype, actor_id, message_key, link, entity_type, entity_id, db, **params)
 
 
 async def push_chat_to_offline(room_id: int, sender_id: int, sender_name: str,

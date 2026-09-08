@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { Search, Bell, Settings, Shield, AtSign, UserPlus, AlertCircle, MessageSquare, CheckCircle2, CircleDot, Menu, User, LogOut, Reply } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { notificationText } from '@/library/serverMessages';
 import { clearWorkspaceSettingsCache, useWorkspaceSettings } from '@/library/workspaceSettings';
 import { LOGIN_PATH } from '@/library/authRedirect';
 import AppSwitcher from './AppSwitcher';
@@ -26,8 +27,8 @@ const NOTI_ICONS = {
 // 알림 타입 → 색 그룹(스캔용) + 짧은 한글 라벨. 그룹 색은 SCSS의
 // .Header__NotiChip--{group}가 입힌다(멘션=primary·태스크=success·이슈=warning).
 // 매핑에 없는 타입은 칩을 그리지 않는다.
-// label은 catalog 키다 — 서버가 만든 알림 title 본문은 번역하지 않고 원문 그대로 두되,
-// 프런트가 소유한 이 짧은 분류 라벨은 현재 언어를 따른다.
+// label은 catalog 키다. 본문도 payload가 있으면 현재 언어로 다시 렌더한다
+// (library/serverMessages.js — 구버전 행만 서버가 저장한 문장을 폴백으로 쓴다).
 const NOTI_TYPE_META = {
   mention:             { group: 'mention', labelKey: 'notifications.types.mention' },
   chat_mention:        { group: 'mention', labelKey: 'notifications.types.mention' },
@@ -39,17 +40,6 @@ const NOTI_TYPE_META = {
   issue_closed:        { group: 'issue',   labelKey: 'notifications.types.closed' },
   issue_reopened:      { group: 'issue',   labelKey: 'notifications.types.reopened' },
 };
-
-// 알림 title은 항상 "{actor_name}님이 …" 템플릿으로 생성되는데, 같은 이름이
-// 바로 윗줄(NotiSender)에 이미 보인다. 본문에서 그 접두를 떼어 좁은 너비를
-// 발신자 반복 대신 핵심(엔티티)에 쓰게 한다. 시스템 알림(actor 없음)이거나
-// 발신자 개명 등으로 접두가 안 맞으면 원문을 그대로 둔다(graceful).
-function stripActorPrefix(title, actorName) {
-  if (actorName && title?.startsWith(`${actorName}님이`)) {
-    return title.slice(`${actorName}님이`.length).replace(/^\s+/, '');
-  }
-  return title || '';
-}
 
 export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, onSearchClick, notifications = [], unreadCount = 0, chatUnreadCount = 0, onChatClick, onClearNotifications, onMarkAllRead, onReadNotification, onNotiClick }) {
   const router = useRouter();
@@ -190,7 +180,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
             </span>
             <span className="Header__NotiTime">{formatMessageTime(noti.created_at)}</span>
           </div>
-          <span className="Header__NotiContent">{stripActorPrefix(noti.title, noti.actor_name)}</span>
+          <span className="Header__NotiContent">{notificationText(noti, t)}</span>
         </div>
       </>
     );

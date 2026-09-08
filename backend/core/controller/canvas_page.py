@@ -137,8 +137,8 @@ async def update(canvas_id: int, page_id: int, body, request: Request, db: Async
             link = f'/canvas/{canvas_id}/page/{page_id}'
             await notification_service.notify_bulk(
                 list(added_mentions), 'mention', user_id,
-                f'{username}님이 문서 "{page_title}"에서 회원님을 멘션했습니다',
-                link, 'doc', page_id, db,
+                'canvasPageMention', link, 'doc', page_id, db,
+                actor=username, page=page_title,
             )
 
     return {'status': True}

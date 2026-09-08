@@ -105,7 +105,7 @@ async def transition(task_id: int, branch_id: int, gate: str, actor_id: int,
         link = f'/branch/{branch_id}/task/{task_id}'
         await notification_service.notify_bulk(
             assignee_ids, 'task_status', actor_id,
-            f'{display_id} {title} 상태가 변경되었습니다',
-            link, 'task', task_id, db)
+            'taskStatusChanged', link, 'task', task_id, db,
+            ref=f'{display_id} {title}')
 
     return {'status': True, 'moved': True}

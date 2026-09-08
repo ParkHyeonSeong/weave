@@ -153,3 +153,6 @@ cd /opt/weave
 git pull
 make prod-build
 ```
+
+DB 마이그레이션은 backend 컨테이너의 `entrypoint.sh`가 기동할 때 `alembic upgrade head`를
+자동 실행하므로 별도 명령이 필요 없습니다.

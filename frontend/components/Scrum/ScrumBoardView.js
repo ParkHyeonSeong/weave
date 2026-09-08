@@ -38,7 +38,7 @@ export default function ScrumBoardView() {
   const [err, setErr] = useState('');
   const [showMembers, setShowMembers] = useState(false);
   // 공용 기간이므로 workspace timezone을 쓴다 — 개인 시간대가 아니다.
-  const { today: workspaceToday } = useWorkspaceDateFormat();
+  const { today: workspaceToday, formatDateOnlyRange } = useWorkspaceDateFormat();
   // fail-closed: workspace 설정이 확정(status 'success')되기 전에는 주차/회고 get_or_create를
   // 보내지 않는다. 조회 실패('error')는 로딩이 아니라 오류로 보여주고 사용자가 재시도한다 —
   // 호환 tz로 조용히 진행하면 서울이 아닌 워크스페이스에서 잘못된 공유 주차 행이 생긴다.
@@ -138,15 +138,14 @@ export default function ScrumBoardView() {
   if (!workspaceReady || !wk) return <div className="ScrumBoard__Loading">{t('common.state.loading')}</div>;
 
   const dates = weekDates(wk.isoYear, wk.isoWeek);
-  const range = `${dates[0].month}/${dates[0].day} – ${dates[4].month}/${dates[4].day}`;
+  // 주 범위·회고 기간은 공유 date-only다 — 월/일을 손으로 잇지 않고 locale formatter로 낸다.
+  const range = formatDateOnlyRange(dates[0].date, dates[4].date);
   const isThisWeek = (() => {
     const c = isoWeekOfDateOnly(workspaceToday());
     return c.isoYear === wk.isoYear && c.isoWeek === wk.isoWeek;
   })();
-  // 'YYYY-MM-DD' → 'M/D' (앞자리 0 제거)
-  const fmtPeriod = (s) => (s ? `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}` : '');
   const retroRange = retroData
-    ? `${fmtPeriod(retroData.retro.period_start)} – ${fmtPeriod(retroData.retro.period_end)}`
+    ? formatDateOnlyRange(retroData.retro.period_start, retroData.retro.period_end)
     : '';
   // 'YYYY-MM-DD' 선택 → 그 날짜를 공용 기준 날짜로 (주간보드·회고 동기화)
   const jumpWeek = (d) => { if (d) setAnchorDate(d); };

@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { compile } from 'sass';
 import postcss from 'postcss';
 import TaskFilterBar from '@/components/Branch/TaskFilterBar';
-import { STATUS_CATEGORY_TOKENS, PRIORITY_TOKENS, DEFAULT_STATUS_FALLBACK, tokenVar, statusCategoryVar, priorityVar, FALLBACK_TOKEN, CHIP_COLOR_VAR, CHIP_TINT_PERCENT, chipTintStyle, PRIORITY_INK_TOKENS, priorityInkVar } from './themePalette.js';
+import { STATUS_CATEGORY_TOKENS, PRIORITY_TOKENS, DEFAULT_STATUS_FALLBACK, defaultStatusOptions, tokenVar, statusCategoryVar, priorityVar, FALLBACK_TOKEN, CHIP_COLOR_VAR, CHIP_TINT_PERCENT, chipTintStyle, PRIORITY_INK_TOKENS, priorityInkVar } from './themePalette.js';
 import { entityBorderStyle, entityTintStyle } from './entityTint.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -81,13 +81,24 @@ describe('themePalette — 조회와 폴백', () => {
 });
 
 describe('themePalette — DEFAULT_STATUS_FALLBACK', () => {
-  it('시드 4개와 같은 순서·key·label이고 color는 var() 참조다', () => {
-    // backend/core/model/workflow_status.py:97-100 seed_defaults
+  it('시드 4개와 같은 순서·key이고 라벨은 카탈로그 키, color는 var() 참조다', () => {
+    // backend/core/model/workflow_status.py:97-100 seed_defaults.
+    // 라벨은 모듈 상수라 t를 쓸 수 없어 **키**만 두고 defaultStatusOptions(t)가 렌더 시점에 푼다.
     expect(DEFAULT_STATUS_FALLBACK).toEqual([
-      { value: 'todo',        label: 'To Do',       color: 'var(--color-text-secondary)' },
-      { value: 'in_progress', label: 'In Progress', color: 'var(--color-status-in-progress)' },
-      { value: 'done',        label: 'Done',        color: 'var(--color-success)' },
-      { value: 'cancelled',   label: 'Cancelled',   color: 'var(--color-error)' },
+      { value: 'todo',        labelKey: 'branch.statusCategory.todo',       color: 'var(--color-text-secondary)' },
+      { value: 'in_progress', labelKey: 'branch.statusCategory.inProgress', color: 'var(--color-status-in-progress)' },
+      { value: 'done',        labelKey: 'branch.statusCategory.done',       color: 'var(--color-success)' },
+      { value: 'cancelled',   labelKey: 'branch.statusCategory.cancelled',  color: 'var(--color-error)' },
+    ]);
+  });
+
+  it('defaultStatusOptions(t)가 현재 언어 라벨로 푼다', () => {
+    const options = defaultStatusOptions((key) => `<${key}>`);
+    expect(options).toEqual([
+      { value: 'todo',        label: '<branch.statusCategory.todo>',       color: 'var(--color-text-secondary)' },
+      { value: 'in_progress', label: '<branch.statusCategory.inProgress>', color: 'var(--color-status-in-progress)' },
+      { value: 'done',        label: '<branch.statusCategory.done>',       color: 'var(--color-success)' },
+      { value: 'cancelled',   label: '<branch.statusCategory.cancelled>',  color: 'var(--color-error)' },
     ]);
   });
 });
@@ -202,9 +213,9 @@ describe('themePalette 소비 — TaskListRow 상태 폴백이 공용 상수로 
   const F = 'components/Branch/Tasks/TaskListRow.js';
   const src = () => readFileSync(resolve(here, '..', F), 'utf8');
 
-  it('workflowStatuses가 비었을 때 DEFAULT_STATUS_FALLBACK을 쓴다', () => {
-    expect(src()).toMatch(/import \{[^}]*DEFAULT_STATUS_FALLBACK[^}]*\} from '@\/library\/themePalette'/);
-    expect(src()).toMatch(/:\s*DEFAULT_STATUS_FALLBACK;/);
+  it('workflowStatuses가 비었을 때 공용 폴백을 현재 언어로 푼다', () => {
+    expect(src()).toMatch(/import \{[^}]*defaultStatusOptions[^}]*\} from '@\/library\/themePalette'/);
+    expect(src()).toMatch(/:\s*defaultStatusOptions\(t\);/);
   });
 
   it('로컬 상태 옵션 상수를 다시 만들지 않는다', () => {
