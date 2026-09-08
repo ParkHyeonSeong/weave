@@ -4,11 +4,12 @@ import EntityIcon from '@/components/common/EntityIcon';
 import EntityAppearancePopover from '@/components/common/EntityAppearancePopover';
 import AvatarStack from '@/components/common/AvatarStack';
 import { entityBorderStyle, entityTintStyle } from '@/library/entityTint';
+import { useTranslation } from 'react-i18next';
 
 const VIEW_MODES = [
-  { key: 'flow', label: 'Flow', icon: Workflow },
-  { key: 'timeline', label: 'Timeline', icon: Calendar },
-  { key: 'tree', label: 'Tree', icon: GitBranch },
+  { key: 'flow', labelKey: 'track.view.flow', icon: Workflow },
+  { key: 'timeline', labelKey: 'track.view.timeline', icon: Calendar },
+  { key: 'tree', labelKey: 'track.view.tree', icon: GitBranch },
 ];
 
 export default function TrackHeader({
@@ -16,6 +17,7 @@ export default function TrackHeader({
   distribution, totalItems, totalLinks,
   participatingBranches, onOpenSettings,
 }) {
+  const { t } = useTranslation();
   const iconRef = useRef(null);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const canEditAppearance = track.my_role === 'owner' || track.my_role === 'editor';
@@ -32,7 +34,7 @@ export default function TrackHeader({
                 size={24}
                 entityType="track"
                 onClick={canEditAppearance ? () => setPopoverOpen(true) : undefined}
-                title={canEditAppearance ? 'Click to edit appearance' : undefined}
+                title={canEditAppearance ? t('track.header.editAppearance') : undefined}
               />
             </span>
             <EntityAppearancePopover
@@ -51,7 +53,7 @@ export default function TrackHeader({
 
           {participatingBranches && participatingBranches.length > 0 && (
             <div className="TrackHeader__Participating">
-              <span className="TrackHeader__ParticipatingLabel">Branches</span>
+              <span className="TrackHeader__ParticipatingLabel">{t('track.header.branches')}</span>
               <div className="TrackHeader__ParticipatingChips">
                 {participatingBranches.map((b) => {
                   // 헤더 배경은 단색이 아니라 --track-paper → --track-paper-raised 세로 그라데이션이다.
@@ -87,15 +89,15 @@ export default function TrackHeader({
             max={4}
             size="sm"
           />
-          <button className="TrackHeader__IconBtn" title="Star">
+          <button className="TrackHeader__IconBtn" title={t('track.header.star')}>
             <Star size={16} />
           </button>
-          <button className="TrackHeader__IconBtn" title="Share">
+          <button className="TrackHeader__IconBtn" title={t('track.header.share')}>
             <Share2 size={16} />
           </button>
           <button
             className="TrackHeader__IconBtn"
-            title="Settings"
+            title={t('spaceMenu.settings')}
             onClick={onOpenSettings}
             disabled={!onOpenSettings}
           >
@@ -107,18 +109,23 @@ export default function TrackHeader({
       <div className="TrackHeader__Meta">
         <div className="TrackHeader__WeaveBlock">
           <div className="TrackHeader__WeaveLabel">
-            <span className="TrackHeader__WeaveCaption">Composition</span>
+            <span className="TrackHeader__WeaveCaption">{t('track.header.composition')}</span>
             <span className="TrackHeader__WeaveCount">
-              {totalItems} <em>items</em> · {totalLinks} <em>links</em>
+              {totalItems} <em>{t('track.header.itemsLabel')}</em> · {totalLinks}{' '}
+              <em>{t('track.header.linksLabel')}</em>
             </span>
           </div>
-          <div className="TrackHeader__WeaveBar" role="img" aria-label="branch composition">
+          <div className="TrackHeader__WeaveBar" role="img" aria-label={t('track.header.compositionAria')}>
             {distribution.map((b) => (
               <div
                 key={b.branch_id}
                 className="TrackHeader__WeaveSeg"
                 style={{ flexBasis: `${b.ratio * 100}%`, background: b.color }}
-                title={`${b.name}: ${b.count} items (${Math.round(b.ratio * 100)}%)`}
+                title={t('track.header.segmentTitle', {
+                  name: b.name,
+                  items: b.count,
+                  percent: Math.round(b.ratio * 100),
+                })}
               >
                 <span className="TrackHeader__WeaveSegLabel">{b.key}</span>
                 <span className="TrackHeader__WeaveSegCount">{b.count}</span>
@@ -148,7 +155,7 @@ export default function TrackHeader({
                 onClick={() => onViewModeChange(v.key)}
               >
                 <Icon size={14} />
-                <span>{v.label}</span>
+                <span>{t(v.labelKey)}</span>
               </button>
             );
           })}

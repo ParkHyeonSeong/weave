@@ -1,3 +1,4 @@
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { axios } from '@/library/_axios';
@@ -12,6 +13,7 @@ import { matchesFilters } from '@/library/taskFilters';
 import { buildEffectiveSpec } from '@/library/filterSpecAdapter';
 import { groupTasks, applySort } from '@/library/taskViewState';
 import { emptyGroup } from '@/library/filterBuilderState';
+import { useTranslation } from 'react-i18next';
 
 // localStorage 키 — TaskList의 'weave_tasks_{branchId}_filters'와 충돌하지 않도록 board 전용 키.
 const boardStorageKey = (branchId) => `weave_board_${branchId}_filters`;
@@ -42,6 +44,8 @@ function currentUserId() {
 }
 
 export default function BoardView({ branchId, branchKey, taskTypes, workflowStatuses, onSelectTask }) {
+  const { t } = useTranslation();
+  const { daysUntil, today: personalToday, timeZone } = useDateFormat();
   const taskMenu = useTaskContextMenu({ branchId, onSelectTask });
   const [columns, setColumns] = useState({});
   const [activeSprints, setActiveSprints] = useState([]);
@@ -248,7 +252,10 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
 
   // 레거시 quick-chip + 고급 빌더 spec 합성 → 단일 effectiveSpec (TaskList 패턴 동일).
   const userId = useMemo(() => currentUserId(), []);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // $today는 **개인 timezone의 오늘**이다 — new Date().toISOString()의 UTC 날짜를 쓰면
+  // 뉴욕 저녁에 하루 앞선 날짜가 되어 백엔드 저장 필터의 $today와 갈린다.
+  // timeZone이 바뀌면(설정 변경) 다시 계산되도록 의존성에 둔다.
+  const today = useMemo(() => personalToday(), [personalToday, timeZone]);
   const effectiveSpec = useMemo(
     () => buildEffectiveSpec({ legacyCtx: { searchQuery, selectedUserIds, filters }, filterSpec }),
     [searchQuery, selectedUserIds, filters, filterSpec],
@@ -270,27 +277,30 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
   const groupLabelFor = useCallback((key) => {
     if (key === null || key === undefined) {
       return {
-        assignee: 'Unassigned', epic: 'No epic', sprint: 'No sprint',
-        label: 'No label', priority: 'No priority',
-      }[groupBy] || '(none)';
+        assignee: t('branch.board.group.unassigned'),
+        epic: t('branch.board.group.noEpic'),
+        sprint: t('branch.board.group.noSprint'),
+        label: t('branch.board.group.noLabel'),
+        priority: t('branch.board.group.noPriority'),
+      }[groupBy] || t('branch.board.group.none');
     }
     switch (groupBy) {
       case 'assignee': {
         const m = (members || []).find((x) => x.user_id === key);
-        return m ? (m.username || m.email) : `User ${key}`;
+        return m ? (m.username || m.email) : t('branch.board.group.userFallback', { id: key });
       }
       case 'epic':
-        return (epics || []).find((e) => e.epic_id === key)?.epic_name || `Epic ${key}`;
+        return (epics || []).find((e) => e.epic_id === key)?.epic_name || t('branch.board.group.epicFallback', { id: key });
       case 'sprint':
-        return (activeSprints || []).find((s) => s.sprint_id === key)?.sprint_name || `Sprint ${key}`;
+        return (activeSprints || []).find((s) => s.sprint_id === key)?.sprint_name || t('branch.board.group.sprintFallback', { id: key });
       case 'label':
-        return (labels || []).find((l) => l.label_id === key)?.label_name || `Label ${key}`;
+        return (labels || []).find((l) => l.label_id === key)?.label_name || t('branch.board.group.labelFallback', { id: key });
       case 'priority':
-        return { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' }[key] || String(key);
+        return { urgent: t('branch.priority.urgent'), high: t('branch.priority.high'), medium: t('branch.priority.medium'), low: t('branch.priority.low') }[key] || String(key);
       default:
         return String(key);
     }
-  }, [groupBy, members, epics, labels, activeSprints]);
+  }, [groupBy, members, epics, labels, activeSprints, t]);
 
   // 모든 컬럼의 태스크를 평탄화 → 필터 → 그룹 버킷화.
   // 각 버킷은 동일한 상태 컬럼 세트를 갖되 그 버킷 태스크로만 스코프된다.
@@ -307,7 +317,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
     }));
   }, [swimlaneMode, columns, filterCtx, groupBy, multiSort, groupLabelFor]);
 
-  if (loading) return <div className="BoardView" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--color-text-secondary)', fontSize: 14 }}>Loading...</div>;
+  if (loading) return <div className="BoardView" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--color-text-secondary)', fontSize: 14 }}>{t('common.state.loading')}</div>;
 
   // active sprint 없는 경우
   if (activeSprints.length === 0) {
@@ -315,9 +325,9 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
       <div className="BoardView">
         <div className="BoardView__Empty">
           <LayoutGrid size={40} />
-          <p className="BoardView__EmptyTitle">No active sprint</p>
+          <p className="BoardView__EmptyTitle">{t('branch.board.noActiveSprintTitle')}</p>
           <p className="BoardView__EmptyDesc">
-            Start a sprint from the Tasks tab to see the board.
+            {t('branch.board.noActiveSprintDesc')}
           </p>
         </div>
       </div>
@@ -329,11 +339,11 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
     ? activeSprints.find((s) => s.sprint_id === selectedSprintId)
     : null;
 
+  // end_date는 date-only다. new Date('YYYY-MM-DD')는 UTC 자정 instant라 음수 offset 지역에서
+  // 하루 이르게 0/음수가 된다 — 개인 timezone의 오늘과 달력 일수로 센다.
   const getRemainingDays = (sprint) => {
     if (!sprint?.end_date) return null;
-    const end = new Date(sprint.end_date);
-    const now = new Date();
-    return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+    return daysUntil(sprint.end_date);
   };
 
   return (
@@ -345,7 +355,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
             className={`BoardView__SprintTab ${selectedSprintId === null ? 'BoardView__SprintTab--active' : ''}`}
             onClick={() => handleSprintTabClick(null)}
           >
-            All
+            {t('branch.board.allSprints')}
           </button>
           {activeSprints.map((sprint) => {
             const days = getRemainingDays(sprint);
@@ -358,7 +368,9 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
                 {sprint.sprint_name}
                 {days !== null && (
                   <span className={`BoardView__SprintDays ${days < 0 ? 'BoardView__SprintDays--overdue' : ''}`}>
-                    {days < 0 ? `${Math.abs(days)}d overdue` : `${days}d`}
+                    {days < 0
+                      ? t('branch.board.daysOverdue', { count: Math.abs(days) })
+                      : t('branch.board.daysLeft', { count: days })}
                   </span>
                 )}
               </button>
@@ -423,7 +435,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
         <div className="BoardView__Swimlanes">
           {swimlanes.length === 0 && (
             <div className="BoardView__Empty">
-              <p className="BoardView__EmptyDesc">No tasks</p>
+              <p className="BoardView__EmptyDesc">{t('branch.board.noTasks')}</p>
             </div>
           )}
           {swimlanes.map((lane) => (
@@ -459,7 +471,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
         onConfirm={taskMenu.handleConfirmDelete}
         title={taskMenu.confirmTitle}
         message={taskMenu.confirmMessage}
-        confirmLabel="Delete"
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
       {taskMenu.parentPicker && createPortal(

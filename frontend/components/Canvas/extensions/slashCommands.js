@@ -1,10 +1,11 @@
 // 에디터/메신저 공용 슬래시 커맨드 단일 소스.
+// labelKey는 i18n 카탈로그 키다 — 표시 시점에 SlashCommandMenu가 t()로 해석한다.
 export const SLASH_COMMANDS = [
-  { cmd: '/t',  label: 'Search my tasks',  kind: 'task',  mode: 'my'  },
-  { cmd: '/ta', label: 'Search all tasks', kind: 'task',  mode: 'all' },
-  { cmd: '/d',  label: 'Search documents', kind: 'doc'  },
-  { cmd: '/i',  label: 'Search issues',    kind: 'issue' },
-  { cmd: '/m',  label: 'Insert math',      kind: 'math' },
+  { cmd: '/t',  labelKey: 'canvasExt.slash.searchMyTasks',   kind: 'task',  mode: 'my'  },
+  { cmd: '/ta', labelKey: 'canvasExt.slash.searchAllTasks',  kind: 'task',  mode: 'all' },
+  { cmd: '/d',  labelKey: 'canvasExt.slash.searchDocuments', kind: 'doc'  },
+  { cmd: '/i',  labelKey: 'canvasExt.slash.searchIssues',    kind: 'issue' },
+  { cmd: '/m',  labelKey: 'canvasExt.slash.insertMath',      kind: 'math' },
 ];
 
 function pool(enabled) {

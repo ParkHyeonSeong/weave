@@ -136,8 +136,8 @@ modified. Each tool acts as the token's owner; `?` marks optional arguments.
 - `create_scrum_board(name, icon?, color?, visibility?, retro_cadence?, retro_interval_weeks?, retro_template?, retro_anchor_weekday?)` — `retro_cadence`: weekly | biweekly | every_n_weeks | monthly | manual; `retro_anchor_weekday`: 0-4 (Mon-Fri)
 - `update_scrum_board(board_id, ...same fields)` · `delete_scrum_board(board_id)` (archive) · `restore_scrum_board(board_id)` · `leave_scrum_board(board_id)` · `list_archived_scrum_boards()` — board lifecycle (create/update/delete/restore admin-only; `leave` removes yourself)
 - `get_scrum_home_cards()` — cross-board cards (today's unwritten daily-scrum, due retros)
-- `get_scrum_week(board_id, iso_year?, iso_week?)` — read the weekly daily-scrum grid cells (per member × weekday × plan/gap) as plain text; defaults to the current ISO week (KST)
-- `write_scrum_daily(board_id, text, row?, day?, mode?, iso_year?, iso_week?)` — write YOUR OWN daily-scrum cell; defaults to today's `plan` cell (KST), `mode` replace/append, weekends need an explicit `day` (0=Mon..4=Fri)
+- `get_scrum_week(board_id, iso_year?, iso_week?)` — read the weekly daily-scrum grid cells (per member × weekday × plan/gap) as plain text; defaults to the current ISO week in the workspace time zone
+- `write_scrum_daily(board_id, text, row?, day?, mode?, iso_year?, iso_week?)` — write YOUR OWN daily-scrum cell; defaults to today's `plan` cell in the workspace time zone, `mode` replace/append, weekends need an explicit `day` (0=Mon..4=Fri)
 - `get_current_retro(board_id)` — get-or-create the current period's retrospective doc (`retro_id`); null for 'manual' cadence boards
 - `get_scrum_retro_cells(board_id, retro_id)` — read the retro KPT cells (per member × keep/problem/try) as plain text
 - `write_scrum_retro(board_id, retro_id, key, text, mode?)` — write YOUR OWN retro KPT cell (`key` = keep/problem/try)

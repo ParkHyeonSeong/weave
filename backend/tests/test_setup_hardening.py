@@ -17,7 +17,9 @@ from fastapi import Response
 from sqlalchemy import text
 
 from core.controller import setup as setup_controller
+from core.model import user as user_model
 from core.model import workspace as workspace_model
+from routers.schema.profile import LanguageRegion
 
 
 def _req():
@@ -26,10 +28,14 @@ def _req():
 
 
 def _body(email="admin@test.local", username="admin", workspace="Acme",
-          policy="private", password="pw-secret-1234"):
+          policy="private", password="pw-secret-1234", time_zone="Asia/Seoul",
+          language_region=None):
+    # time_zone은 SetupInitialize의 필드다(생략 시 스키마가 Asia/Seoul을 채운다).
+    # language_region은 첫 관리자의 개인 설정(선택) — LanguageRegion 인스턴스 또는 None.
     return SimpleNamespace(
         email=email, username=username, workspace_name=workspace,
-        registration_policy=policy, password=password,
+        registration_policy=policy, password=password, time_zone=time_zone,
+        language_region=language_region,
     )
 
 
@@ -129,6 +135,17 @@ async def test_status_exposes_metadata_after_init(db_session):
     assert res["initialized"] is True
     assert res["workspace_name"] == "Globex"
     assert res["registration_policy"] == "public"
+    # 공용 기간 계산의 단일 소스 — 프런트가 이 값 하나만 읽는다(Header·Scrum 중복 조회 금지)
+    assert res["time_zone"] == "Asia/Seoul"
+
+
+async def test_initialize_persists_chosen_workspace_time_zone(db_session):
+    """신규 서버: 관리자가 Setup에서 고른 workspace timezone이 그대로 저장된다."""
+    await setup_controller.initialize(_body(time_zone="America/New_York"),
+                                      _req(), Response(), db_session)
+    assert await workspace_model.get_time_zone(db_session) == "America/New_York"
+    res = await setup_controller.check_initialized(db_session)
+    assert res["time_zone"] == "America/New_York"
 
 
 # ---------------------------------------------------------------------------
@@ -146,3 +163,23 @@ def test_initialize_route_has_rate_limit():
     assert limits, "initialize에 등록된 레이트리밋이 없음"
     # 3 per 1 minute 로 등록돼 있어야 함
     assert any("3 per 1 minute" in str(getattr(lim, "limit", lim)) for lim in limits)
+
+
+async def test_initialize_saves_first_admin_language_region_in_same_transaction(db_session):
+    """첫 관리자의 개인 언어·시간대는 initialize 요청에 실려 관리자 생성과 함께 저장된다.
+    workspace time_zone(공용)과는 별개 값이어야 한다."""
+    body = _body(time_zone="America/New_York",
+                 language_region=LanguageRegion(locale="en", time_zone="Asia/Seoul"))
+    res = await setup_controller.initialize(body, _req(), Response(), db_session)
+    assert res["status"] is True
+    uid = res["profile"]["user_id"]
+    assert await user_model.get_language_region(uid, db_session) == {
+        "locale": "en", "time_zone": "Asia/Seoul"}
+    assert await workspace_model.get_time_zone(db_session) == "America/New_York"
+
+
+async def test_initialize_without_language_region_leaves_prefs_empty(db_session):
+    """구 클라이언트(필드 생략)는 개인 설정 없이 생성된다 → 첫 로그인 게이트에서 직접 고른다."""
+    res = await setup_controller.initialize(_body(), _req(), Response(), db_session)
+    uid = res["profile"]["user_id"]
+    assert await user_model.get_language_region(uid, db_session) is None

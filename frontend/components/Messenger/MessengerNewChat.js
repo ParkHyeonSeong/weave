@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import Avatar from '@/components/common/Avatar';
@@ -7,6 +8,7 @@ import { showToast } from '@/components/Layout/Toast';
 import { buildSendMessage } from '@/library/messengerCompose';
 
 export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [selected, setSelected] = useState([]);
   const [search, setSearch] = useState('');
@@ -60,7 +62,7 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
         room_name: isDm ? null : selected.map((u) => u.username).join(', '),
         member_ids: memberIds,
       });
-      if (!res.data.status) { showToast('채팅방을 만들지 못했습니다.', 'error'); return false; }
+      if (!res.data.status) { showToast(t('messenger.newChat.createRoomFailed'), 'error'); return false; }
       const roomId = res.data.room_id;
 
       // 원본(uploaded:false) 첨부를 새 방에 업로드
@@ -71,7 +73,7 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
         const up = await axios.post(`/chat/upload?room_id=${roomId}`, fd, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        if (!up.data.status) { showToast('이미지 업로드에 실패했습니다.', 'error'); return false; }
+        if (!up.data.status) { showToast(t('messenger.newChat.imageUploadFailed'), 'error'); return false; }
         uploaded.push({ url: up.data.url, file_name: up.data.file_name, file_type: up.data.file_type, file_size: up.data.file_size });
       }
 
@@ -81,7 +83,7 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
       onOpenRoom(roomId);
       return true;
     } catch {
-      showToast('메시지를 보내지 못했습니다.', 'error');
+      showToast(t('messenger.newChat.sendFailed'), 'error');
       return false;
     }
   };
@@ -92,11 +94,11 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
         <button className="MessengerNewChat__BackBtn" onClick={onBack}>
           <ArrowLeft size={16} />
         </button>
-        <span className="MessengerNewChat__Title">New Chat</span>
+        <span className="MessengerNewChat__Title">{t('messenger.chatList.newChat')}</span>
       </div>
 
       <div className="MessengerNewChat__To">
-        <span className="MessengerNewChat__ToLabel">To:</span>
+        <span className="MessengerNewChat__ToLabel">{t('messenger.newChat.toLabel')}</span>
         <div className="MessengerNewChat__ToField">
           {selected.map((user) => (
             <span key={user.user_id} className="MessengerNewChat__Chip">
@@ -113,7 +115,7 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={selected.length === 0 ? 'Search users...' : ''}
+            placeholder={selected.length === 0 ? t('messenger.userList.searchPlaceholder') : ''}
             className="MessengerNewChat__SearchInput"
           />
         </div>

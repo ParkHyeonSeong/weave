@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Plus, ChevronRight, ChevronDown } from 'lucide-react';
@@ -72,6 +73,7 @@ function SortableBoardItem({ board, isActive, onMenu, rename }) {  // isActive�
 }
 
 export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange, hidden = [], onHide, onUnhide }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [boards, setBoards] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
@@ -155,15 +157,14 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
               window.dispatchEvent(new Event('scrum:updated'));
               fetchBoards();
               // Toast(showToast)는 액션 버튼을 지원하지 않아 undo 없이 성공 알림만 표시.
-              showToast(`"${board.name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: board.name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id: board.board_id, name: board.name }),
-      },
-    ));
+      }, t));
   };
 
   const handleDragStart = (event) => {
@@ -185,9 +186,9 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
   return (
     <>
       <div className="Sidebar__SectionHeader">
-        <span className="Sidebar__SectionLabel">Scrum</span>
+        <span className="Sidebar__SectionLabel">{t('layout.sections.scrum')}</span>
         {onCreateScrum && (
-          <button className="Sidebar__SectionAddBtn" onClick={onCreateScrum} title="Create Scrum">
+          <button className="Sidebar__SectionAddBtn" onClick={onCreateScrum} title={t('layout.sections.createScrum')}>
             <Plus size={14} />
           </button>
         )}
@@ -196,7 +197,7 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
       <div className="Sidebar__Branches">
         {sortedBoards.length === 0 ? (
           <div className="Sidebar__Empty">
-            No boards yet.<br />Create one to get started.
+            {t('layout.empty.boards')}<br />{t('layout.empty.createHint')}
           </div>
         ) : (
           <>
@@ -240,7 +241,7 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
               <>
                 <button className="Sidebar__HiddenToggle" onClick={() => setShowHidden((s) => !s)}>
                   {showHidden ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  숨긴 항목 {hiddenBoards.length}
+                  {t('sidebar.hiddenItems', { count: hiddenBoards.length })}
                 </button>
                 {showHidden && hiddenBoards.map((board) => (
                   <div
@@ -252,7 +253,7 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
                       <EntityIcon icon={board.icon} color={board.color} size={14} entityType="track" />
                       <span className="Sidebar__BranchName">{board.name}</span>
                     </NavLink>
-                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(board.board_id)}>숨김 해제</button>
+                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(board.board_id)}>{t('sidebar.unhide')}</button>
                   </div>
                 ))}
               </>
@@ -266,21 +267,21 @@ export default function SidebarScrums({ onCreateScrum, savedOrder, onOrderChange
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/scrum/${t.id}/leave`);
+            const res = await axios.post(`/scrum/${target.id}/leave`);
             if (res.data.status) {
               window.dispatchEvent(new Event('scrum:updated'));
               fetchBoards();
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="스크럼 보드 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveScrumTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name ?? '' })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

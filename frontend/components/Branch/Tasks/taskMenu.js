@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { ArrowRight, Maximize2, Link2, Trash2, ArrowUpToLine, FolderInput } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -17,12 +18,14 @@ import { errorText } from '@/library/errorText';
  *   렌더: <ContextMenu {...menu.menuProps} /> + ConfirmModal(menu.confirmTask 기반)
  *         + ParentPickerPopup(menu.parentPicker 기반)
  */
-const PARENT_REJECT_MSG = {
-  PARENT_NOT_TOP_LEVEL: '하위 태스크는 부모가 될 수 없습니다.',
-  TARGET_HAS_SUBTASKS: '하위를 가진 태스크는 다른 태스크의 하위가 될 수 없습니다.',
+// errorText가 코드를 못 찾을 때만 쓰는 폴백 — 문구는 errors.* catalog와 같은 출처를 본다.
+const PARENT_REJECT_KEY = {
+  PARENT_NOT_TOP_LEVEL: 'errors.PARENT_NOT_TOP_LEVEL',
+  TARGET_HAS_SUBTASKS: 'errors.TARGET_HAS_SUBTASKS',
 };
 
 export default function useTaskContextMenu({ branchId, onSelectTask }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const ctx = useContextMenu();
   const { open } = ctx;
@@ -37,50 +40,53 @@ export default function useTaskContextMenu({ branchId, onSelectTask }) {
       );
       if (res.data?.status) {
         window.dispatchEvent(new Event('task:updated'));
-        showToast(parentTaskId === null ? '상위 태스크로 승격했습니다' : '하위 태스크로 이동했습니다');
+        showToast(parentTaskId === null ? t('branchTasks.menu.promoted') : t('branchTasks.menu.movedUnder'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? PARENT_REJECT_MSG[err.code] ?? '이동하지 못했습니다.';
+        const fallbackKey = PARENT_REJECT_KEY[err.code];
+        const msg = errorText(err.code, err.category)
+          ?? (fallbackKey ? t(fallbackKey) : null)
+          ?? t('branchTasks.menu.moveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('이동하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+      showToast(t('branchTasks.menu.moveFailedRetry'), 'error');
     }
-  }, [branchId]);
+  }, [branchId, t]);
 
   const openMenu = useCallback((e, task) => {
     const path = `/branch/${branchId}/task/${task.task_id}`;
     const isSubtask = !!task.parent_task_id;
     const hasSubtasks = (task.subtasks?.length || 0) > 0;
     const items = [
-      { id: 'open', group: 'open', icon: ArrowRight, label: '열기', onSelect: () => onSelectTask?.(task) },
-      { id: 'open-full', group: 'open', icon: Maximize2, label: '풀페이지로 열기', onSelect: () => router.push(path) },
+      { id: 'open', group: 'open', icon: ArrowRight, label: t('spaceMenu.open'), onSelect: () => onSelectTask?.(task) },
+      { id: 'open-full', group: 'open', icon: Maximize2, label: t('branchTasks.openFullPage'), onSelect: () => router.push(path) },
     ];
     if (isSubtask) {
       items.push({
-        id: 'promote', group: 'organize', icon: ArrowUpToLine, label: '상위로 승격',
+        id: 'promote', group: 'organize', icon: ArrowUpToLine, label: t('branchTasks.menu.promote'),
         onSelect: () => patchParent(task, null),
       });
     } else if (!hasSubtasks) {
       // 하위를 가진 태스크는 하위가 될 수 없음(1단계 불변식)
       items.push({
-        id: 'move-under', group: 'organize', icon: FolderInput, label: '…의 하위로 이동',
+        id: 'move-under', group: 'organize', icon: FolderInput, label: t('branchTasks.menu.moveUnder'),
         onSelect: () => setParentPicker({ task }),
       });
     }
     items.push(
       {
-        id: 'copy-link', group: 'share', icon: Link2, label: '링크 복사',
+        id: 'copy-link', group: 'share', icon: Link2, label: t('branchTasks.menu.copyLink'),
         onSelect: () => {
           navigator.clipboard.writeText(`${window.location.origin}${path}`)
-            .then(() => showToast('링크가 복사되었습니다'))
+            .then(() => showToast(t('branchTasks.menu.linkCopied')))
             .catch(() => {});
         },
       },
-      { id: 'delete', group: 'danger', icon: Trash2, variant: 'danger', label: '삭제', onSelect: () => setConfirmTask(task) },
+      { id: 'delete', group: 'danger', icon: Trash2, variant: 'danger', label: t('common.actions.delete'), onSelect: () => setConfirmTask(task) },
     );
     open(e, items);
-  }, [branchId, onSelectTask, router, open, patchParent]);
+  }, [branchId, onSelectTask, router, open, patchParent, t]);
 
   const handlePickParent = useCallback((parentTask) => {
     const source = parentPicker?.task;
@@ -102,20 +108,21 @@ export default function useTaskContextMenu({ branchId, onSelectTask }) {
         window.dispatchEvent(new CustomEvent('task:deleted', { detail: { taskId: task.task_id } }));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '태스크를 삭제하지 못했습니다.';
+        const msg = errorText(err.code, err.category) ?? t('branchTasks.menu.deleteFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('태스크를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+      showToast(t('branchTasks.menu.deleteFailedRetry'), 'error');
     }
-  }, [branchId, confirmTask]);
+  }, [branchId, confirmTask, t]);
 
   const clearConfirm = useCallback(() => setConfirmTask(null), []);
 
-  const confirmTitle = 'Delete Task';
+  const confirmTitle = t('branchTasks.deleteTaskTitle');
   const confirmMessage = confirmTask
     ? taskDeleteMessage(confirmTask, {
-      prefix: `${confirmTask.display_id ?? ''} 태스크를 삭제하시겠습니까?`,
+      prefix: t('branchTasks.menu.deleteConfirmPrefix', { id: confirmTask.display_id ?? '' }),
+      t,
     })
     : '';
 

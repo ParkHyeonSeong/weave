@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Pencil, Eye, AlertTriangle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { renderMermaid, nextMermaidId } from './mermaidConfig';
 import { useTheme } from '@/library/theme';
 
@@ -10,6 +11,7 @@ import { useTheme } from '@/library/theme';
 // - 렌더 시점에 mermaid.render()로 SVG 생성 (저장하지 않음)
 
 function MermaidView({ node, updateAttributes, selected, editor }) {
+  const { t } = useTranslation();
   const source = node.attrs.source || '';
   const [mode, setMode] = useState('preview'); // 'preview' | 'edit'
   const [svg, setSvg] = useState('');
@@ -45,7 +47,7 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
         const res = await renderMermaid(() => resolvedRef.current, nextMermaidId(), source);
         if (cancelled) return;
         if (!res.ok) {
-          setError('Invalid Mermaid syntax');
+          setError(t('canvasExt.mermaid.invalidSyntax'));
           setSvg('');
           setRendering(false);
           return;
@@ -61,6 +63,7 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
     })();
 
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, resolved]);
 
   // edit 모드 진입 시 draft를 현재 source로 리셋
@@ -105,10 +108,10 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
                 type="button"
                 className="mermaid-block__toolbarBtn"
                 onClick={() => setMode('edit')}
-                title="Edit diagram"
+                title={t('canvasExt.mermaid.editTitle')}
               >
                 <Pencil size={12} />
-                <span>Edit</span>
+                <span>{t('common.actions.edit')}</span>
               </button>
             ) : (
               <>
@@ -116,18 +119,18 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
                   type="button"
                   className="mermaid-block__toolbarBtn"
                   onClick={saveAndPreview}
-                  title="Preview (Cmd/Ctrl + Enter)"
+                  title={t('canvasExt.mermaid.previewTitle')}
                 >
                   <Eye size={12} />
-                  <span>Preview</span>
+                  <span>{t('canvasExt.mermaid.preview')}</span>
                 </button>
                 <button
                   type="button"
                   className="mermaid-block__toolbarBtn mermaid-block__toolbarBtn--secondary"
                   onClick={cancelEdit}
-                  title="Cancel (Esc)"
+                  title={t('canvasExt.mermaid.cancelTitle')}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </>
             )}
@@ -148,13 +151,13 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
           <div className="mermaid-block__error">
             <div className="mermaid-block__errorHeader">
               <AlertTriangle size={14} />
-              <span>Mermaid render error</span>
+              <span>{t('canvasExt.mermaid.renderError')}</span>
             </div>
             <pre className="mermaid-block__errorMsg">{error}</pre>
             <pre className="mermaid-block__errorSource">{source}</pre>
           </div>
         ) : rendering ? (
-          <div className="mermaid-block__loading">Rendering diagram...</div>
+          <div className="mermaid-block__loading">{t('canvasExt.mermaid.rendering')}</div>
         ) : svg ? (
           <div
             className="mermaid-block__svg"
@@ -163,7 +166,7 @@ function MermaidView({ node, updateAttributes, selected, editor }) {
             dangerouslySetInnerHTML={{ __html: svg }}
           />
         ) : (
-          <div className="mermaid-block__empty">Empty diagram. Click Edit to add content.</div>
+          <div className="mermaid-block__empty">{t('canvasExt.mermaid.empty')}</div>
         )}
       </div>
     </NodeViewWrapper>

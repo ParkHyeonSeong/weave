@@ -12,6 +12,7 @@ import { showToast } from '@/components/Layout/Toast';
 import { getErrorCode, getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import { WORKFLOW_STATUSES, getBranchDistribution } from './mockData';
+import { useTranslation } from 'react-i18next';
 
 // 서버 hydrated item → 컴포넌트가 기대하는 형태로 정규화
 function normalizeItem(raw) {
@@ -58,6 +59,7 @@ function normalizeItem(raw) {
 }
 
 export default function TrackDetail() {
+  const { t } = useTranslation();
   const router = useRouter();
   // router.isReady 전까지 query.id는 undefined — 첫 렌더에서 NaN 만들어지지 않게 가드
   const trackId = router.isReady ? Number(router.query.id) : null;
@@ -192,14 +194,14 @@ export default function TrackDetail() {
       if (it.restricted || !it.branch_id || map[it.branch_id]) return;
       map[it.branch_id] = {
         branch_id: it.branch_id,
-        name: it.branch_name || 'Unknown',
+        name: it.branch_name || t('track.detail.unknownBranch'),
         key: it.branch_key || '?',
         color: it.branch_color || '#9CA3AF',
         icon: it.branch_icon || null,
       };
     });
     return map;
-  }, [normalizedBranches, items]);
+  }, [normalizedBranches, items, t]);
 
   const distribution = useMemo(
     () => getBranchDistribution(items, normalizedBranches),
@@ -230,14 +232,14 @@ export default function TrackDetail() {
   const handleUnparticipateBranch = useCallback(async (branchId, branchName) => {
     const itemCount = itemsByBranchId.get(branchId) || 0;
     const msg = itemCount > 0
-      ? `"${branchName}" branch를 Track에서 빼면 그 branch의 ${itemCount}개 item이 함께 제거됩니다. 계속할까요?`
-      : `"${branchName}" branch를 Track에서 빼시겠어요?`;
+      ? t('track.detail.unparticipateWithItems', { name: branchName, items: itemCount })
+      : t('track.detail.unparticipateConfirm', { name: branchName });
     if (!window.confirm(msg)) return;
     try {
       const res = await axios.delete(`/tracks/${trackId}/branches/${branchId}`);
       if (!res.data?.status) {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Branch 제거 실패';
+        const msg = errorText(err.code, err.category) ?? t('track.detail.removeBranchFailed');
         showToast(msg, 'error');
         return;
       }
@@ -251,9 +253,9 @@ export default function TrackDetail() {
       if (linksRes.data.status) setLinks(linksRes.data.links);
       setSourceReloadKey((k) => k + 1);
     } catch {
-      showToast('Branch 제거 실패', 'error');
+      showToast(t('track.detail.removeBranchFailed'), 'error');
     }
-  }, [trackId, itemsByBranchId]);
+  }, [trackId, itemsByBranchId, t]);
 
   // -- Items handlers -----------------------------------------------------
 
@@ -270,7 +272,7 @@ export default function TrackDetail() {
         });
         if (!res.data.status) {
           const err = getError(res.data);
-          const msg = errorText(err.code, err.category) ?? 'Task 추가 실패';
+          const msg = errorText(err.code, err.category) ?? t('track.detail.addTaskFailed');
           window.dispatchEvent(new CustomEvent('toast', {
             detail: {
               message: msg,
@@ -292,7 +294,7 @@ export default function TrackDetail() {
       } catch {}
     });
     dropQueueRef.current = next;
-  }, [trackId]);
+  }, [trackId, t]);
 
   const flushPositionsNow = useCallback(async () => {
     if (pendingPositions.current.size === 0) return;
@@ -332,10 +334,10 @@ export default function TrackDetail() {
       // 롤백 + 사용자 알림
       if (snapshot) setItems(snapshot);
       window.dispatchEvent(new CustomEvent('toast', {
-        detail: { message: 'Item 삭제 실패. 다시 시도해주세요.', type: 'error' },
+        detail: { message: t('track.detail.deleteItemFailed'), type: 'error' },
       }));
     }
-  }, [trackId, selectedItemId]);
+  }, [trackId, selectedItemId, t]);
 
   const handleLinkCreate = useCallback(async (sourceItemId, targetItemId) => {
     if (sourceItemId === targetItemId) return;
@@ -356,7 +358,7 @@ export default function TrackDetail() {
       });
       if (!res.data.status) {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '자기 자신과 연결할 수 없어요';
+        const msg = errorText(err.code, err.category) ?? t('track.detail.selfLinkFailed');
         window.dispatchEvent(new CustomEvent('toast', {
           detail: {
             message: msg,
@@ -370,17 +372,18 @@ export default function TrackDetail() {
       if (linksRes.data.status) setLinks(linksRes.data.links);
       // materialize 요청했는데 서버에서 skip된 경우 사유별 안내
       if (materializeOnCreate && edgeType === 'flow_to' && !res.data.materialized && res.data.created) {
-        const reasonText = {
-          CIRCULAR: '순환 의존 가능성 — draft link로 저장됨',
-          BRANCH_PERMISSION: 'source/target branch 비멤버 — draft link로 저장됨',
-          NOT_TASK_REF: 'task 참조가 아닌 item은 의존성으로 만들 수 없어요',
-        }[res.data.skip_reason] || 'Materialize 안 됨 — draft link';
+        const reasonKey = {
+          CIRCULAR: 'track.detail.materializeSkipCircular',
+          BRANCH_PERMISSION: 'track.detail.materializeSkipPermission',
+          NOT_TASK_REF: 'track.detail.materializeSkipNotTask',
+        }[res.data.skip_reason] || 'track.detail.materializeSkipDefault';
+        const reasonText = t(reasonKey);
         window.dispatchEvent(new CustomEvent('toast', {
           detail: { message: reasonText, type: 'info' },
         }));
       }
     } catch {}
-  }, [trackId, links, edgeType, materializeOnCreate]);
+  }, [trackId, links, edgeType, materializeOnCreate, t]);
 
   const handleLinkDelete = useCallback(async (linkId) => {
     let snapshot;
@@ -394,21 +397,21 @@ export default function TrackDetail() {
     } catch {
       if (snapshot) setLinks(snapshot);
       window.dispatchEvent(new CustomEvent('toast', {
-        detail: { message: 'Link 삭제 실패', type: 'error' },
+        detail: { message: t('track.detail.deleteLinkFailed'), type: 'error' },
       }));
     }
-  }, [trackId]);
+  }, [trackId, t]);
 
   // -- 렌더 ----------------------------------------------------------------
   if (loading) {
-    return <div className="Track Track--loading">Loading…</div>;
+    return <div className="Track Track--loading">{t('common.state.loading')}</div>;
   }
   if (notFound || !track) {
     return (
       <div className="Track Track--notfound">
-        <div className="Track__NotFoundTitle">Track not found</div>
+        <div className="Track__NotFoundTitle">{t('track.detail.notFound')}</div>
         <button className="Track__NotFoundBack" onClick={() => router.push('/tracks')}>
-          ← Back to Tracks
+          ← {t('track.detail.backToTracks')}
         </button>
       </div>
     );

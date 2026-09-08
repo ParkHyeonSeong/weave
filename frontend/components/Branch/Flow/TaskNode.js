@@ -2,9 +2,12 @@ import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import Avatar from '@/components/common/Avatar';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 function TaskNode({ data }) {
   const { displayId, title, statusColor, statusLabel, taskType, dueDate, assignee } = data;
+  // dueDate는 date-only다 — timezone 변환 없이 컴포넌트 그대로 표시한다.
+  const { formatDateOnlyShort } = useDateFormat();
 
   return (
     <div className="TaskNode__Card">
@@ -21,7 +24,7 @@ function TaskNode({ data }) {
           <div className="TaskNode__FooterRight">
             {dueDate && (
               <span className="TaskNode__DueDate">
-                {new Date(dueDate + 'T00:00:00').toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
+                {formatDateOnlyShort(dueDate)}
               </span>
             )}
             {assignee && (

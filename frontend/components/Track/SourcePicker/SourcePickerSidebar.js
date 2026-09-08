@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, ChevronDown, ChevronRight, GripVertical, Plus, Filter, Calendar, Zap, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import EntityIcon from '@/components/common/EntityIcon';
@@ -13,6 +14,7 @@ const flattenTasks = (tasks) => tasks.flatMap((t) => [t, ...(t.subtasks || [])])
 export default function SourcePickerSidebar({
   trackId, onBulkAdd, onUnparticipateBranch, reloadKey,
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [tree, setTree] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,15 +72,15 @@ export default function SourcePickerSidebar({
   const filteredTree = useMemo(() => {
     if (!debouncedQ.trim()) return tree;
     const needle = debouncedQ.toLowerCase();
-    const matchTask = (t) =>
-      t.title.toLowerCase().includes(needle)
-      || t.display_id.toLowerCase().includes(needle);
+    const matchTask = (task) =>
+      task.title.toLowerCase().includes(needle)
+      || task.display_id.toLowerCase().includes(needle);
     // 부모 매칭 → 하위 전부 유지. 하위만 매칭 → 부모를 컨텍스트로 강등(dim, 드래그 억제).
     const filterTasks = (list) => list
-      .map((t) => {
-        const matchedSubs = (t.subtasks || []).filter(matchTask);
-        if (matchTask(t)) return t;
-        if (matchedSubs.length > 0) return { ...t, subtasks: matchedSubs, contextOnly: true };
+      .map((task) => {
+        const matchedSubs = (task.subtasks || []).filter(matchTask);
+        if (matchTask(task)) return task;
+        if (matchedSubs.length > 0) return { ...task, subtasks: matchedSubs, contextOnly: true };
         return null;
       })
       .filter(Boolean);
@@ -127,23 +129,23 @@ export default function SourcePickerSidebar({
   const totalNew = filteredTree.reduce(
     (sum, b) =>
       sum
-      + b.sprints.reduce((s, sp) => s + flattenTasks(sp.tasks).filter((t) => !t.in_track && !t.contextOnly).length, 0)
-      + b.epics.reduce((s, ep) => s + flattenTasks(ep.tasks).filter((t) => !t.in_track && !t.contextOnly).length, 0),
+      + b.sprints.reduce((s, sp) => s + flattenTasks(sp.tasks).filter((task) => !task.in_track && !task.contextOnly).length, 0)
+      + b.epics.reduce((s, ep) => s + flattenTasks(ep.tasks).filter((task) => !task.in_track && !task.contextOnly).length, 0),
     0,
   );
 
   return (
     <aside className="SourcePicker">
       <div className="SourcePicker__Head">
-        <span className="SourcePicker__HeadLabel">Sources</span>
+        <span className="SourcePicker__HeadLabel">{t('trackSettings.sourcePicker.sources')}</span>
         <div className="SourcePicker__HeadActions" ref={addMenuRef}>
           <button
             className={`SourcePicker__AddBtn ${addMenuOpen ? 'SourcePicker__AddBtn--open' : ''}`}
             onClick={() => setAddMenuOpen((p) => !p)}
-            title="Bulk add"
+            title={t('trackSettings.sourcePicker.bulkAdd')}
           >
             <Plus size={12} />
-            <span>Add by</span>
+            <span>{t('trackSettings.sourcePicker.addBy')}</span>
             <ChevronDown size={11} className="SourcePicker__AddCaret" />
           </button>
           {addMenuOpen && (
@@ -154,8 +156,8 @@ export default function SourcePickerSidebar({
               >
                 <Zap size={13} />
                 <div className="SourcePicker__AddMenuText">
-                  <span className="SourcePicker__AddMenuLabel">Epic</span>
-                  <span className="SourcePicker__AddMenuHint">한 epic의 모든 task</span>
+                  <span className="SourcePicker__AddMenuLabel">{t('trackSettings.sourcePicker.epic')}</span>
+                  <span className="SourcePicker__AddMenuHint">{t('trackSettings.sourcePicker.epicHint')}</span>
                 </div>
               </button>
               <button
@@ -164,8 +166,8 @@ export default function SourcePickerSidebar({
               >
                 <Calendar size={13} />
                 <div className="SourcePicker__AddMenuText">
-                  <span className="SourcePicker__AddMenuLabel">Sprint</span>
-                  <span className="SourcePicker__AddMenuHint">sprint의 task 일괄</span>
+                  <span className="SourcePicker__AddMenuLabel">{t('trackSettings.sourcePicker.sprint')}</span>
+                  <span className="SourcePicker__AddMenuHint">{t('trackSettings.sourcePicker.sprintHint')}</span>
                 </div>
               </button>
               <button
@@ -174,8 +176,8 @@ export default function SourcePickerSidebar({
               >
                 <Filter size={13} />
                 <div className="SourcePicker__AddMenuText">
-                  <span className="SourcePicker__AddMenuLabel">Filter</span>
-                  <span className="SourcePicker__AddMenuHint">조건에 맞는 task</span>
+                  <span className="SourcePicker__AddMenuLabel">{t('trackSettings.sourcePicker.filter')}</span>
+                  <span className="SourcePicker__AddMenuHint">{t('trackSettings.sourcePicker.filterHint')}</span>
                 </div>
               </button>
             </div>
@@ -188,7 +190,7 @@ export default function SourcePickerSidebar({
         <input
           type="text"
           className="SourcePicker__SearchInput"
-          placeholder="Search tasks…"
+          placeholder={t('trackSettings.sourcePicker.searchPlaceholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -196,18 +198,22 @@ export default function SourcePickerSidebar({
 
       <div className="SourcePicker__Tree">
         {loading && tree.length === 0 && (
-          <div className="SourcePicker__Empty">Loading…</div>
+          <div className="SourcePicker__Empty">{t('common.state.loading')}</div>
         )}
         {!loading && tree.length === 0 && (
           <div className="SourcePicker__Empty">
-            <div className="SourcePicker__EmptyTitle">아직 비어 있어요</div>
+            <div className="SourcePicker__EmptyTitle">{t('trackSettings.sourcePicker.emptyTitle')}</div>
             <div className="SourcePicker__EmptyHint">
-              위의 <strong>Add by</strong>로 Sprint/Epic/Filter에서 가져오세요.
+              {t('trackSettings.sourcePicker.emptyHintBefore')}{' '}
+              <strong>{t('trackSettings.sourcePicker.addBy')}</strong>
+              {t('trackSettings.sourcePicker.emptyHintAfter')}
             </div>
           </div>
         )}
         {!loading && tree.length > 0 && filteredTree.length === 0 && (
-          <div className="SourcePicker__Empty">No matches for &ldquo;{query}&rdquo;</div>
+          <div className="SourcePicker__Empty">
+            {t('trackSettings.sourcePicker.noMatches', { query })}
+          </div>
         )}
 
         {filteredTree.map((branch) => {
@@ -244,8 +250,8 @@ export default function SourcePickerSidebar({
                       e.stopPropagation();
                       onUnparticipateBranch(branch.branch_id, branch.branch_name);
                     }}
-                    title="Track에서 이 branch 통째로 빼기 (모든 item도 함께)"
-                    aria-label="Remove branch from track"
+                    title={t('trackSettings.sourcePicker.unparticipateTitle')}
+                    aria-label={t('trackSettings.branches.removeConfirmTitle')}
                   >
                     <X size={11} />
                   </button>
@@ -260,7 +266,7 @@ export default function SourcePickerSidebar({
                       groupKey={`sprint:${sprint.sprint_id}`}
                       icon={<Calendar size={11} />}
                       title={sprint.sprint_name}
-                      hint={sprint.status === 'active' ? 'active' : null}
+                      hint={sprint.status === 'active' ? t('trackSettings.sourcePicker.activeHint') : null}
                       tasks={sprint.tasks}
                       branchColor={branch.branch_color}
                       isOpen={openGroups.has(`sprint:${sprint.sprint_id}`)}
@@ -291,7 +297,7 @@ export default function SourcePickerSidebar({
       {totalAccessible > 0 && (
         <div className="SourcePicker__Foot">
           <span className="SourcePicker__FootHint">
-            {totalNew} of {totalAccessible} draggable
+            {t('trackSettings.sourcePicker.draggableCount', { newCount: totalNew, total: totalAccessible })}
           </span>
         </div>
       )}
@@ -338,10 +344,13 @@ function ScopeGroup({ groupKey, icon, title, hint, tasks, branchColor, isOpen, o
 }
 
 function TaskRow({ task, branchColor, depth = 0, contextOnly = false, onDragStart }) {
+  const { t } = useTranslation();
   const draggable = !task.in_track && !contextOnly;
   const rowTitle = contextOnly
-    ? '검색된 하위태스크의 부모 (컨텍스트)'
-    : task.in_track ? '이미 캔버스에 있음' : '드래그하여 캔버스에 추가';
+    ? t('trackSettings.sourcePicker.rowContextParent')
+    : task.in_track
+      ? t('trackSettings.sourcePicker.rowAlreadyOnCanvas')
+      : t('trackSettings.sourcePicker.rowDragToAdd');
   return (
     <div
       className={[
@@ -360,7 +369,7 @@ function TaskRow({ task, branchColor, depth = 0, contextOnly = false, onDragStar
       <span className="SourcePicker__TaskBranchBar" style={{ background: branchColor }} />
       <span className="SourcePicker__TaskId">{task.display_id}</span>
       <span className="SourcePicker__TaskTitle">{task.title}</span>
-      {task.in_track && <span className="SourcePicker__TaskBadge">on canvas</span>}
+      {task.in_track && <span className="SourcePicker__TaskBadge">{t('trackSettings.sourcePicker.onCanvas')}</span>}
     </div>
   );
 }
@@ -368,8 +377,8 @@ function TaskRow({ task, branchColor, depth = 0, contextOnly = false, onDragStar
 function useDebounced(value, ms) {
   const [v, setV] = useState(value);
   useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(timer);
   }, [value, ms]);
   return v;
 }

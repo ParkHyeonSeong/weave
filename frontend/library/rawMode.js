@@ -7,6 +7,7 @@ import { taskRefPluginKey } from '@/components/Canvas/extensions/TaskRefExtensio
 import { REF_OFF } from '@/components/Canvas/extensions/refSuggestion';
 import { mathEditPluginKey, MATH_EDIT_OFF } from '@/components/Canvas/extensions/MathEditExtension';
 import { mentionPluginKey, MENTION_OFF } from '@/components/Canvas/extensions/MentionExtension';
+import i18next from '@/library/i18n';
 
 // raw 진입 시 열려 있는 제안 팝업(슬래시 메뉴/taskRef 검색/수식 편집/멘션)을 닫는다.
 // 이 플러그인들은 view.update()에서만 팝업을 destroy하는데, update()는 tr이
@@ -33,21 +34,22 @@ export function closeEditorPopups(editor) {
   if (tr) editor.view.dispatch(tr);
 }
 
-// findUnsupportedFormatting 키 → 사용자 표시 라벨 (모르는 키는 키 그대로 노출)
+// findUnsupportedFormatting 키 → 사용자 표시 라벨의 catalog 키 (모르는 키는 키 그대로 노출)
 // underline은 ++text++로 무손실 왕복해 flag되지 않으므로 라벨도 없다 (markdownCodec.js 참조)
-const UNSUPPORTED_LABELS = {
-  color: '글자색',
-  highlightColor: '형광펜 색',
-  textAlign: '정렬',
-  imageWidth: '이미지 크기',
-  cellBackground: '셀 배경',
+const UNSUPPORTED_LABEL_KEYS = {
+  color: 'misc.rawMode.unsupported.color',
+  highlightColor: 'misc.rawMode.unsupported.highlightColor',
+  textAlign: 'misc.rawMode.unsupported.textAlign',
+  imageWidth: 'misc.rawMode.unsupported.imageWidth',
+  cellBackground: 'misc.rawMode.unsupported.cellBackground',
 };
 
 // 손실 경고 배지 문구. 경고 없으면 null.
+// React 밖에서도 불릴 수 있어 훅이 아니라 i18next 인스턴스를 직접 읽는다(errorText.js와 같은 규약).
 export function formatUnsupportedWarning(keys) {
   if (!keys || keys.length === 0) return null;
-  const labels = keys.map((k) => UNSUPPORTED_LABELS[k] || k);
-  return `일부 서식(${labels.join(', ')})은 markdown으로 표현되지 않아 단순화됩니다`;
+  const labels = keys.map((k) => (UNSUPPORTED_LABEL_KEYS[k] ? i18next.t(UNSUPPORTED_LABEL_KEYS[k]) : k));
+  return i18next.t('misc.rawMode.unsupportedWarning', { items: labels.join(', ') });
 }
 
 // WYSIWYG → raw 진입: 현재 doc의 markdown + md 미표현 서식 경고 키

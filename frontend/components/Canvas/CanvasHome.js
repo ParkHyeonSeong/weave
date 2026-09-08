@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { FileText, FileEdit, Star } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -12,25 +12,16 @@ import HomeEmptyState from '@/components/Home/shared/HomeEmptyState';
 import AppCard, { AvatarSet } from '@/components/Home/shared/AppCard';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import useHomeListControls from '@/library/useHomeListControls';
-import { byTextAsc, byNumberDesc, byDateDesc, ROLE_GROUP } from '@/library/homeListControls';
+import { byTextAsc, byNumberDesc, byDateDesc, roleGroup } from '@/library/homeListControls';
 import useContextMenu from '@/components/common/useContextMenu';
 import ContextMenu from '@/components/common/ContextMenu';
 import { buildSpaceMenu } from '@/components/Layout/spaceMenu';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { showToast } from '@/components/Layout/Toast';
+import { useTranslation } from 'react-i18next';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 const DEFAULT_DOC_COLOR = '#16A34A';
-
-const getRelativeTime = (dateStr) => {
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return '방금 전';
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  if (diff < 172800) return '어제';
-  return `${Math.floor(diff / 86400)}일 전`;
-};
 
 const getMyName = () => {
   try {
@@ -55,40 +46,43 @@ const tintOf = (hex) => {
 const createCanvas = () => window.dispatchEvent(new CustomEvent('layout:create-canvas'));
 const openCommandPalette = () => window.dispatchEvent(new CustomEvent('layout:open-search'));
 
-const CANVAS_CONTROLS = {
+const buildCanvasControls = (t) => ({
   appKey: 'canvas',
   hiddenApp: 'canvases',
   idField: 'canvas_id',
   queryFields: ['canvas_name'],
   defaultView: 'grid',
   sortOptions: [
-    { key: 'edited', label: '최근 편집순', compare: byDateDesc('last_edited_at') },
-    { key: 'name', label: '이름순', compare: byTextAsc('canvas_name') },
-    { key: 'created', label: '최근 생성순', compare: byDateDesc('created_at') },
-    { key: 'pages', label: '페이지순', compare: byNumberDesc('page_count') },
+    { key: 'edited', label: t('canvas.home.sortEdited'), compare: byDateDesc('last_edited_at') },
+    { key: 'name', label: t('canvas.home.sortName'), compare: byTextAsc('canvas_name') },
+    { key: 'created', label: t('canvas.home.sortCreated'), compare: byDateDesc('created_at') },
+    { key: 'pages', label: t('canvas.home.sortPages'), compare: byNumberDesc('page_count') },
   ],
   filterConfig: {
     groups: [
-      ROLE_GROUP,
+      roleGroup(t),
       {
-        key: 'link', label: '브랜치 연결', options: [
-          { value: 'all', label: '전체', test: () => true },
-          { value: 'linked', label: '연결됨', test: (it) => it.branch_id != null },
-          { value: 'standalone', label: '독립', test: (it) => it.branch_id == null },
+        key: 'link', label: t('canvas.home.filterLinkLabel'), options: [
+          { value: 'all', label: t('canvas.home.filterLinkAll'), test: () => true },
+          { value: 'linked', label: t('canvas.home.filterLinkLinked'), test: (it) => it.branch_id != null },
+          { value: 'standalone', label: t('canvas.home.filterLinkStandalone'), test: (it) => it.branch_id == null },
         ],
       },
     ],
     showHidden: true,
   },
-};
+});
 
 export default function CanvasHome() {
+  const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const router = useRouter();
   const { isHidden, hide, unhide } = useUiPrefs();
   const ctx = useContextMenu();
   const [leaveTarget, setLeaveTarget] = useState(null);
   const [canvases, setCanvases] = useState([]);
-  const { processed, view, query, toolbarProps } = useHomeListControls(CANVAS_CONTROLS, canvases);
+  const canvasControls = useMemo(() => buildCanvasControls(t), [t]);
+  const { processed, view, query, toolbarProps } = useHomeListControls(canvasControls, canvases);
   const [recentDocs, setRecentDocs] = useState([]);
   const [starredDocs, setStarredDocs] = useState([]);
   const [stats, setStats] = useState(null);
@@ -160,22 +154,21 @@ export default function CanvasHome() {
             if (res.data.status) {
               fetchCanvases();
               window.dispatchEvent(new Event('canvas:created'));
-              showToast(`"${c.canvas_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: c.canvas_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id, name: c.canvas_name }),
-      },
-    ));
+      }, t));
   };
 
   const stripDocs = activeTab === 'starred' ? starredDocs : recentDocs;
   const stripItems = stripDocs.map((it) => ({
     title: it.title,
     dotColor: it.color || DEFAULT_DOC_COLOR,
-    meta: `${it.canvas_name} · ${getRelativeTime(it.viewed_at || it.starred_at)}`,
+    meta: `${it.canvas_name} · ${formatRelative(it.viewed_at || it.starred_at)}`,
     href: `/canvas/${it.canvas_id}/${it.page_id}`,
   }));
 
@@ -183,23 +176,23 @@ export default function CanvasHome() {
     <>
     <div className="HomeMain">
       <HomeHero
-        greeting={me ? <>안녕하세요, {me}님 👋</> : <>문서 작업을 이어가 볼까요 👋</>}
+        greeting={me ? t('canvas.home.greeting', { name: me }) : t('canvas.home.greetingAnonymous')}
         summary={stats && (
           <>
-            이번 주 편집 <b>{stats.edited_this_week}</b> · 별표{' '}
+            {t('canvas.home.summaryEdited')} <b>{stats.edited_this_week}</b> · {t('canvas.home.summaryStarred')}{' '}
             <b>{stats.starred_count}</b>
           </>
         )}
         actions={
           <>
             <button className="HBtn HBtn--sm" onClick={openCommandPalette}>
-              ⌘K 빠른 이동
+              {t('canvas.home.quickJump')}
             </button>
             <button className="HBtn HBtn--sm" onClick={() => router.push('/canvas/archive')}>
-              🗄 보관함
+              {t('canvas.home.archive')}
             </button>
             <button className="HBtn HBtn--pri HBtn--sm" onClick={createCanvas}>
-              ＋ 새 문서
+              {t('canvas.home.newDoc')}
             </button>
           </>
         }
@@ -208,30 +201,30 @@ export default function CanvasHome() {
       <StatTiles
         loading={!stats}
         tiles={stats ? [
-          { icon: <FileText size={16} />, label: '전체 문서', value: stats.total_docs, tone: 'doc' },
-          { icon: <FileEdit size={16} />, label: '이번 주 편집', value: stats.edited_this_week, tone: 'primary' },
-          { icon: <Star size={16} />, label: '별표 문서', value: stats.starred_count, tone: 'warn' },
+          { icon: <FileText size={16} />, label: t('canvas.home.statTotalDocs'), value: stats.total_docs, tone: 'doc' },
+          { icon: <FileEdit size={16} />, label: t('canvas.home.statEditedThisWeek'), value: stats.edited_this_week, tone: 'primary' },
+          { icon: <Star size={16} />, label: t('canvas.home.statStarredDocs'), value: stats.starred_count, tone: 'warn' },
         ] : []}
       />
 
       <ContinueStrip
-        title="이어서 작업하기"
+        title={t('canvas.home.continueTitle')}
         tabs={[
-          { key: 'recent', label: '최근' },
-          { key: 'starred', label: '별표' },
+          { key: 'recent', label: t('canvas.home.tabRecent') },
+          { key: 'starred', label: t('canvas.home.tabStarred') },
         ]}
         activeTab={activeTab}
         onTab={setActiveTab}
         loading={loading}
         items={stripItems}
-        emptyText={activeTab === 'starred' ? '별표한 문서가 없습니다' : '최근 본 문서가 없습니다'}
+        emptyText={activeTab === 'starred' ? t('canvas.home.emptyStarred') : t('canvas.home.emptyRecent')}
       />
 
       <div className="HomeDivider" />
 
       <HomeToolbar
-        count={`캔버스 ${processed.length}`}
-        placeholder="문서·캔버스 검색…"
+        count={t('canvas.home.canvasCount', { count: processed.length })}
+        placeholder={t('canvas.home.searchPlaceholder')}
         {...toolbarProps}
       />
 
@@ -240,13 +233,13 @@ export default function CanvasHome() {
       ) : processed.length === 0 ? (
         <HomeEmptyState
           icon={<FileText size={26} />}
-          title={canvases.length === 0 ? '아직 캔버스가 없어요' : (query.trim() ? '검색 결과 없음' : '표시할 캔버스가 없어요')}
+          title={canvases.length === 0 ? t('canvas.home.emptyTitle') : (query.trim() ? t('canvas.home.emptyNoResults') : t('canvas.home.emptyNoneToShow'))}
           desc={
             canvases.length === 0
-              ? '캔버스를 만들어 문서 작업을 시작하세요.'
-              : `"${query}"에 맞는 캔버스가 없습니다.`
+              ? t('canvas.home.emptyDesc')
+              : t('canvas.home.emptyQueryDesc', { query })
           }
-          ctaLabel={canvases.length === 0 ? '＋ 새 캔버스' : undefined}
+          ctaLabel={canvases.length === 0 ? t('canvas.home.emptyCta') : undefined}
           onCta={createCanvas}
         />
       ) : (
@@ -268,12 +261,12 @@ export default function CanvasHome() {
                 </div>
               </div>
               <div className="HCard__Foot">
-                <span className="HChip HChip--doc">{c.page_count ?? 0} 페이지</span>
+                <span className="HChip HChip--doc">{t('canvas.home.pageCount', { count: c.page_count ?? 0 })}</span>
                 <AvatarSet members={c.contributors || []} />
               </div>
               {c.last_edited_at && (
                 <div className="CanvasHome__Edited">
-                  {getRelativeTime(c.last_edited_at)} 편집
+                  {t('canvas.home.editedAgo', { time: formatRelative(c.last_edited_at) })}
                 </div>
               )}
             </AppCard>
@@ -287,21 +280,21 @@ export default function CanvasHome() {
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/canvases/${t.id}/leave`);
+            const res = await axios.post(`/canvases/${target.id}/leave`);
             if (res.data.status) {
               fetchCanvases();
               window.dispatchEvent(new Event('canvas:created'));
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="캔버스 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveCanvasTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

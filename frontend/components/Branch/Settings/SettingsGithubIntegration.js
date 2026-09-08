@@ -3,8 +3,10 @@ import { Github, Plus, Power, Trash2 } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 export default function SettingsGithubIntegration({ branchId, isAdmin }) {
+  const { t } = useTranslation();
   const [integrations, setIntegrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -43,10 +45,10 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
         await fetchIntegrations();
       } else {
         const code = getErrorCode(res.data);
-        setErr(errorText(code, res.data.category) || '연결에 실패했어요.');
+        setErr(errorText(code, res.data.category) || t('branch2.github.connectFailed'));
       }
     } catch {
-      setErr('연결에 실패했어요.');
+      setErr(t('branch2.github.connectFailed'));
     }
     setSaving(false);
   };
@@ -71,7 +73,7 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
   };
 
   if (loading) {
-    return <div className="SettingsGithub__Empty">Loading…</div>;
+    return <div className="SettingsGithub__Empty">{t('common.state.loading')}</div>;
   }
 
   return (
@@ -79,39 +81,40 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
       <div className="SettingsGithub__Intro">
         <Github size={16} />
         <span>
-          GitHub repo를 연결하면 PR의 <code>{'<KEY>-<번호>'}</code> 참조로 태스크가 자동
-          연결되고, PR 열림→진행 중·머지→완료로 상태가 전환돼요.
+          {t('branch2.github.introBefore')}{' '}
+          <code>{t('branch2.github.introCode')}</code>{' '}
+          {t('branch2.github.introAfter')}
         </span>
       </div>
 
       {integrations.length === 0 ? (
-        <div className="SettingsGithub__Empty">연결된 repo가 없어요.</div>
+        <div className="SettingsGithub__Empty">{t('branch2.github.noRepos')}</div>
       ) : (
         <div className="SettingsGithub__List">
           {integrations.map((it) => (
             <div key={it.integration_id} className="SettingsGithub__Item">
               <div className="SettingsGithub__ItemInfo">
                 <span className="SettingsGithub__Repo">{it.repo_full_name}</span>
-                <span className="SettingsGithub__InstId">installation #{it.installation_id}</span>
+                <span className="SettingsGithub__InstId">{t('branch2.github.installationId', { id: it.installation_id })}</span>
               </div>
               <span
                 className={`SettingsGithub__State ${it.enabled ? 'SettingsGithub__State--on' : 'SettingsGithub__State--off'}`}
               >
-                {it.enabled ? 'Enabled' : 'Disabled'}
+                {it.enabled ? t('branch2.github.enabled') : t('branch2.github.disabled')}
               </span>
               {isAdmin && (
                 <div className="SettingsGithub__ItemActions">
                   <button
                     className="SettingsGithub__ActionBtn"
                     onClick={() => handleToggle(it)}
-                    title={it.enabled ? 'Disable' : 'Enable'}
+                    title={it.enabled ? t('branch2.github.disable') : t('branch2.github.enable')}
                   >
                     <Power size={14} />
                   </button>
                   <button
                     className="SettingsGithub__ActionBtn SettingsGithub__ActionBtn--danger"
                     onClick={() => handleDisconnect(it)}
-                    title="Disconnect"
+                    title={t('branch2.github.disconnect')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -135,7 +138,7 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
               className="SettingsGithub__Input"
               value={installationId}
               onChange={(e) => setInstallationId(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="installation_id (숫자)"
+              placeholder={t('branch2.github.installationIdPlaceholder')}
               inputMode="numeric"
             />
             <a
@@ -144,7 +147,7 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              installation_id는 GitHub App 설치 페이지 URL의 숫자예요 →
+              {t('branch2.github.installationIdHint')}
             </a>
             {err && <span className="SettingsGithub__Error">{err}</span>}
             <div className="SettingsGithub__AddActions">
@@ -153,20 +156,20 @@ export default function SettingsGithubIntegration({ branchId, isAdmin }) {
                 onClick={handleConnect}
                 disabled={!repo.trim() || !installationId.trim() || saving}
               >
-                {saving ? 'Connecting…' : 'Connect'}
+                {saving ? t('branch2.github.connecting') : t('branch2.github.connect')}
               </button>
               <button
                 className="SettingsGithub__CancelBtn"
                 onClick={() => { setShowAdd(false); setErr(''); }}
               >
-                Cancel
+                {t('common.actions.cancel')}
               </button>
             </div>
           </div>
         ) : (
           <button className="SettingsGithub__AddBtn" onClick={() => setShowAdd(true)}>
             <Plus size={14} />
-            Connect a repository
+            {t('branch2.github.connectRepository')}
           </button>
         )
       )}

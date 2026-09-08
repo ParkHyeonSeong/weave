@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,15 +7,15 @@ from core.model import scrum_board as board_model
 from core.model import scrum_retro as retro_model
 from core.model import scrum_week as week_model
 from library.scrum_cells import cell_has_content
-
-KST = timezone(timedelta(hours=9))
+from library.time_context import workspace_today
 
 
 async def home_cards(request: Request, db: AsyncSession):
     """홈 조건부 카드: 오늘 미작성 보드 + 회고 due 보드."""
     user_id = request.state.payload.get('user_id')
-    today = datetime.now(KST).date()
-    return await collect_cards(user_id, today, db)
+    # 공용 기간이므로 workspace timezone. 같은 board를 보는 서울/뉴욕 구성원이 같은 주차와
+    # 같은 '오늘 미작성' 판정을 받아야 한다.
+    return await collect_cards(user_id, await workspace_today(db), db)
 
 
 async def collect_cards(user_id: int, today: date, db: AsyncSession):

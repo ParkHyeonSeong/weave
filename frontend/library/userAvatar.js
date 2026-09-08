@@ -2,6 +2,10 @@
 // - avatarInitials: free-form 이름에서 1~2글자 이니셜(한글 성 제외 등)
 // - userColor: user_id를 안정적으로 같은 색에 매핑
 // 여러 컴포넌트에서 반복되던 패턴을 한 군데로 모았음.
+//
+// 이름 없는 사용자 fallback 문구는 React 밖(Y.js 커서 DOM 빌더)에서도 필요하므로
+// 훅이 아니라 i18next 인스턴스를 직접 읽는다(errorText.js와 같은 규약).
+import i18next from '@/library/i18n';
 
 // 모든 색이 흰 텍스트와 WCAG AA(4.5:1) 이상 대비를 갖도록 어두운 톤으로 선정.
 // 7 -> 12색 확대로 userId 해시 충돌 빈도를 낮춤.
@@ -86,7 +90,7 @@ export function avatarMarkup(user, baseUrl = '') {
   const override = u.avatar_color ?? u.color ?? null;
   return {
     name,
-    title: name || 'Unknown',
+    title: name || i18next.t('misc.avatar.unknownUser'),
     initials: avatarInitials(name),
     color: userColor(id, override),
     src: url ? `${baseUrl}${url}` : null,

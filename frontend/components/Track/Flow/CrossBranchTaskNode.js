@@ -4,16 +4,16 @@ import { CalendarDays, Layers, X, ListTree } from 'lucide-react';
 import EntityIcon from '@/components/common/EntityIcon';
 import Avatar from '@/components/common/Avatar';
 import { entityTintStyle } from '@/library/entityTint';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { useTranslation } from 'react-i18next';
 
-function formatDue(date) {
-  if (!date) return null;
-  const d = new Date(date);
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  return `${month}/${day}`;
-}
+// dueDate는 date-only다 — new Date('YYYY-MM-DD')는 UTC 자정 instant라 음수 offset(미주)에서
+// 하루 전으로 렌더된다. 표시는 useDateFormat().formatDateOnly로만.
+const DUE_OPTS = { month: 'numeric', day: 'numeric' };
 
 const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }) {
+  const { t } = useTranslation();
+  const { formatDateOnly } = useDateFormat();
   const {
     displayId, title, status, statusLabel, statusColor,
     priority, branchKey, branchName, branchColor, branchIcon,
@@ -40,8 +40,8 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
             e.stopPropagation();
             onDelete(itemId);
           }}
-          title="Remove from track"
-          aria-label="Remove from track"
+          title={t('track.actions.removeFromTrack')}
+          aria-label={t('track.actions.removeFromTrack')}
         >
           <X size={11} />
         </button>
@@ -80,7 +80,10 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
           <span className="TrackNode__StatusLabel">{statusLabel}</span>
         </span>
         {subtaskTotal > 0 && (
-          <span className="TrackNode__SubProgress" title={`하위 ${subtaskDone}/${subtaskTotal} 완료`}>
+          <span
+            className="TrackNode__SubProgress"
+            title={t('track.node.subtaskProgress', { done: subtaskDone, total: subtaskTotal })}
+          >
             <ListTree size={10} />
             {subtaskDone}/{subtaskTotal}
           </span>
@@ -89,7 +92,7 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
         {dueDate && (
           <span className="TrackNode__Due">
             <CalendarDays size={11} />
-            {formatDue(dueDate)}
+            {formatDateOnly(dueDate, DUE_OPTS)}
           </span>
         )}
         {assignees && assignees.length > 0 && (
@@ -104,7 +107,7 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
       {otherTracksCount > 0 && (
         <div className="TrackNode__OtherTracks">
           <Layers size={10} />
-          <span>also in {otherTracksCount}</span>
+          <span>{t('track.node.alsoIn', { n: otherTracksCount })}</span>
         </div>
       )}
 

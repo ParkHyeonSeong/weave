@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { X, Globe, Lock } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode } from '@/library/errorCode';
+import { useTranslation } from 'react-i18next';
 
 export default function CreateCanvas({ onClose }) {
+  const { t } = useTranslation();
   const [canvasName, setCanvasName] = useState('');
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
@@ -35,10 +37,10 @@ export default function CreateCanvas({ onClose }) {
         window.dispatchEvent(new Event('canvas:created'));
         onClose();
       } else if (getErrorCode(res.data) === 'KEY_ALREADY_EXISTS') {
-        setError('This key is already in use.');
+        setError(t('errors.KEY_ALREADY_EXISTS'));
       }
     } catch {
-      setError('Failed to create canvas.');
+      setError(t('modal.createCanvas.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function CreateCanvas({ onClose }) {
     <div className="CreateCanvas__Backdrop" onClick={onClose}>
       <form className="CreateCanvas" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="CreateCanvas__Header">
-          <h2 className="CreateCanvas__Title">Create Canvas</h2>
+          <h2 className="CreateCanvas__Title">{t('modal.createCanvas.title')}</h2>
           <button type="button" className="CreateCanvas__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -56,11 +58,11 @@ export default function CreateCanvas({ onClose }) {
 
         <div className="CreateCanvas__Body">
           <div className="CreateCanvas__Field">
-            <label className="CreateCanvas__Label">Canvas name</label>
+            <label className="CreateCanvas__Label">{t('modal.createCanvas.nameLabel')}</label>
             <input
               className="CreateCanvas__Input"
               type="text"
-              placeholder="e.g. Product Docs, Team Wiki"
+              placeholder={t('modal.createCanvas.namePlaceholder')}
               value={canvasName}
               onChange={(e) => setCanvasName(e.target.value)}
               autoFocus
@@ -68,24 +70,24 @@ export default function CreateCanvas({ onClose }) {
           </div>
 
           <div className="CreateCanvas__Field">
-            <label className="CreateCanvas__Label">Key</label>
+            <label className="CreateCanvas__Label">{t('modal.fields.key')}</label>
             <input
               className="CreateCanvas__Input CreateCanvas__Input--key"
               type="text"
-              placeholder="e.g. DOC, WIKI"
+              placeholder={t('modal.createCanvas.keyPlaceholder')}
               value={key}
               onChange={handleKeyChange}
             />
             <span className="CreateCanvas__Hint">
-              2-10 uppercase letters/numbers, starting with a letter
+              {t('modal.createCanvas.keyHint')}
             </span>
           </div>
 
           <div className="CreateCanvas__Field">
-            <label className="CreateCanvas__Label">Description</label>
+            <label className="CreateCanvas__Label">{t('modal.fields.description')}</label>
             <textarea
               className="CreateCanvas__Textarea"
-              placeholder="What is this canvas about?"
+              placeholder={t('modal.createCanvas.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -93,7 +95,7 @@ export default function CreateCanvas({ onClose }) {
           </div>
 
           <div className="CreateCanvas__Field">
-            <label className="CreateCanvas__Label">Visibility</label>
+            <label className="CreateCanvas__Label">{t('modal.visibility.label')}</label>
             <div className="CreateCanvas__VisibilityGroup">
               <button
                 type="button"
@@ -101,7 +103,7 @@ export default function CreateCanvas({ onClose }) {
                 onClick={() => setVisibility('private')}
               >
                 <Lock size={14} />
-                Private
+                {t('modal.visibility.private')}
               </button>
               <button
                 type="button"
@@ -109,13 +111,13 @@ export default function CreateCanvas({ onClose }) {
                 onClick={() => setVisibility('public')}
               >
                 <Globe size={14} />
-                Public
+                {t('modal.visibility.public')}
               </button>
             </div>
             <span className="CreateCanvas__Hint">
               {visibility === 'private'
-                ? 'Only invited members can access this canvas.'
-                : 'Anyone in the workspace can view this canvas.'}
+                ? t('modal.createCanvas.privateHint')
+                : t('modal.createCanvas.publicHint')}
             </span>
           </div>
 
@@ -124,14 +126,14 @@ export default function CreateCanvas({ onClose }) {
 
         <div className="CreateCanvas__Footer">
           <button type="button" className="CreateCanvas__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="submit"
             className="CreateCanvas__SubmitBtn"
             disabled={!canvasName.trim() || key.length < 2 || loading}
           >
-            {loading ? 'Creating...' : 'Create'}
+            {loading ? t('modal.creating') : t('common.actions.create')}
           </button>
         </div>
       </form>

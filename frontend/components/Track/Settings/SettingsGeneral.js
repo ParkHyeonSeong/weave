@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { Lock, Globe, AlertTriangle } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { showToast } from '@/components/Layout/Toast';
@@ -10,6 +11,7 @@ import { HEX_RE, DEFAULT_TRACK_COLOR } from './constants';
 
 export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [trackName, setTrackName] = useState(track.track_name || '');
   const [description, setDescription] = useState(track.description || '');
   const [color, setColor] = useState(track.color || DEFAULT_TRACK_COLOR);
@@ -51,11 +53,11 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
         setTimeout(() => setSaved(false), 2000);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '저장 실패';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.general.saveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('저장 실패', 'error');
+      showToast(t('trackSettings.general.saveFailed'), 'error');
     }
     setSaving(false);
   };
@@ -70,12 +72,12 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
         router.replace('/tracks');
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '삭제 실패';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.general.deleteFailed');
         showToast(msg, 'error');
         setDeleting(false);
       }
     } catch {
-      showToast('삭제 실패', 'error');
+      showToast(t('trackSettings.general.deleteFailed'), 'error');
       setDeleting(false);
     }
   };
@@ -84,7 +86,7 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
     <div className="SettingsGeneral">
       {/* Track Name */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Track Name</label>
+        <label className="SettingsGeneral__Label">{t('trackSettings.general.trackName')}</label>
         <input
           className="SettingsGeneral__Input"
           value={trackName}
@@ -93,19 +95,19 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
           maxLength={300}
         />
         {!nameValid && trackName.length === 0 && isOwner && (
-          <span className="SettingsGeneral__Error">이름은 필수입니다</span>
+          <span className="SettingsGeneral__Error">{t('trackSettings.general.nameRequired')}</span>
         )}
       </div>
 
       {/* Description */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Description</label>
+        <label className="SettingsGeneral__Label">{t('trackSettings.general.description')}</label>
         <textarea
           className="SettingsGeneral__Textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Track description..."
+          placeholder={t('trackSettings.general.descriptionPlaceholder')}
           disabled={!isOwner}
         />
       </div>
@@ -125,7 +127,7 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
 
       {/* Visibility */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Visibility</label>
+        <label className="SettingsGeneral__Label">{t('trackSettings.general.visibility')}</label>
         <div className="SettingsGeneral__VisibilityGroup">
           <button
             type="button"
@@ -134,7 +136,7 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
             disabled={!isOwner}
           >
             <Lock size={14} />
-            Private
+            {t('trackSettings.general.private')}
           </button>
           <button
             type="button"
@@ -143,13 +145,13 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
             disabled={!isOwner}
           >
             <Globe size={14} />
-            Public
+            {t('trackSettings.general.public')}
           </button>
         </div>
         <span className="SettingsGeneral__Hint">
           {visibility === 'private'
-            ? '초대된 멤버만 이 Track에 접근할 수 있어요.'
-            : '누구나 이 Track을 찾아 볼 수 있어요.'}
+            ? t('trackSettings.general.privateHint')
+            : t('trackSettings.general.publicHint')}
         </span>
       </div>
 
@@ -161,7 +163,9 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
             onClick={handleSave}
             disabled={!canSave}
           >
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save Changes'}
+            {saving
+              ? t('common.state.saving')
+              : saved ? t('trackSettings.general.saved') : t('trackSettings.general.saveChanges')}
           </button>
         </div>
       )}
@@ -171,30 +175,29 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
         <div className="SettingsGeneral__Danger">
           <div className="SettingsGeneral__DangerHeader">
             <AlertTriangle size={16} />
-            <span>Danger Zone</span>
+            <span>{t('trackSettings.general.dangerZone')}</span>
           </div>
 
           {!showDeleteConfirm ? (
             <div className="SettingsGeneral__DangerRow">
               <div className="SettingsGeneral__DangerInfo">
-                <span className="SettingsGeneral__DangerTitle">이 트랙 아카이브</span>
+                <span className="SettingsGeneral__DangerTitle">{t('trackSettings.general.archiveTitle')}</span>
                 <span className="SettingsGeneral__DangerDesc">
-                  아카이브하면 목록에서 사라지고, 보관함에서 복원하거나 영구삭제할 수 있어요.
-                  원본 task·branch·sprint·epic에는 영향이 없습니다.
+                  {t('trackSettings.general.archiveDesc')}
                 </span>
               </div>
               <button
                 className="SettingsGeneral__DeleteBtn"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                아카이브
+                {t('spaceMenu.archive')}
               </button>
             </div>
           ) : (
             <div className="SettingsGeneral__DeleteConfirm">
               <p className="SettingsGeneral__DeleteWarning">
-                보관함에서 되돌릴 수 있어요. 확정하려면 Track 이름{' '}
-                <strong>{track.track_name}</strong>을(를) 입력하세요.
+                {t('trackSettings.general.archiveConfirmBefore')}{' '}
+                <strong>{track.track_name}</strong>{t('trackSettings.general.archiveConfirmAfter')}
               </p>
               <input
                 className="SettingsGeneral__Input"
@@ -208,13 +211,13 @@ export default function SettingsGeneral({ trackId, track, isOwner, onUpdated }) 
                   disabled={deleteInput !== track.track_name || deleting}
                   onClick={handleDelete}
                 >
-                  {deleting ? '아카이브 중…' : '아카이브'}
+                  {deleting ? t('trackSettings.general.archiving') : t('spaceMenu.archive')}
                 </button>
                 <button
                   className="SettingsGeneral__CancelBtn"
                   onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>

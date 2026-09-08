@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 vi.mock('@/library/_axios', () => ({ axios: { get: vi.fn(), patch: vi.fn() } }));
 import { axios } from '@/library/_axios';
 import { ThemeProvider, ThemeServerSync, THEME_STORAGE_KEY } from '@/library/theme';
+import i18next from '@/library/i18n';
 import { UiPrefsProvider } from '@/library/UiPrefsContext';
 import ThemeToggleButton from '@/components/Layout/ThemeToggleButton';
 
@@ -114,7 +115,8 @@ describe('ThemeToggleButton — 순환과 접근성', () => {
     await mount();
     axios.patch.mockRejectedValueOnce(new Error('boom'));
     await click();
-    expect(btn().getAttribute('title')).toMatch(/저장/);
+    // 문구는 현재 locale을 따른다(기본 en). 테스트는 catalog 값과 대조한다.
+    expect(btn().getAttribute('title')).toBe(i18next.t('theme.saveFailed'));
     expect(btn().dataset.mode).toBe('light');   // 되돌아감
   });
 });

@@ -326,3 +326,12 @@
     }
   }
 }
+
+// 첫 선택 화면(Step 1)의 양쪽 언어 병기 — 아직 언어를 고르지 않은 사용자가 읽는다.
+.Setup__ContentTitleAlt {
+  display: block;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-regular;
+  color: $color-text-secondary;
+  margin-top: 2px;
+}

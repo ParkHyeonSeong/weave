@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, GitBranch, FileEdit, Workflow, CalendarCheck } from 'lucide-react';
 
 const ITEMS = [
-  { key: 'branch', label: '새 브랜치', event: 'layout:create-branch', Icon: GitBranch },
-  { key: 'canvas', label: '새 캔버스', event: 'layout:create-canvas', Icon: FileEdit },
-  { key: 'track',  label: '새 트랙',   event: 'layout:create-track',  Icon: Workflow },
-  { key: 'scrum',  label: '새 스크럼', event: 'layout:create-scrum',  Icon: CalendarCheck },
+  { key: 'branch', labelKey: 'home.quickCreate.newBranch', event: 'layout:create-branch', Icon: GitBranch },
+  { key: 'canvas', labelKey: 'home.quickCreate.newCanvas', event: 'layout:create-canvas', Icon: FileEdit },
+  { key: 'track',  labelKey: 'home.quickCreate.newTrack',  event: 'layout:create-track',  Icon: Workflow },
+  { key: 'scrum',  labelKey: 'home.quickCreate.newScrum',  event: 'layout:create-scrum',  Icon: CalendarCheck },
 ];
 
 export default function QuickCreate() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -24,7 +26,7 @@ export default function QuickCreate() {
   return (
     <div className="QuickCreate" ref={ref}>
       <button className="QuickCreate__Btn" onClick={() => setOpen((p) => !p)}>
-        <Plus size={16} /> 만들기
+        <Plus size={16} /> {t('common.actions.create')}
       </button>
       {open && (
         <div className="QuickCreate__Menu">
@@ -32,7 +34,7 @@ export default function QuickCreate() {
             const Icon = it.Icon;
             return (
               <button key={it.key} className="QuickCreate__Item" onClick={() => create(it.event)}>
-                <Icon size={15} /> {it.label}
+                <Icon size={15} /> {t(it.labelKey)}
               </button>
             );
           })}

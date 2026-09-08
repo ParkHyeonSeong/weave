@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { Lock, Globe, AlertTriangle, Check } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { showToast } from '@/components/Layout/Toast';
@@ -8,16 +9,17 @@ import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
 const CADENCES = [
-  { v: 'weekly', label: '매주' },
-  { v: 'biweekly', label: '격주' },
-  { v: 'every_n_weeks', label: 'N주마다' },
-  { v: 'monthly', label: '매월' },
-  { v: 'manual', label: '수동' },
+  { v: 'weekly', labelKey: 'scrum.cadence.weekly' },
+  { v: 'biweekly', labelKey: 'scrum.cadence.biweekly' },
+  { v: 'every_n_weeks', labelKey: 'scrum.cadence.everyNWeeks' },
+  { v: 'monthly', labelKey: 'scrum.cadence.monthly' },
+  { v: 'manual', labelKey: 'scrum.cadence.manual' },
 ];
-const WEEKDAYS = [['0', '월'], ['1', '화'], ['2', '수'], ['3', '목'], ['4', '금']];
+const WEEKDAYS = [['0', 'scrum.grid.mon'], ['1', 'scrum.grid.tue'], ['2', 'scrum.grid.wed'], ['3', 'scrum.grid.thu'], ['4', 'scrum.grid.fri']];
 const DEFAULT_SCRUM_COLOR = DEFAULT_COLORS.scrum;
 
 export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdated }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [name, setName] = useState(board.name || '');
   const [color, setColor] = useState(board.color || DEFAULT_SCRUM_COLOR);
@@ -66,11 +68,11 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
         setTimeout(() => setSaved(false), 2000);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '저장 실패';
+        const msg = errorText(err.code, err.category) ?? t('scrum.settings.saveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('저장 실패', 'error');
+      showToast(t('scrum.settings.saveFailed'), 'error');
     }
     setSaving(false);
   };
@@ -85,12 +87,12 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
         router.replace('/scrum');
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '아카이브 실패';
+        const msg = errorText(err.code, err.category) ?? t('sidebar.archiveFailed');
         showToast(msg, 'error');
         setDeleting(false);
       }
     } catch {
-      showToast('아카이브 실패', 'error');
+      showToast(t('sidebar.archiveFailed'), 'error');
       setDeleting(false);
     }
   };
@@ -99,7 +101,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
     <div className="SettingsGeneral">
       {/* Board Name */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">팀 이름</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.teamName')}</label>
         <input
           className="SettingsGeneral__Input"
           value={name}
@@ -108,13 +110,13 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
           maxLength={300}
         />
         {!nameValid && name.length === 0 && isAdmin && (
-          <span className="SettingsGeneral__Error">이름은 필수입니다</span>
+          <span className="SettingsGeneral__Error">{t('scrum.settings.nameRequired')}</span>
         )}
       </div>
 
       {/* Color */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">색상</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.color')}</label>
         <div className="SettingsGeneral__ColorRow">
           <div className="SettingsGeneral__Swatches">
             {COLOR_PRESETS.map((c) => (
@@ -125,7 +127,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
                 style={{ background: c }}
                 onClick={() => isAdmin && setColor(c)}
                 disabled={!isAdmin}
-                aria-label={`color ${c}`}
+                aria-label={t('scrum.settings.colorAria', { color: c })}
               >
                 {color === c && <Check size={13} color="#fff" />}
               </button>
@@ -136,7 +138,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
 
       {/* Visibility */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">공개 범위</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.visibility')}</label>
         <div className="SettingsGeneral__VisibilityGroup">
           <button
             type="button"
@@ -145,7 +147,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
             disabled={!isAdmin}
           >
             <Lock size={14} />
-            Private
+            {t('scrum.settings.visibilityPrivate')}
           </button>
           <button
             type="button"
@@ -154,19 +156,19 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
             disabled={!isAdmin}
           >
             <Globe size={14} />
-            Public
+            {t('scrum.settings.visibilityPublic')}
           </button>
         </div>
         <span className="SettingsGeneral__Hint">
           {visibility === 'private'
-            ? '멤버만 이 보드에 접근할 수 있어요.'
-            : '조직 전체가 이 보드를 조회할 수 있어요.'}
+            ? t('scrum.settings.visibilityPrivateHint')
+            : t('scrum.settings.visibilityPublicHint')}
         </span>
       </div>
 
       {/* Retro cadence */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">회고 주기</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.retroCadence')}</label>
         <div className="Scrum__ChipRow">
           {CADENCES.map((c) => (
             <button
@@ -176,7 +178,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
               onClick={() => isAdmin && setCadence(c.v)}
               disabled={!isAdmin}
             >
-              {c.label}
+              {t(c.labelKey)}
             </button>
           ))}
         </div>
@@ -196,9 +198,9 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
 
       {/* Anchor weekday */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">기준 요일</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.anchorWeekday')}</label>
         <div className="Scrum__ChipRow">
-          {WEEKDAYS.map(([v, label]) => (
+          {WEEKDAYS.map(([v, labelKey]) => (
             <button
               key={v}
               type="button"
@@ -206,7 +208,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
               onClick={() => isAdmin && setAnchorWeekday(Number(v))}
               disabled={!isAdmin}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -214,14 +216,14 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
 
       {/* Retro template (read-only — only KPT exists) */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">회고 템플릿</label>
+        <label className="SettingsGeneral__Label">{t('scrum.settings.retroTemplate')}</label>
         <input
           className="SettingsGeneral__Input SettingsGeneral__Input--readonly"
           value="KPT"
           readOnly
           disabled
         />
-        <span className="SettingsGeneral__Hint">현재는 KPT 템플릿만 지원해요.</span>
+        <span className="SettingsGeneral__Hint">{t('scrum.settings.retroTemplateHint')}</span>
       </div>
 
       {/* Save */}
@@ -232,7 +234,7 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
             onClick={handleSave}
             disabled={!canSave}
           >
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save Changes'}
+            {saving ? t('common.state.saving') : saved ? t('scrum.settings.saved') : t('scrum.settings.saveChanges')}
           </button>
         </div>
       )}
@@ -242,30 +244,29 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
         <div className="SettingsGeneral__Danger">
           <div className="SettingsGeneral__DangerHeader">
             <AlertTriangle size={16} />
-            <span>Danger Zone</span>
+            <span>{t('scrum.settings.dangerZone')}</span>
           </div>
 
           {!showDeleteConfirm ? (
             <div className="SettingsGeneral__DangerRow">
               <div className="SettingsGeneral__DangerInfo">
-                <span className="SettingsGeneral__DangerTitle">보드 아카이브</span>
+                <span className="SettingsGeneral__DangerTitle">{t('scrum.settings.archiveBoard')}</span>
                 <span className="SettingsGeneral__DangerDesc">
-                  이 스크럼 보드와 모든 주간 보드·회고가 아카이브됩니다.
-                  멤버는 더 이상 접근할 수 없어요.
+                  {t('scrum.settings.archiveBoardDesc')}
                 </span>
               </div>
               <button
                 className="SettingsGeneral__DeleteBtn"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                보드 아카이브
+                {t('scrum.settings.archiveBoard')}
               </button>
             </div>
           ) : (
             <div className="SettingsGeneral__DeleteConfirm">
               <p className="SettingsGeneral__DeleteWarning">
-                되돌릴 수 없습니다. 확정하려면 보드 이름{' '}
-                <strong>{board.name}</strong>을(를) 입력하세요.
+                {t('scrum.settings.archiveWarningPrefix')}{' '}
+                <strong>{board.name}</strong>{t('scrum.settings.archiveWarningSuffix')}
               </p>
               <input
                 className="SettingsGeneral__Input"
@@ -279,13 +280,13 @@ export default function ScrumSettingsGeneral({ board, boardId, isAdmin, onUpdate
                   disabled={deleteInput !== board.name || deleting}
                   onClick={handleDelete}
                 >
-                  {deleting ? 'Archiving…' : '확인했습니다, 아카이브'}
+                  {deleting ? t('scrum.settings.archiving') : t('scrum.settings.archiveConfirm')}
                 </button>
                 <button
                   className="SettingsGeneral__CancelBtn"
                   onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>

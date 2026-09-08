@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Clock, FileText } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import NavLink from '@/components/common/NavLink';
 
 export default function RecentItems() {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isHidden } = useUiPrefs();
@@ -30,11 +32,11 @@ export default function RecentItems() {
     const now = new Date();
     const date = new Date(dateStr);
     const diff = Math.floor((now - date) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    if (diff < 172800) return 'yesterday';
-    return `${Math.floor(diff / 86400)}d ago`;
+    if (diff < 60) return t('common.time.justNow');
+    if (diff < 3600) return t('home.relativeTime.minutesAgo', { value: Math.floor(diff / 60) });
+    if (diff < 86400) return t('home.relativeTime.hoursAgo', { value: Math.floor(diff / 3600) });
+    if (diff < 172800) return t('common.time.yesterday');
+    return t('home.relativeTime.daysAgo', { value: Math.floor(diff / 86400) });
   };
 
 
@@ -50,10 +52,10 @@ export default function RecentItems() {
       <div className="Widget RecentItems">
         <div className="Widget__Header">
           <Clock size={16} />
-          <span className="Widget__Title">Recent Items</span>
+          <span className="Widget__Title">{t('home.widgets.recent.title')}</span>
         </div>
         <div className="Widget__Body">
-          <div className="Widget__Empty">Loading...</div>
+          <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
     );
@@ -63,11 +65,11 @@ export default function RecentItems() {
     <div className="Widget RecentItems">
       <div className="Widget__Header">
         <Clock size={16} />
-        <span className="Widget__Title">Recent Items</span>
+        <span className="Widget__Title">{t('home.widgets.recent.title')}</span>
       </div>
       <div className="Widget__Body">
         {visibleItems.length === 0 ? (
-          <div className="Widget__Empty">No recent items</div>
+          <div className="Widget__Empty">{t('home.widgets.recent.empty')}</div>
         ) : (
           <div className="RecentItems__List">
             {visibleItems.map((item) => {

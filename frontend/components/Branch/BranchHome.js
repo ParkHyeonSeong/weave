@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Inbox, Clock, AlarmClock, Activity, GitBranch } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -14,22 +14,24 @@ import ProgressRing from '@/components/Home/shared/ProgressRing';
 import AppCard, { AvatarSet } from '@/components/Home/shared/AppCard';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import useHomeListControls from '@/library/useHomeListControls';
-import { byTextAsc, byNumberDesc, byDateDesc, ROLE_GROUP } from '@/library/homeListControls';
+import { byTextAsc, byNumberDesc, byDateDesc, roleGroup } from '@/library/homeListControls';
 import useContextMenu from '@/components/common/useContextMenu';
 import ContextMenu from '@/components/common/ContextMenu';
 import { buildSpaceMenu } from '@/components/Layout/spaceMenu';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { showToast } from '@/components/Layout/Toast';
+import { useTranslation } from 'react-i18next';
 
-const getRelativeTime = (dateStr) => {
+// t는 호출부(useTranslation)가 넘긴다 — 모듈 레벨 헬퍼라 훅을 쓸 수 없다.
+const getRelativeTime = (dateStr, t) => {
   const now = new Date();
   const date = new Date(dateStr);
   const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return '방금 전';
-  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-  if (diff < 172800) return '어제';
-  return `${Math.floor(diff / 86400)}일 전`;
+  if (diff < 60) return t('common.time.justNow');
+  if (diff < 3600) return t('branch.time.minutesAgo', { count: Math.floor(diff / 60) });
+  if (diff < 86400) return t('branch.time.hoursAgo', { count: Math.floor(diff / 3600) });
+  if (diff < 172800) return t('common.time.yesterday');
+  return t('branch.time.daysAgo', { count: Math.floor(diff / 86400) });
 };
 
 const getMyName = () => {
@@ -44,40 +46,44 @@ const getMyName = () => {
 const createBranch = () => window.dispatchEvent(new CustomEvent('layout:create-branch'));
 const openCommandPalette = () => window.dispatchEvent(new CustomEvent('layout:open-search'));
 
-const BRANCH_CONTROLS = {
+// 라벨이 언어에 따라 바뀌므로 t를 받는 빌더로 둔다. 호출부에서 useMemo로 정체성을 고정한다
+// (useHomeListControls가 config를 useMemo deps로 쓴다).
+const buildBranchControls = (t) => ({
   appKey: 'branch',
   hiddenApp: 'branches',
   idField: 'branch_id',
   queryFields: ['branch_name', 'key'],
   defaultView: 'grid',
   sortOptions: [
-    { key: 'name', label: '이름순', compare: byTextAsc('branch_name') },
-    { key: 'created', label: '최근 생성순', compare: byDateDesc('created_at') },
-    { key: 'progress', label: '진행률순', compare: byNumberDesc('progress_percent') },
-    { key: 'tasks', label: '활성 태스크순', compare: byNumberDesc('active_task_count') },
+    { key: 'name', label: t('branch.home.sort.name'), compare: byTextAsc('branch_name') },
+    { key: 'created', label: t('branch.home.sort.created'), compare: byDateDesc('created_at') },
+    { key: 'progress', label: t('branch.home.sort.progress'), compare: byNumberDesc('progress_percent') },
+    { key: 'tasks', label: t('branch.home.sort.tasks'), compare: byNumberDesc('active_task_count') },
   ],
   filterConfig: {
     groups: [
-      ROLE_GROUP,
+      roleGroup(t),
       {
-        key: 'sprint', label: '스프린트', options: [
-          { value: 'all', label: '전체', test: () => true },
-          { value: 'yes', label: '활성 있음', test: (it) => (it.active_sprint_count || 0) > 0 },
-          { value: 'no', label: '없음', test: (it) => (it.active_sprint_count || 0) === 0 },
+        key: 'sprint', label: t('branch.home.filter.sprint'), options: [
+          { value: 'all', label: t('branch.home.filter.all'), test: () => true },
+          { value: 'yes', label: t('branch.home.filter.hasActive'), test: (it) => (it.active_sprint_count || 0) > 0 },
+          { value: 'no', label: t('branch.home.filter.none'), test: (it) => (it.active_sprint_count || 0) === 0 },
         ],
       },
     ],
     showHidden: true,
   },
-};
+});
 
 export default function BranchHome() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isHidden, hide, unhide } = useUiPrefs();
   const ctx = useContextMenu();
   const [leaveTarget, setLeaveTarget] = useState(null);
   const [branches, setBranches] = useState([]);
-  const { processed, view, query, toolbarProps } = useHomeListControls(BRANCH_CONTROLS, branches);
+  const branchControls = useMemo(() => buildBranchControls(t), [t]);
+  const { processed, view, query, toolbarProps } = useHomeListControls(branchControls, branches);
   const [recentTasks, setRecentTasks] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -166,39 +172,40 @@ export default function BranchHome() {
             if (res.data.status) {
               fetchBranches();
               window.dispatchEvent(new Event('branch:created'));
-              showToast(`"${b.branch_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: b.branch_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id, name: b.branch_name }),
-      },
-    ));
+      }, t));
   };
 
   return (
     <>
     <div className="HomeMain">
       <HomeHero
-        greeting={me ? <>안녕하세요, {me}님 👋</> : <>안녕하세요 👋</>}
+        greeting={me ? t('branch.home.greetingNamed', { name: me }) : t('branch.home.greeting')}
         summary={stats && (
           <>
-            이번 주 마감 <b>{stats.due_this_week_count}</b> · 진행 중{' '}
-            <b>{stats.in_progress_count}</b> · 활성 스프린트{' '}
+            {t('branch.home.summaryDueThisWeek')} <b>{stats.due_this_week_count}</b>
+            {' · '}{t('branch.home.summaryInProgress')}{' '}
+            <b>{stats.in_progress_count}</b>
+            {' · '}{t('branch.home.summaryActiveSprints')}{' '}
             <b>{stats.active_sprint_count}</b>
           </>
         )}
         actions={
           <>
             <button className="HBtn HBtn--sm" onClick={openCommandPalette}>
-              ⌘K 빠른 이동
+              {t('branch.home.quickJump')}
             </button>
             <button className="HBtn HBtn--sm" onClick={() => router.push('/branch/archive')}>
-              🗄 보관함
+              {t('branch.home.archiveBox')}
             </button>
             <button className="HBtn HBtn--pri HBtn--sm" onClick={createBranch}>
-              ＋ 새 브랜치
+              {t('branch.home.newBranch')}
             </button>
           </>
         }
@@ -217,31 +224,31 @@ export default function BranchHome() {
           />
         )}
         tiles={stats ? [
-          { icon: <Inbox size={16} />, label: '열린 태스크', value: stats.open_count, tone: 'primary', bucket: 'open' },
-          { icon: <Clock size={16} />, label: '진행 중', value: stats.in_progress_count, tone: 'inprog', bucket: 'in_progress' },
-          { icon: <AlarmClock size={16} />, label: '이번 주 마감', value: stats.due_this_week_count, tone: 'error', bucket: 'due_this_week' },
-          { icon: <Activity size={16} />, label: '활성 스프린트', value: stats.active_sprint_count, tone: 'success', bucket: 'active_sprint' },
+          { icon: <Inbox size={16} />, label: t('branch.home.stats.open'), value: stats.open_count, tone: 'primary', bucket: 'open' },
+          { icon: <Clock size={16} />, label: t('branch.home.stats.inProgress'), value: stats.in_progress_count, tone: 'inprog', bucket: 'in_progress' },
+          { icon: <AlarmClock size={16} />, label: t('branch.home.stats.dueThisWeek'), value: stats.due_this_week_count, tone: 'error', bucket: 'due_this_week' },
+          { icon: <Activity size={16} />, label: t('branch.home.stats.activeSprints'), value: stats.active_sprint_count, tone: 'success', bucket: 'active_sprint' },
         ] : []}
       />
 
       <ContinueStrip
-        title="이어서 작업하기"
+        title={t('branch.home.continueTitle')}
         onMore={() => router.push('/my-tasks')}
         loading={loading}
         items={recentTasks.map((it) => ({
           title: it.title,
           dotColor: it.status_color,
-          meta: `${it.display_number} · ${getRelativeTime(it.viewed_at)}`,
+          meta: `${it.display_number} · ${getRelativeTime(it.viewed_at, t)}`,
           href: `/branch/${it.branch_id}/task/${it.task_id}`,
         }))}
-        emptyText="최근 작업한 태스크가 없습니다"
+        emptyText={t('branch.home.continueEmpty')}
       />
 
       <div className="HomeDivider" />
 
       <HomeToolbar
-        count={`브랜치 ${processed.length}`}
-        placeholder="브랜치 검색…"
+        count={t('branch.home.branchCount', { count: processed.length })}
+        placeholder={t('branch.home.searchPlaceholder')}
         {...toolbarProps}
       />
 
@@ -250,13 +257,15 @@ export default function BranchHome() {
       ) : processed.length === 0 ? (
         <HomeEmptyState
           icon={<GitBranch size={26} />}
-          title={branches.length === 0 ? '아직 브랜치가 없어요' : (query.trim() ? '검색 결과 없음' : '표시할 브랜치가 없어요')}
+          title={branches.length === 0
+            ? t('branch.home.empty.noBranches')
+            : (query.trim() ? t('branch.home.empty.noResults') : t('branch.home.empty.noneVisible'))}
           desc={
             branches.length === 0
-              ? '브랜치를 만들어 프로젝트 관리를 시작하세요.'
-              : `"${query}"에 맞는 브랜치가 없습니다.`
+              ? t('branch.home.empty.noBranchesDesc')
+              : t('branch.home.empty.noResultsDesc', { query })
           }
-          ctaLabel={branches.length === 0 ? '＋ 새 브랜치' : undefined}
+          ctaLabel={branches.length === 0 ? t('branch.home.newBranch') : undefined}
           onCta={createBranch}
         />
       ) : (
@@ -280,8 +289,13 @@ export default function BranchHome() {
               <div className="HCard__Foot">
                 <span className={`HChip ${b.progress_percent !== null ? 'HChip--sprint' : 'HChip--muted'}`}>
                   {b.progress_percent !== null
-                    ? `${b.active_sprint_count === 1 ? b.active_sprint_name : `스프린트 ${b.active_sprint_count}개`} · ${b.sprint_task_total} 태스크`
-                    : `스프린트 없음 · ${b.active_task_count} 활성`}
+                    ? t('branch.home.sprintChip', {
+                      sprint: b.active_sprint_count === 1
+                        ? b.active_sprint_name
+                        : t('branch.home.sprintCount', { count: b.active_sprint_count }),
+                      count: b.sprint_task_total,
+                    })
+                    : t('branch.home.noSprintChip', { count: b.active_task_count })}
                 </span>
                 <AvatarSet members={b.members || []} />
               </div>
@@ -305,21 +319,21 @@ export default function BranchHome() {
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/branches/${t.id}/leave`);
+            const res = await axios.post(`/branches/${target.id}/leave`);
             if (res.data.status) {
               fetchBranches();
               window.dispatchEvent(new Event('branch:created'));
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="브랜치 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveBranchTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

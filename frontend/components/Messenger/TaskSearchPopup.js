@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, ListTodo } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { entityTintStyle } from '@/library/entityTint';
@@ -6,6 +7,7 @@ import { entityTintStyle } from '@/library/entityTint';
 const formatStatusKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function TaskSearchPopup({ keyword, mode, onSelect, onClose }) {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -55,12 +57,12 @@ export default function TaskSearchPopup({ keyword, mode, onSelect, onClose }) {
     <div className="TaskSearchPopup">
       <div className="TaskSearchPopup__Header">
         <Search size={12} />
-        {mode === 'my' ? '/t - My Tasks' : '/ta - All Tasks'}
+        {mode === 'my' ? t('messenger.search.myTasksHeader') : t('messenger.search.allTasksHeader')}
       </div>
       <ul className="TaskSearchPopup__List">
-        {loading && <li className="TaskSearchPopup__Empty">Searching...</li>}
+        {loading && <li className="TaskSearchPopup__Empty">{t('messenger.search.searching')}</li>}
         {!loading && tasks.length === 0 && (
-          <li className="TaskSearchPopup__Empty">No tasks found</li>
+          <li className="TaskSearchPopup__Empty">{t('messenger.search.noTasks')}</li>
         )}
         {!loading && tasks.map((task, idx) => (
           <li

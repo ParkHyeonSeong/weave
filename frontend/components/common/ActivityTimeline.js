@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Clock, ArrowRight } from 'lucide-react';
 import { axios } from '@/library/_axios';
-import { formatRelative } from '@/library/formatTime';
 import Avatar from '@/components/common/Avatar';
+import { useTranslation } from 'react-i18next';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { addDaysToDateOnly, dateOnlyInTimeZone, todayInTimeZone } from '@/library/formatDateTime';
 
 /**
  * ActivityTimeline - Task/Canvas 페이지의 활동 이력 타임라인
@@ -11,6 +13,8 @@ import Avatar from '@/components/common/Avatar';
  * @param {boolean} expanded - 전체 표시 여부 (false면 최근 5개만)
  */
 export default function ActivityTimeline({ apiUrl, expanded = false }) {
+  const { t } = useTranslation();
+  const { timeZone, formatDateOnly } = useDateFormat();
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
@@ -61,7 +65,7 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
   const displayActivities = expanded ? activities : activities.slice(0, 5);
 
   // 날짜별 그룹핑
-  const grouped = groupByDate(displayActivities);
+  const grouped = groupByDate(displayActivities, { timeZone, formatDateOnly, t });
 
   if (loading && activities.length === 0) {
     return (
@@ -69,10 +73,10 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
         <div className="ActivityTimeline__Header">
           <span className="ActivityTimeline__Label">
             <Clock size={13} />
-            Activity
+            {t('common.activity.title')}
           </span>
         </div>
-        <div className="ActivityTimeline__Empty">Loading...</div>
+        <div className="ActivityTimeline__Empty">{t('common.state.loading')}</div>
       </div>
     );
   }
@@ -82,7 +86,7 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
       <div className="ActivityTimeline__Header">
         <span className="ActivityTimeline__Label">
           <Clock size={13} />
-          Activity
+          {t('common.activity.title')}
           {activities.length > 0 && (
             <span className="ActivityTimeline__Count">{activities.length}</span>
           )}
@@ -90,7 +94,7 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
       </div>
 
       {displayActivities.length === 0 ? (
-        <div className="ActivityTimeline__Empty">No activity yet.</div>
+        <div className="ActivityTimeline__Empty">{t('common.activity.empty')}</div>
       ) : (
         <div className="ActivityTimeline__List">
           {grouped.map(({ label, items }) => (
@@ -109,7 +113,7 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
           className="ActivityTimeline__More"
           onClick={() => fetchActivities(true)}
         >
-          Load more
+          {t('common.actions.loadMore')}
         </button>
       )}
     </div>
@@ -118,6 +122,8 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
 
 
 function ActivityItem({ activity }) {
+  const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const { actor_id, actor_name, actor_avatar, actor_avatar_color, summary, changes, created_at } = activity;
 
   return (
@@ -132,7 +138,7 @@ function ActivityItem({ activity }) {
             size="xs"
             className="ActivityTimeline__Avatar"
           />
-          <span className="ActivityTimeline__Author">{actor_name || 'Unknown'}</span>
+          <span className="ActivityTimeline__Author">{actor_name || t('common.activity.unknownUser')}</span>
         </span>
         <span className="ActivityTimeline__Time">{formatRelative(created_at)}</span>
       </div>
@@ -224,25 +230,25 @@ function formatValue(val) {
 
 
 
-function groupByDate(activities) {
+// 날짜 구분선은 **개인 timezone의 달력 날짜**로 나눈다. created_at은 instant이므로
+// 브라우저 기본 timezone으로 나누면 설정을 바꾼 사용자에게 경계가 어긋난다.
+function groupByDate(activities, { timeZone, formatDateOnly, t }) {
   const groups = [];
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 86400000);
+  const today = todayInTimeZone(timeZone);
+  const yesterday = addDaysToDateOnly(today, -1);
 
   let currentLabel = null;
   let currentItems = [];
 
   for (const act of activities) {
-    const d = new Date(act.created_at);
-    const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const day = dateOnlyInTimeZone(act.created_at, timeZone);
     let label;
-    if (day.getTime() === today.getTime()) {
-      label = 'Today';
-    } else if (day.getTime() === yesterday.getTime()) {
-      label = 'Yesterday';
+    if (day === today) {
+      label = t('common.time.today');
+    } else if (day === yesterday) {
+      label = t('common.time.yesterdayLabel');
     } else {
-      label = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+      label = formatDateOnly(day, { month: 'long', day: 'numeric' });
     }
 
     if (label !== currentLabel) {

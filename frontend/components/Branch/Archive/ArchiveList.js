@@ -5,8 +5,12 @@ import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import Avatar from '@/components/common/Avatar';
 import TaskFilterBar from '../TaskFilterBar';
 import { entityTintStyle } from '@/library/entityTint';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { useTranslation } from 'react-i18next';
 
 export default function ArchiveList({ branchId, branchKey, taskTypes, workflowStatuses, onSelectTask }) {
+  const { t } = useTranslation();
+  const { formatTimestamp } = useDateFormat();
   const [tasks, setTasks] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -60,12 +64,10 @@ export default function ArchiveList({ branchId, branchKey, taskTypes, workflowSt
     return true;
   });
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('ko-KR', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    });
-  };
+  // 아카이브 시각은 timestamp다 — 개인 timezone의 달력 날짜로 표시한다.
+  const formatDate = (iso) => (iso ? formatTimestamp(iso, {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }) : '');
 
   if (loading) return null;
 
@@ -76,9 +78,9 @@ export default function ArchiveList({ branchId, branchKey, taskTypes, workflowSt
       <div className="ArchiveList">
         <div className="ArchiveList__Empty">
           <Archive size={40} />
-          <p className="ArchiveList__EmptyTitle">No archived tasks</p>
+          <p className="ArchiveList__EmptyTitle">{t('branch.archive.emptyTitle')}</p>
           <p className="ArchiveList__EmptyDesc">
-            Done and cancelled tasks will appear here.
+            {t('branch.archive.emptyDesc')}
           </p>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function ArchiveList({ branchId, branchKey, taskTypes, workflowSt
           selectedUserIds={selectedUserIds}
           onToggleUser={handleToggleUser}
         />
-        <span className="ArchiveList__Count">{filtered.length} task{filtered.length !== 1 ? 's' : ''}</span>
+        <span className="ArchiveList__Count">{t('branch.archive.taskCount', { count: filtered.length })}</span>
       </div>
 
       <div className="ArchiveList__Table">

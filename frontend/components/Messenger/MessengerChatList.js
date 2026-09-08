@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { axios } from '@/library/_axios';
-import { formatMessageTime } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import Avatar from '@/components/common/Avatar';
 
 export default function MessengerChatList({ onOpenRoom, onNewChat, activeRoomId }) {
+  const { t } = useTranslation();
+  const { formatMessageTime } = useDateFormat();
   const [rooms, setRooms] = useState([]);
   const [onlineSet, setOnlineSet] = useState(new Set());
 
@@ -66,17 +69,17 @@ export default function MessengerChatList({ onOpenRoom, onNewChat, activeRoomId 
   return (
     <div className="MessengerChatList">
       <div className="MessengerChatList__Header">
-        <span className="MessengerChatList__Title">Messages</span>
+        <span className="MessengerChatList__Title">{t('messenger.chatList.title')}</span>
         <button className="MessengerChatList__NewChatBtn" onClick={onNewChat}>
           <Plus size={14} />
-          New Chat
+          {t('messenger.chatList.newChat')}
         </button>
       </div>
 
       <div className="MessengerChatList__Items">
         {rooms.length === 0 ? (
           <div className="MessengerChatList__Empty">
-            No conversations yet.
+            {t('messenger.chatList.empty')}
           </div>
         ) : (
           rooms.map((room) => (
@@ -102,7 +105,7 @@ export default function MessengerChatList({ onOpenRoom, onNewChat, activeRoomId 
               <div className="MessengerChatList__ItemInfo">
                 <div className="MessengerChatList__ItemTop">
                   <span className="MessengerChatList__ItemName">
-                    {room.dm_partner_name || room.room_name || 'Direct Message'}
+                    {room.dm_partner_name || room.room_name || t('messenger.chatList.directMessage')}
                   </span>
                   {room.last_message_at && (
                     <span className="MessengerChatList__ItemTime">

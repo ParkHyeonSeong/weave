@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { ArrowLeft } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -7,6 +8,7 @@ import { errorText } from '@/library/errorText';
 import IssueEditor from './IssueEditor';
 
 export default function CreateIssuePage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { id: branchId, taskId } = router.query;
 
@@ -32,11 +34,11 @@ export default function CreateIssuePage() {
         router.replace(`/branch/${branchId}/task/${taskId}/issue/${res.data.issue_id}`);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '이슈를 만들지 못했습니다.';
+        const msg = errorText(err.code, err.category) ?? t('branchTasks.createIssue.failed');
         setError(msg);
       }
     } catch {
-      setError('Failed to create issue.');
+      setError(t('branchTasks.createIssue.failedRetry'));
     } finally {
       setLoading(false);
     }
@@ -52,18 +54,18 @@ export default function CreateIssuePage() {
           onClick={() => router.push(`/branch/${branchId}/task/${taskId}`)}
         >
           <ArrowLeft size={16} />
-          Back to task
+          {t('branchTasks.issue.backToTask')}
         </button>
       </div>
 
-      <h1 className="CreateIssuePage__Title">New Issue</h1>
+      <h1 className="CreateIssuePage__Title">{t('branchTasks.createIssue.heading')}</h1>
 
       <div className="CreateIssuePage__Field">
-        <label className="CreateIssuePage__Label">Title</label>
+        <label className="CreateIssuePage__Label">{t('branchTasks.createIssue.titleLabel')}</label>
         <input
           className="CreateIssuePage__Input"
           type="text"
-          placeholder="Issue title"
+          placeholder={t('branchTasks.createIssue.titlePlaceholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
@@ -72,11 +74,11 @@ export default function CreateIssuePage() {
       </div>
 
       <div className="CreateIssuePage__Field">
-        <label className="CreateIssuePage__Label">Description</label>
+        <label className="CreateIssuePage__Label">{t('branchTasks.createIssue.descriptionLabel')}</label>
         <IssueEditor
           ref={editorRef}
           rawModeEnabled
-          placeholder="Describe the issue..."
+          placeholder={t('branchTasks.issue.bodyPlaceholder')}
           minHeight={200}
           branchId={branchId}
         />
@@ -89,14 +91,14 @@ export default function CreateIssuePage() {
           className="CreateIssuePage__CancelBtn"
           onClick={() => router.push(`/branch/${branchId}/task/${taskId}`)}
         >
-          Cancel
+          {t('common.actions.cancel')}
         </button>
         <button
           className="CreateIssuePage__SubmitBtn"
           onClick={handleSubmit}
           disabled={!title.trim() || loading}
         >
-          {loading ? 'Creating...' : 'Create issue'}
+          {loading ? t('branchTasks.createIssue.submitting') : t('branchTasks.createIssue.submit')}
         </button>
       </div>
     </div>

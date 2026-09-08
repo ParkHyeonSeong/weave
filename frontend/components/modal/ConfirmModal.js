@@ -1,7 +1,12 @@
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel', variant = 'primary' }) {
+export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmLabel, cancelLabel, variant = 'primary' }) {
+  const { t } = useTranslation();
   if (!isOpen) return null;
+
+  const confirmText = confirmLabel ?? t('common.actions.confirm');
+  const cancelText = cancelLabel ?? t('common.actions.cancel');
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) {
@@ -23,13 +28,13 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
         </div>
         <div className="ConfirmModal__Footer">
           <button className="ConfirmModal__CancelBtn" onClick={onClose}>
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             className={`ConfirmModal__ConfirmBtn ConfirmModal__ConfirmBtn--${variant}`}
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {confirmText}
           </button>
         </div>
       </div>

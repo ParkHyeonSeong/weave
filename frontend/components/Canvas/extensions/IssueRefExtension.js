@@ -4,6 +4,9 @@ import IssueRefPopup from './IssueRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
 import { numAttr, strAttr } from './refAttr';
 import { internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, ISSUE_PATH, encodeMarkdownUrl } from './refMarkdown';
+// 라이브 노드뷰는 React 밖이라 훅 대신 i18next 인스턴스를 직접 읽는다(errorText.js와 동일 패턴).
+// ⚠️ 아래 renderHTML은 **저장 직렬화**라 그대로 둔다 — 저장 HTML에 UI 언어가 섞이면 안 된다.
+import i18next from '@/library/i18n';
 
 export const issueRefPluginKey = new PluginKey('issueRefSuggestion');
 
@@ -91,7 +94,9 @@ const IssueRefNode = Node.create({
 
       const badge = document.createElement('span');
       badge.className = `ref-chip__badge ref-chip__badge--${node.attrs.status}`;
-      badge.textContent = node.attrs.status === 'open' ? 'Open' : 'Closed';
+      badge.textContent = node.attrs.status === 'open'
+        ? i18next.t('canvasExt.issueStatus.open')
+        : i18next.t('canvasExt.issueStatus.closed');
       badge.setAttribute('data-ref-badge', 'true');
       dom.appendChild(badge);
 

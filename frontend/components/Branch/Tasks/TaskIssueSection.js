@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, MessageCircle, CircleDot, CheckCircle2 } from 'lucide-react';
 import { axios } from '@/library/_axios';
-import { formatRelative } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import Avatar from '@/components/common/Avatar';
 import NavLink from '@/components/common/NavLink';
 
 export default function TaskIssueSection({ branchId, taskId, expanded = false }) {
+  const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const [issues, setIssues] = useState([]);
 
   const fetchIssues = async () => {
@@ -42,21 +45,23 @@ export default function TaskIssueSection({ branchId, taskId, expanded = false })
     <div className="TaskIssueSection">
       <div className="TaskIssueSection__Header">
         <span className="TaskIssueSection__Label">
-          Issues
+          {t('branchTasks.issue.sectionTitle')}
           {issues.length > 0 && (
             <span className="TaskIssueSection__Count">
-              {openCount} open{closedCount > 0 ? `, ${closedCount} closed` : ''}
+              {closedCount > 0
+                ? t('branchTasks.issue.countsWithClosed', { open: openCount, closed: closedCount })
+                : t('branchTasks.issue.counts', { open: openCount })}
             </span>
           )}
         </span>
         <NavLink href={`/branch/${branchId}/task/${taskId}/issue/new`} className="TaskIssueSection__AddBtn">
           <Plus size={14} />
-          {expanded && <span>New issue</span>}
+          {expanded && <span>{t('branchTasks.issue.new')}</span>}
         </NavLink>
       </div>
 
       {displayIssues.length === 0 ? (
-        <div className="TaskIssueSection__Empty">No issues yet.</div>
+        <div className="TaskIssueSection__Empty">{t('branchTasks.issue.empty')}</div>
       ) : (
         <div className="TaskIssueSection__List">
           {displayIssues.map((issue) => (
@@ -73,7 +78,7 @@ export default function TaskIssueSection({ branchId, taskId, expanded = false })
                 <span className="TaskIssueSection__ItemTitle">{issue.title}</span>
                 {expanded && (
                   <span className="TaskIssueSection__ItemMeta">
-                    #{issue.issue_id} opened {formatRelative(issue.created_at)} by{' '}
+                    {t('branchTasks.issue.openedMeta', { id: issue.issue_id, when: formatRelative(issue.created_at) })}{' '}
                     <Avatar
                       name={issue.author_name}
                       userId={issue.created_by}
@@ -102,7 +107,7 @@ export default function TaskIssueSection({ branchId, taskId, expanded = false })
           href={`/branch/${branchId}/task/${taskId}`}
           className="TaskIssueSection__More"
         >
-          View all {issues.length} issues
+          {t('branchTasks.issue.viewAll', { total: issues.length })}
         </NavLink>
       )}
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MessageSquare, Users, PanelLeftClose, PanelLeftOpen, X, ExternalLink } from 'lucide-react';
 import MessengerChatList from './MessengerChatList';
 import MessengerUserList from './MessengerUserList';
@@ -8,6 +9,7 @@ import MessengerNewChat from './MessengerNewChat';
 const SPLIT_THRESHOLD = 560;
 
 export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, isPip, onPopOut }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('chats');
   const [activeRoomId, setActiveRoomId] = useState(() => {
     try {
@@ -73,20 +75,20 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
           onClick={() => setActiveTab('chats')}
         >
           <MessageSquare size={14} />
-          Chats
+          {t('messenger.tabs.chats')}
         </button>
         <button
           className={`Messenger__Tab ${activeTab === 'users' ? 'Messenger__Tab--active' : ''}`}
           onClick={() => setActiveTab('users')}
         >
           <Users size={14} />
-          Users
+          {t('messenger.tabs.users')}
         </button>
         {onPopOut && (
           <button
             className="Messenger__PopOutBtn"
             onClick={onPopOut}
-            title="Pop out chat"
+            title={t('messenger.popOut')}
           >
             <ExternalLink size={14} />
           </button>
@@ -124,7 +126,7 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
                 <button
                   className="MessengerChatRoom__CollapseBtn"
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                  title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+                  title={sidebarCollapsed ? t('messenger.showSidebar') : t('messenger.hideSidebar')}
                 >
                   {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
                 </button>
@@ -133,7 +135,7 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
                 <button
                   className="MessengerChatRoom__CloseBtn"
                   onClick={handleBack}
-                  title="Close chat"
+                  title={t('messenger.closeChat')}
                 >
                   <X size={14} />
                 </button>
@@ -144,11 +146,11 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
               <button
                 className="Messenger__CollapseBtn"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+                title={sidebarCollapsed ? t('messenger.showSidebar') : t('messenger.hideSidebar')}
               >
                 {sidebarCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
               </button>
-              Select a conversation
+              {t('messenger.selectConversation')}
             </div>
           )}
         </div>

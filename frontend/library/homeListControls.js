@@ -30,16 +30,20 @@ export const byDateDesc = (field) => (a, b) => {
 };
 
 // 모든 앱 공통 "내 역할" 필터 그룹. (track은 owner/editor/viewer, 나머지 admin/member)
-export const ROLE_GROUP = {
-  key: 'role',
-  label: '내 역할',
-  // NOTE: options[0] must be the "all / no-filter" 기본값 (initialFilters/countActiveFilters가 이를 기준으로 함)
-  options: [
-    { value: 'all', label: '전체', test: () => true },
-    { value: 'owner', label: '소유자', test: (it) => ['admin', 'owner'].includes(it.my_role) },
-    { value: 'member', label: '멤버', test: (it) => !!it.my_role && !['admin', 'owner'].includes(it.my_role) },
-  ],
-};
+// 라벨은 catalog(common.roleFilter.*)에서 오므로 호출부가 t를 넘겨 만든다 — 각 앱 홈의
+// buildXControls(t) 안에서 useMemo([t])로 호출돼 언어가 바뀔 때만 다시 만들어진다.
+export function roleGroup(t) {
+  return {
+    key: 'role',
+    label: t('common.roleFilter.label'),
+    // NOTE: options[0] must be the "all / no-filter" 기본값 (initialFilters/countActiveFilters가 이를 기준으로 함)
+    options: [
+      { value: 'all', label: t('common.roleFilter.all'), test: () => true },
+      { value: 'owner', label: t('common.roleFilter.owner'), test: (it) => ['admin', 'owner'].includes(it.my_role) },
+      { value: 'member', label: t('common.roleFilter.member'), test: (it) => !!it.my_role && !['admin', 'owner'].includes(it.my_role) },
+    ],
+  };
+}
 
 export function initialFilters(filterConfig) {
   const f = {};

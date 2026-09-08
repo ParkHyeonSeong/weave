@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { X, ListTodo } from 'lucide-react';
 import NavLink from '@/components/common/NavLink';
 import { entityTintStyle } from '@/library/entityTint';
@@ -5,14 +6,15 @@ import { entityTintStyle } from '@/library/entityTint';
 // snake_case key를 Title Case로 변환 (fallback용)
 const formatStatusKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-const PRIORITY_LABELS = {
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  urgent: 'Urgent',
+const PRIORITY_KEYS = {
+  low: 'messenger.priority.low',
+  medium: 'messenger.priority.medium',
+  high: 'messenger.priority.high',
+  urgent: 'messenger.priority.urgent',
 };
 
 export default function TaskRefCard({ taskRef, removable, onRemove }) {
+  const { t } = useTranslation();
   if (!taskRef) return null;
 
   // 클릭 가능(전송된 메시지 안의 칩)일 때만 링크. compose 프리뷰(removable)는 Remove 버튼만 있고 이동 안 함.
@@ -26,7 +28,7 @@ export default function TaskRefCard({ taskRef, removable, onRemove }) {
         <ListTodo size={12} className="TaskRefCard__Icon" />
         <span className="TaskRefCard__DisplayId">{taskRef.display_id}</span>
         <span className={`TaskRefCard__Priority TaskRefCard__Priority--${taskRef.priority}`}>
-          {PRIORITY_LABELS[taskRef.priority] || taskRef.priority}
+          {PRIORITY_KEYS[taskRef.priority] ? t(PRIORITY_KEYS[taskRef.priority]) : taskRef.priority}
         </span>
         {removable && (
           <button className="TaskRefCard__Remove" onClick={(e) => { e.stopPropagation(); onRemove(); }}>

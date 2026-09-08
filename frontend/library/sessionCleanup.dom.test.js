@@ -4,6 +4,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import { THEME_STORAGE_KEY, ThemeProvider, useTheme, normalizeMode, resolveTheme } from './theme';
+import { WORKSPACE_SETTINGS_KEY } from '@/library/workspaceSettings';
 import { clearClientSession } from './sessionCleanup';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -29,7 +30,7 @@ function seedSession() {
   localStorage.setItem(THEME_STORAGE_KEY, 'dark');
   sessionStorage.setItem('profile', JSON.stringify({ user_id: 1 }));
   sessionStorage.setItem('avatar_url', 'x.png');
-  sessionStorage.setItem('app_initialized', 'true');
+  sessionStorage.setItem(WORKSPACE_SETTINGS_KEY, JSON.stringify({ initialized: true }));
 }
 
 beforeEach(() => {
@@ -53,9 +54,9 @@ describe('clearClientSession — 이전 계정의 흔적을 지운다', () => {
     expect(sessionStorage.getItem('avatar_url')).toBeNull();
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
   });
-  it('app_initialized는 건드리지 않는다 (세션이 아니라 워크스페이스 초기화 여부다)', () => {
+  it('워크스페이스 설정 캐시는 건드리지 않는다 (세션이 아니라 워크스페이스 상태다)', () => {
     clearClientSession();
-    expect(sessionStorage.getItem('app_initialized')).toBe('true');
+    expect(sessionStorage.getItem(WORKSPACE_SETTINGS_KEY)).toBeTruthy();
   });
   it('제거 후 해석은 OS를 따른다 — light로 고정되지 않는다', () => {
     // ⚠️ "삭제하면 라이트가 된다"는 오해의 회귀 방지선이다. 미러가 없으면
@@ -84,14 +85,14 @@ describe('로그아웃 3경로 — 어디로 나가도 이전 계정의 테마�
 
     const userBtn = document.querySelector('.Header__Avatar');
     await act(async () => { userBtn.click(); });
-    const logout = [...document.querySelectorAll('button')]
-      .find((b) => b.textContent.includes('로그아웃'));
+    // ⚠️ 문구로 찾지 않는다 — 로그아웃 라벨은 이제 locale을 따른다(en이면 'Sign out').
+    const logout = document.querySelector('.Header__SettingsItem--danger');
     await act(async () => { logout.click(); });
     await act(async () => {});          // 동적 import + POST 해소까지 한 틱 더
 
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(sessionStorage.getItem('profile')).toBeNull();
-    expect(sessionStorage.getItem('app_initialized')).toBeNull();  // L1은 자기 줄로 계속 지운다
+    expect(sessionStorage.getItem(WORKSPACE_SETTINGS_KEY)).toBeNull();  // L1은 자기 줄로 계속 지운다
     // 저장소만 비고 React mode가 dark에 남으면 로그인 화면이 이전 계정의 다크로 그려진다
     expect(themeSeen()).toBe('system:light');
     expect(document.documentElement.getAttribute('data-theme')).toBe('light');
@@ -102,13 +103,15 @@ describe('로그아웃 3경로 — 어디로 나가도 이전 계정의 테마�
     activeRoot = createRoot(document.getElementById('root'));
     await act(async () => { activeRoot.render(<CommandPalette isOpen={true} onClose={() => {}} />); });
 
+    // 라벨은 catalog(auth.signOut)를 따른다 — 문자열 하드코딩 대신 현재 locale의 값으로 찾는다.
+    const { default: i18next } = await import('@/library/i18n');
     const logout = [...document.querySelectorAll('.CommandPalette__Item')]
-      .find((el) => el.textContent.includes('Logout'));
+      .find((el) => el.textContent.includes(i18next.t('auth.signOut')));
     await act(async () => { logout.click(); });
 
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(sessionStorage.getItem('profile')).toBeNull();
-    expect(sessionStorage.getItem('app_initialized')).toBeNull();  // L2도 자기 줄로 계속 지운다
+    expect(sessionStorage.getItem(WORKSPACE_SETTINGS_KEY)).toBeNull();  // L2도 자기 줄로 계속 지운다
   });
 
   it('L3 auth-expired (실물 인터셉터를 통과시킨다)', async () => {
@@ -123,8 +126,8 @@ describe('로그아웃 3경로 — 어디로 나가도 이전 계정의 테마�
 
     expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
     expect(sessionStorage.getItem('profile')).toBeNull();
-    // ⚠️ L3는 원래 app_initialized를 지우지 않는다 — 현행 동작을 고정한다
-    expect(sessionStorage.getItem('app_initialized')).toBe('true');
+    // ⚠️ L3는 원래 워크스페이스 초기화 캐시를 지우지 않는다 — 현행 동작을 고정한다
+    expect(sessionStorage.getItem(WORKSPACE_SETTINGS_KEY)).toBeTruthy();
   });
 });
 

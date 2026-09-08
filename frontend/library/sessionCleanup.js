@@ -3,9 +3,11 @@ import { THEME_STORAGE_KEY, THEME_MIRROR_EVENT } from '@/library/theme';
 // 클라이언트에 남은 이전 계정의 흔적을 지운다. 로그아웃 계열 세 경로가 전부 이 함수를 탄다
 // (Header 로그아웃 · Command Palette 로그아웃 · auth-expired) — L1·L2·L3.
 // 세 경로가 각자 같은 세 줄을 복제하고 있었고 그중 하나는 이미 대상이 어긋나 있었다.
-// ⚠️ app_initialized는 **여기서 지우지 않는다.** 그건 세션이 아니라 워크스페이스 초기화
-//    여부이고(_app.js), L3는 원래 지우지 않는다. 넣으면 L3의 동작이 바뀌어 범위를 넘는
-//    회귀가 된다. 각 호출부가 기존대로 자기 줄을 유지한다.
+// ⚠️ 워크스페이스 설정 캐시(workspaceSettings.js의 WORKSPACE_SETTINGS_KEY)는 **여기서
+//    지우지 않는다.** 그건 세션이 아니라 워크스페이스 상태이고, L3(auth-expired)는 원래
+//    지우지 않는다. L1·L2는 각자 clearWorkspaceSettingsCache()를 자기 줄로 부른다.
+// ⚠️ 익명 표시 언어(localStorage['locale'])도 지우지 않는다 — 로그인 화면이 마지막 언어로 뜨게
+//    하는 기기 편의값이고 시간대는 애초에 기기에 저장되지 않는다(이전 계정 상속 금지).
 export function clearClientSession() {
   try { sessionStorage.removeItem('profile'); } catch {}
   try { sessionStorage.removeItem('avatar_url'); } catch {}

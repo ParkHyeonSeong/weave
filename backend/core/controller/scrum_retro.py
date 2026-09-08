@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone, timedelta
+from datetime import date
 
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,14 +8,13 @@ from core.model import scrum_board as board_model
 from core.model import scrum_member as member_model
 from core.model import scrum_retro as retro_model
 from library.scrum_cells import read_cells, write_cell_into_doc
+from library.time_context import workspace_today
 from library.ws_collab_manager import scrum_retro_collab_manager
 from routers.schema.scrum_cell import VALID_MODES, VALID_RETRO_KEYS, RetroCellWrite
 
-KST = timezone(timedelta(hours=9))
-
-
-def _today_kst() -> date:
-    return datetime.now(KST).date()
+# 회고 기간은 board 구성원 전원이 같은 period_start/period_end를 봐야 하므로 workspace
+# timezone으로만 계산한다. 개인 language_region.time_zone은 여기 절대 섞지 않는다 —
+# 섞으면 같은 board에서 사용자마다 다른 회고 행이 만들어진다.
 
 
 async def _require_member(board_id: int, request: Request, db: AsyncSession):
@@ -35,13 +34,13 @@ async def get_current(board_id: int, request: Request, db: AsyncSession):
         return err
     retro = await retro_model.get_or_create_current(
         board_id, board['retro_cadence'], board['retro_interval_weeks'],
-        board['retro_anchor_weekday'], _today_kst(), db)
+        board['retro_anchor_weekday'], await workspace_today(db), db)
     return {'status': True, 'retro': retro}
 
 
 async def get_period(board_id: int, request: Request, db: AsyncSession,
                      target: date | None = None):
-    """앵커 날짜(target, 기본=오늘 KST)가 속한 회고 기간을 보장/반환.
+    """앵커 날짜(target, 기본=workspace timezone의 오늘)가 속한 회고 기간을 보장/반환.
     이전·다음 기간 이동 앵커(prev_date/next_date)와 현재 기간 여부(is_current)도 함께 준다.
     manual 주기면 retro=None(자동 회고 없음)."""
     board, err = await _require_member(board_id, request, db)
@@ -50,7 +49,7 @@ async def get_period(board_id: int, request: Request, db: AsyncSession,
     cadence = board['retro_cadence']
     interval = board['retro_interval_weeks']
     anchor_weekday = board['retro_anchor_weekday']
-    when = target or _today_kst()
+    when = target or await workspace_today(db)
     retro = await retro_model.get_or_create_for_date(
         board_id, cadence, interval, anchor_weekday, when, db)
     if retro is None:
@@ -59,7 +58,7 @@ async def get_period(board_id: int, request: Request, db: AsyncSession,
     prev_date, next_date = retro_model.neighbor_anchors(
         cadence, interval, anchor_weekday, when)
     today_period = retro_model.compute_period(
-        cadence, interval, anchor_weekday, _today_kst())
+        cadence, interval, anchor_weekday, await workspace_today(db))
     return {
         'status': True,
         'retro': retro,

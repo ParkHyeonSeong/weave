@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next';
 import { useThemePreference, nextCycleMode, THEME_OPTIONS } from '@/library/theme';
 import { THEME_ICONS } from '@/components/common/themeIcons';
 
-const LABEL = Object.fromEntries(THEME_OPTIONS.map((o) => [o.value, o.label]));
+// value → catalog 키. 문구 자체는 렌더 시점에 현재 locale로 푼다.
+const LABEL_KEY = Object.fromEntries(THEME_OPTIONS.map((o) => [o.value, o.labelKey]));
 
 // 헤더의 빠른 토글. Profile 라디오그룹이 정식 설정이고 이건 단축키 성격이라
 // 세 모드를 한 버튼으로 순환한다: light → dark → system → light.
@@ -12,6 +14,7 @@ const LABEL = Object.fromEntries(THEME_OPTIONS.map((o) => [o.value, o.label]));
 // 저장 중에는 DOM disabled 대신 aria-disabled + 클릭 가드 — disabled는 포커스를 blur해
 // 키보드 사용자의 위치를 잃게 한다(AppearanceSection과 같은 이유).
 export default function ThemeToggleButton() {
+  const { t } = useTranslation();
   const { enabled, mode, choose, pending, error } = useThemePreference();
   if (!enabled) return null;
 
@@ -24,8 +27,8 @@ export default function ThemeToggleButton() {
       className="Header__IconBtn Header__ThemeToggle"
       data-mode={mode}
       aria-disabled={pending || undefined}
-      aria-label={`테마: ${LABEL[mode]}. 누르면 ${LABEL[next]}로 바뀝니다.`}
-      title={error || `테마: ${LABEL[mode]} → ${LABEL[next]}`}
+      aria-label={t('theme.toggleAria', { current: t(LABEL_KEY[mode]), next: t(LABEL_KEY[next]) })}
+      title={error || t('theme.toggleTitle', { current: t(LABEL_KEY[mode]), next: t(LABEL_KEY[next]) })}
       onClick={() => { if (!pending) choose(next); }}
     >
       <Icon size={18} aria-hidden="true" />

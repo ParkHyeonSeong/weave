@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import Avatar from '@/components/common/Avatar';
 
 export default function MentionSearchPopup({ keyword, roomId, members, onSelect, onClose }) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -62,12 +64,12 @@ export default function MentionSearchPopup({ keyword, roomId, members, onSelect,
     <div className="MentionSearchPopup">
       <div className="MentionSearchPopup__Header">
         <Search size={12} />
-        Mention a user
+        {t('messenger.search.mentionHeader')}
       </div>
       <ul className="MentionSearchPopup__List">
-        {loading && <li className="MentionSearchPopup__Empty">Searching...</li>}
+        {loading && <li className="MentionSearchPopup__Empty">{t('messenger.search.searching')}</li>}
         {!loading && users.length === 0 && (
-          <li className="MentionSearchPopup__Empty">No users found</li>
+          <li className="MentionSearchPopup__Empty">{t('messenger.search.noUsers')}</li>
         )}
         {!loading && users.map((user, idx) => (
           <li

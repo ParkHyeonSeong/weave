@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { axios } from '@/library/_axios';
 import { Plus } from 'lucide-react';
@@ -27,6 +28,7 @@ import { useUiPrefs } from '@/library/UiPrefsContext';
 import ContextMenu from '@/components/common/ContextMenu';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import ParentPickerPopup from './ParentPickerPopup';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 // localStorage 키 헬퍼
 const storageKey = (branchId, type) => `weave_tasks_${branchId}_${type}`;
@@ -54,9 +56,6 @@ const emptyFilters = () => ({
   priorities: new Set(), labelIds: new Set(), epicIds: new Set(),
   typeKeys: new Set(), statusKeys: new Set(),
 });
-const VIEW_SAVE_ERR = '뷰를 저장할 수 없습니다 (조건을 확인하세요)';
-const VIEW_UPDATE_ERR = '뷰를 수정할 수 없습니다';
-const VIEW_DELETE_ERR = '뷰를 삭제할 수 없습니다';
 
 // 현재 사용자 id — 코드베이스 공통 패턴(TaskDetailPanel.js 등): sessionStorage 'profile'.
 // FilterSpec 평가기의 $me 의미 해석(assignee=$me 등)에 쓰인다.
@@ -70,7 +69,9 @@ function currentUserId() {
 }
 
 export default function TaskList({ branchId, branchKey, taskTypes, workflowStatuses, onSelectTask, applyViewId = null, onViewApplied }) {
+  const { t } = useTranslation();
   const { prefs, setPinnedViews } = useUiPrefs();
+  const { today: personalToday, timeZone } = useDateFormat();
   const [sprints, setSprints] = useState([]);
   const [backlogTasks, setBacklogTasks] = useState([]);
   const [epics, setEpics] = useState([]);
@@ -383,10 +384,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         setViewError(null);
         window.dispatchEvent(new Event('saved-views:changed'));  // 사이드바 핀 목록 갱신
       } else {
-        setViewError(VIEW_SAVE_ERR);
+        setViewError(t('branchTasks.views.saveError'));
       }
     } catch {
-      setViewError(VIEW_SAVE_ERR);
+      setViewError(t('branchTasks.views.saveError'));
     }
   };
 
@@ -394,9 +395,9 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
     try {
       const res = await axios.patch(`/saved-views/${viewId}`, buildViewPayload());
       if (res.data?.status) { await loadSavedViews(); setViewError(null); }
-      else setViewError(VIEW_UPDATE_ERR);
+      else setViewError(t('branchTasks.views.updateError'));
     } catch {
-      setViewError(VIEW_UPDATE_ERR);
+      setViewError(t('branchTasks.views.updateError'));
     }
   };
 
@@ -409,10 +410,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         setViewError(null);
         window.dispatchEvent(new Event('saved-views:changed'));  // 사이드바 핀 목록 갱신
       } else {
-        setViewError(VIEW_DELETE_ERR);
+        setViewError(t('branchTasks.views.deleteError'));
       }
     } catch {
-      setViewError(VIEW_DELETE_ERR);
+      setViewError(t('branchTasks.views.deleteError'));
     }
   };
 
@@ -449,7 +450,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
   // 레거시 quick-chip + 고급 빌더 spec 합성 → 단일 effectiveSpec.
   // filterCtx.spec 분기(taskFilters.js)로 평가하므로 filters.priorities 직접 접근 없음.
   const userId = useMemo(() => currentUserId(), []);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // $today는 **개인 timezone의 오늘**이다 — new Date().toISOString()의 UTC 날짜를 쓰면
+  // 뉴욕 저녁에 하루 앞선 날짜가 되어 백엔드 저장 필터의 $today와 갈린다.
+  // timeZone이 바뀌면(설정 변경) 다시 계산되도록 의존성에 둔다.
+  const today = useMemo(() => personalToday(), [personalToday, timeZone]);
   const effectiveSpec = useMemo(
     () => buildEffectiveSpec({ legacyCtx: { searchQuery, selectedUserIds, filters }, filterSpec }),
     [searchQuery, selectedUserIds, filters, filterSpec],
@@ -483,9 +487,11 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
           cmp = (PRIORITY_WEIGHT[a.priority] ?? 4) - (PRIORITY_WEIGHT[b.priority] ?? 4);
           break;
         case 'due_date': {
-          const da = a.due_date ? new Date(a.due_date).getTime() : Infinity;
-          const db = b.due_date ? new Date(b.due_date).getTime() : Infinity;
-          cmp = da - db;
+          // date-only는 0패딩 ISO라 문자열 비교가 곧 날짜순 — instant로 파싱하지 않는다.
+          // 마감 없음은 맨 뒤.
+          const da = a.due_date ? String(a.due_date).slice(0, 10) : '9999-99-99';
+          const db = b.due_date ? String(b.due_date).slice(0, 10) : '9999-99-99';
+          cmp = da < db ? -1 : da > db ? 1 : 0;
           break;
         }
         case 'status':
@@ -834,31 +840,37 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
   // 버킷 키 → 사람이 읽는 라벨 (메타 lookup)
   const groupLabelFor = useCallback((key) => {
     // sprint 그룹의 null 버킷 = 백로그(sprint_id 없음)
-    if ((key === null || key === undefined) && groupBy === 'sprint') return 'Backlog';
-    if (key === null || key === undefined) return '(없음)';
+    if ((key === null || key === undefined) && groupBy === 'sprint') return t('branchTasks.backlog');
+    if (key === null || key === undefined) return t('branchTasks.groups.none');
     switch (groupBy) {
       case 'status':
         return (workflowStatuses || []).find((w) => w.key === key)?.label || String(key);
       case 'priority':
-        return { urgent: 'Urgent', high: 'High', medium: 'Medium', low: 'Low' }[key] || String(key);
+        return {
+          urgent: t('branchTasks.priority.urgent'),
+          high: t('branchTasks.priority.high'),
+          medium: t('branchTasks.priority.medium'),
+          low: t('branchTasks.priority.low'),
+        }[key] || String(key);
       case 'assignee': {
         const m = (members || []).find((x) => x.user_id === key);
-        return m ? (m.username || m.email) : `User ${key}`;
+        return m ? (m.username || m.email) : t('branchTasks.groups.userFallback', { id: key });
       }
       case 'epic':
-        return (epics || []).find((e) => e.epic_id === key)?.epic_name || `Epic ${key}`;
+        return (epics || []).find((e) => e.epic_id === key)?.epic_name
+          || t('branchTasks.groups.epicFallback', { id: key });
       case 'sprint': {
         const sp = sprints.find((s) => s.sprint_id === key);
-        return sp ? sp.sprint_name : 'Backlog';
+        return sp ? sp.sprint_name : t('branchTasks.backlog');
       }
       case 'label': {
         const lb = (labels || []).find((l) => l.label_id === key);
-        return lb ? lb.label_name : `Label ${key}`;
+        return lb ? lb.label_name : t('branchTasks.groups.labelFallback', { id: key });
       }
       default:
         return String(key);
     }
-  }, [groupBy, workflowStatuses, members, epics, sprints, labels]);
+  }, [groupBy, workflowStatuses, members, epics, sprints, labels, t]);
 
   const groupedBuckets = useMemo(() => {
     if (!grouping) return [];
@@ -873,7 +885,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
     return groupTasks(sorted, groupBy).map((b) => ({ ...b, label: groupLabelFor(b.key) }));
   }, [grouping, sprints, backlogTasks, isFilterActive, filterCtx, multiSort, groupBy, groupLabelFor]);
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--color-text-secondary)', fontSize: 14 }}>Loading...</div>;
+  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--color-text-secondary)', fontSize: 14 }}>{t('common.state.loading')}</div>;
 
   const sprintIds = sprints.map((s) => `sprint-${s.sprint_id}`);
 
@@ -921,7 +933,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         />
         <button className="TaskList__SprintBtn" onClick={() => setSprintModal({ open: true, sprint: null })}>
           <Plus size={14} />
-          Create Sprint
+          {t('branchTasks.sprint.create')}
         </button>
       </div>
       {viewError && (
@@ -932,7 +944,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         /* 그룹핑 모드: 스프린트 섹션·DnD 숨김, 플랫 버킷 렌더 */
         <div className="TaskList__Groups">
           {groupedBuckets.every((b) => b.tasks.length === 0) && (
-            <div className="TaskList__Empty">No tasks</div>
+            <div className="TaskList__Empty">{t('branchTasks.noTasks')}</div>
           )}
           {groupedBuckets.map((bucket) => (
             <div className="TaskList__Group" key={String(bucket.key)}>
@@ -998,7 +1010,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
 
         {/* Backlog 섹션 (sortable 아님, droppable만) */}
         <TaskListSprint
-          sprint={{ sprint_name: 'Backlog', status: 'backlog', tasks: applyFilterAndSort(backlogTasks) }}
+          sprint={{ sprint_name: t('branchTasks.backlog'), status: 'backlog', tasks: applyFilterAndSort(backlogTasks) }}
           branchId={branchId}
           branchKey={branchKey}
           taskTypes={taskTypes}
@@ -1065,7 +1077,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         onConfirm={taskMenu.handleConfirmDelete}
         title={taskMenu.confirmTitle}
         message={taskMenu.confirmMessage}
-        confirmLabel="Delete"
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
       {taskMenu.parentPicker && createPortal(

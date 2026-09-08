@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowUpFromLine, ArrowDownFromLine,
   ArrowLeftFromLine, ArrowRightFromLine,
@@ -18,6 +19,7 @@ const Btn = ({ onClick, children, title, danger }) => (
 
 // 포커스된 셀 아래 중앙에 표시되는 행/열 조작 툴바
 export default function TableBubbleMenu({ editor }) {
+  const { t } = useTranslation();
   const [pos, setPos] = useState(null);
 
   const updatePosition = useCallback(() => {
@@ -66,27 +68,27 @@ export default function TableBubbleMenu({ editor }) {
       style={{ top: pos.top, left: pos.left }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title="Add row above">
+      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title={t('canvas.table.addRowAbove')}>
         <ArrowUpFromLine size={14} />
       </Btn>
-      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title="Add row below">
+      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title={t('canvas.table.addRowBelow')}>
         <ArrowDownFromLine size={14} />
       </Btn>
       <div className="TableBubbleMenu__Sep" />
-      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} title="Add column before">
+      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} title={t('canvas.table.addColumnBefore')}>
         <ArrowLeftFromLine size={14} />
       </Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Add column after">
+      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} title={t('canvas.table.addColumnAfter')}>
         <ArrowRightFromLine size={14} />
       </Btn>
       <div className="TableBubbleMenu__Sep" />
-      <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Delete row" danger>
+      <Btn onClick={() => editor.chain().focus().deleteRow().run()} title={t('canvas.table.deleteRow')} danger>
         <TableRowsSplit size={14} />
       </Btn>
-      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} title="Delete column" danger>
+      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} title={t('canvas.table.deleteColumn')} danger>
         <TableColumnsSplit size={14} />
       </Btn>
-      <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Delete table" danger>
+      <Btn onClick={() => editor.chain().focus().deleteTable().run()} title={t('canvas.table.deleteTable')} danger>
         <Trash2 size={14} />
       </Btn>
     </div>

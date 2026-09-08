@@ -21,6 +21,9 @@ async def check_initialized(db: AsyncSession):
             'initialized': True,
             'workspace_name': settings['workspace_name'],
             'registration_policy': settings['registration_policy'],
+            # 공용 기간(Scrum 오늘·ISO week·회고) 계산의 단일 소스. 프런트는 이 응답 하나만
+            # 읽어 WorkspaceSettingsProvider에 담고, Header·Scrum이 각자 다시 조회하지 않는다.
+            'time_zone': settings['time_zone'],
         }
     return {'status': True, 'initialized': False}
 
@@ -49,12 +52,19 @@ async def initialize(body, request: Request, response: Response, db: AsyncSessio
     # admin 역할 부여
     await user_model.update_role(user_id, 'admin', db)
 
+    # 첫 관리자의 개인 언어·시간대 — 관리자 생성과 같은 트랜잭션에 넣는다. 아래 settings INSERT에서
+    # 경합에 지면 db.rollback()이 이 쓰기도 함께 되돌리므로 반쪽 상태가 남지 않는다.
+    if getattr(body, 'language_region', None) is not None:
+        await user_model.update_ui_prefs(
+            user_id, {'language_region': body.language_region.model_dump()}, db)
+
     # 워크스페이스 설정 저장 -- 원자적 경합 가드. 졌으면 user 생성까지 되돌리고 차단.
     created = await workspace_model.create_settings(
         workspace_name=body.workspace_name,
         registration_policy=body.registration_policy,
         admin_user_id=user_id,
         db=db,
+        time_zone=body.time_zone,
     )
     if not created:
         await db.rollback()

@@ -8,6 +8,22 @@
   background: $color-surface;
   padding: $space-4;
 
+  // 카드와 언어 선택을 묶는 세로 스택 — 언어 선택은 카드 **아래** 가운데에 온다.
+  &__Shell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $space-3;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  &__LocaleBar {
+    display: flex;
+    justify-content: center;
+    align-self: stretch;      // 좁은 화면에서 팝오버가 흐름 안에서 폭을 가질 수 있게
+  }
+
   &__Card {
     width: 100%;
     max-width: 400px;

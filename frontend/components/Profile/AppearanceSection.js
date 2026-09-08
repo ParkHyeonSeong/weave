@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useThemePreference } from '@/library/theme';
 import { THEME_ICONS } from '@/components/common/themeIcons';
 
@@ -12,6 +13,7 @@ import { THEME_ICONS } from '@/components/common/themeIcons';
 // 브라우저가 즉시 blur해 키보드 포커스가 body로 날아가고 roving tabindex가 깨진다.
 // 표시는 aria-disabled, 차단은 핸들러 가드로 한다.
 export default function AppearanceSection() {
+  const { t } = useTranslation();
   const { enabled, mode, options, choose, pending, error } = useThemePreference();
   const refs = useRef({});
 
@@ -39,7 +41,7 @@ export default function AppearanceSection() {
 
   return (
     <div className="Profile__Section">
-      <h2 className="Profile__SectionTitle" id="appearance-label">Appearance</h2>
+      <h2 className="Profile__SectionTitle" id="appearance-label">{t('profile.appearance')}</h2>
       <div className="Appearance__Group" role="radiogroup"
            aria-labelledby="appearance-label" aria-describedby="appearance-hint">
         {options.map((o) => {
@@ -48,22 +50,20 @@ export default function AppearanceSection() {
           return (
             <button
               key={o.value} type="button" role="radio" data-value={o.value}
-              aria-checked={selected} aria-label={`${o.label} — ${o.hint}`}
+              aria-checked={selected} aria-label={`${t(o.labelKey)} — ${t(o.hintKey)}`}
               tabIndex={selected ? 0 : -1} aria-disabled={pending || undefined}
               ref={(el) => { refs.current[o.value] = el; }}
               className={`Appearance__Option${selected ? ' Appearance__Option--selected' : ''}`}
               onClick={() => { if (!pending) choose(o.value); }} onKeyDown={onKeyDown}
             >
               <Icon size={18} aria-hidden="true" />
-              <span className="Appearance__OptionLabel">{o.label}</span>
-              <span className="Appearance__OptionHint">{o.hint}</span>
+              <span className="Appearance__OptionLabel">{t(o.labelKey)}</span>
+              <span className="Appearance__OptionHint">{t(o.hintKey)}</span>
             </button>
           );
         })}
       </div>
-      <p className="Appearance__Hint" id="appearance-hint">
-        System을 고르면 기기의 밝기 설정을 따릅니다. 이 설정은 계정에 저장되어 다른 기기에서도 적용됩니다.
-      </p>
+      <p className="Appearance__Hint" id="appearance-hint">{t('theme.hint')}</p>
       {error && <p className="Appearance__Error" role="alert">{error}</p>}
     </div>
   );

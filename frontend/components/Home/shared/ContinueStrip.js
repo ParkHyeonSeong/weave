@@ -1,4 +1,5 @@
 // title, onMore, tabs?: [{key,label}], activeTab, onTab, items: [{title, dotColor, meta, onClick}], loading
+import { useTranslation } from 'react-i18next';
 import NavLink from '@/components/common/NavLink';
 export default function ContinueStrip({
   title,
@@ -8,8 +9,10 @@ export default function ContinueStrip({
   onTab = () => {},
   items = [],
   loading = false,
-  emptyText = '아직 없습니다',
+  emptyText,
 }) {
+  const { t } = useTranslation();
+
   return (
     <section className="ContinueStrip">
       <div className="HomeSecHead">
@@ -29,7 +32,7 @@ export default function ContinueStrip({
         )}
         {onMore && (
           <button className="HomeSecHead__More" onClick={onMore}>
-            전체 →
+            {t('home.continueStrip.viewAll')}
           </button>
         )}
       </div>
@@ -38,7 +41,7 @@ export default function ContinueStrip({
           {[0, 1, 2].map(i => <div key={i} className="HRecentCard HRecentCard--skeleton" />)}
         </div>
       ) : items.length === 0 ? (
-        <div className="ContinueStrip__Empty">{emptyText}</div>
+        <div className="ContinueStrip__Empty">{emptyText ?? t('home.continueStrip.empty')}</div>
       ) : (
         <div className="ContinueStrip__Grid">
           {items.map((it, i) => {

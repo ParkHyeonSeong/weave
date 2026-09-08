@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import EntityIcon from './EntityIcon';
 import ColorPicker from './ColorPicker';
 import IconPicker from './IconPicker';
@@ -12,6 +13,7 @@ export default function AppearanceSection({
   disabled = false,
   onChange,              // ({ icon, color }) => void
 }) {
+  const { t } = useTranslation();
   const defaultColor = DEFAULT_COLORS[entityType] || DEFAULT_COLORS.branch;
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -29,19 +31,19 @@ export default function AppearanceSection({
 
         <div className="AppearanceSection__Fields">
           <div className="AppearanceSection__Field">
-            <label className="AppearanceSection__Label">Icon</label>
+            <label className="AppearanceSection__Label">{t('common.appearance.iconLabel')}</label>
             <button
               type="button"
               className="AppearanceSection__IconBtn"
               disabled={disabled}
               onClick={() => setPickerOpen(true)}
             >
-              {icon ? 'Change icon...' : 'Choose icon...'}
+              {icon ? t('common.appearance.changeIcon') : t('common.appearance.chooseIcon')}
             </button>
           </div>
 
           <div className="AppearanceSection__Field">
-            <label className="AppearanceSection__Label">Color</label>
+            <label className="AppearanceSection__Label">{t('common.appearance.colorLabel')}</label>
             <ColorPicker
               value={color || defaultColor}
               onChange={(c) => onChange({ icon, color: c })}

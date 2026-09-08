@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, X, Loader } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
@@ -29,6 +30,7 @@ export default function TaskSubtaskSection({
   branchId, taskId, subtasks = [], progress, workflowStatuses = [], taskTypes = [],
   defaultTaskType, onSelectTask, onChanged, onStatusChange,
 }) {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [busy, setBusy] = useState(false);
@@ -64,7 +66,7 @@ export default function TaskSubtaskSection({
       // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약) — 부모가 코드를 넘겨준다
       setStatusError(
         errorText(res.code, res.category)
-        ?? '상태를 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
+        ?? t('branchTasks.subtasks.statusChangeFailed'),
       );
     }
   };
@@ -76,13 +78,13 @@ export default function TaskSubtaskSection({
   };
 
   const submit = async () => {
-    const t = title.trim();
-    if (!t || busy) return;
+    const trimmed = title.trim();
+    if (!trimmed || busy) return;
     setBusy(true);
     setCreateError('');
     try {
       const res = await axios.post(`/branches/${branchId}/tasks`, {
-        title: t,
+        title: trimmed,
         parent_task_id: taskId,
         // taskTypes 로딩 전(빈 배열)엔 undefined로 빠지므로, 부모 태스크의 task_type(항상 유효)로 fallback
         task_type: taskTypes?.[0]?.type_key ?? defaultTaskType,
@@ -97,11 +99,11 @@ export default function TaskSubtaskSection({
       } else {
         // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약). 호출부에서 확인.
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '하위태스크를 만들지 못했어요.';
+        const msg = errorText(err.code, err.category) ?? t('branchTasks.subtasks.createFailed');
         setCreateError(msg);
       }
     } catch {
-      setCreateError('하위태스크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+      setCreateError(t('branchTasks.subtasks.createFailedRetry'));
     } finally {
       setBusy(false);
     }
@@ -111,7 +113,7 @@ export default function TaskSubtaskSection({
     <div className="TaskSubtaskSection">
       <div className="TaskSubtaskSection__Header">
         <span className="TaskSubtaskSection__Label">
-          Subtasks
+          {t('branchTasks.subtasks.title')}
           {showProgress && (
             <span className="TaskSubtaskSection__Count">{progressLabel(progress)}</span>
           )}
@@ -120,7 +122,7 @@ export default function TaskSubtaskSection({
           type="button"
           className="TaskSubtaskSection__AddBtn"
           onClick={() => (adding ? closeAddForm() : setAdding(true))}
-          aria-label="Add subtask"
+          aria-label={t('branchTasks.subtasks.add')}
         >
           <Plus size={14} />
         </button>
@@ -130,7 +132,7 @@ export default function TaskSubtaskSection({
         <div
           className="TaskSubtaskSection__Progress"
           role="progressbar"
-          aria-label="Subtask progress"
+          aria-label={t('branchTasks.subtasks.progressAria')}
           aria-valuemin={0}
           aria-valuemax={progress.total}
           aria-valuenow={progress.done}
@@ -143,7 +145,7 @@ export default function TaskSubtaskSection({
       )}
 
       {subtasks.length === 0 && !adding ? (
-        <div className="TaskSubtaskSection__Empty">No subtasks yet.</div>
+        <div className="TaskSubtaskSection__Empty">{t('branchTasks.subtasks.empty')}</div>
       ) : (
         <div className="TaskSubtaskSection__List">
           {subtasks.map((st) => {
@@ -157,7 +159,7 @@ export default function TaskSubtaskSection({
                 <button
                   type="button"
                   className="TaskSubtaskSection__ItemOpen"
-                  aria-label={`Open subtask ${st.display_id}: ${st.title}`}
+                  aria-label={t('branchTasks.subtasks.openAria', { id: st.display_id, title: st.title })}
                   onClick={() => onSelectTask?.({ task_id: st.task_id, branch_id: st.branch_id, title: st.title })}
                 >
                   {pending ? (
@@ -177,7 +179,7 @@ export default function TaskSubtaskSection({
                   value={st.status}
                   options={statusOptions}
                   size="sm"
-                  ariaLabel={`Status for subtask ${st.display_id}`}
+                  ariaLabel={t('branchTasks.subtasks.statusAria', { id: st.display_id })}
                   disabled={pending || !statusesReady}
                   onChange={(val) => changeStatus(st, val)}
                 />
@@ -211,15 +213,15 @@ export default function TaskSubtaskSection({
             className="TaskSubtaskSection__AddInput"
             value={title}
             autoFocus
-            placeholder="Subtask title…"
-            aria-label="Subtask title"
+            placeholder={t('branchTasks.subtasks.titlePlaceholder')}
+            aria-label={t('branchTasks.subtasks.titleAria')}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') closeAddForm(); }}
           />
           <button type="submit" className="TaskSubtaskSection__AddSubmit" disabled={busy || !title.trim()}>
-            Add
+            {t('common.actions.add')}
           </button>
-          <button type="button" className="TaskSubtaskSection__AddCancel" onClick={closeAddForm} aria-label="Cancel">
+          <button type="button" className="TaskSubtaskSection__AddCancel" onClick={closeAddForm} aria-label={t('common.actions.cancel')}>
             <X size={14} />
           </button>
         </form>

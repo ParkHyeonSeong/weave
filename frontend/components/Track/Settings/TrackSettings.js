@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { Settings as SettingsIcon, Users, GitBranch, ArrowLeft } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import SettingsGeneral from './SettingsGeneral';
@@ -8,13 +9,14 @@ import SettingsBranches from './SettingsBranches';
 import EntityIcon from '@/components/common/EntityIcon';
 
 const SUB_TABS = [
-  { key: 'general', label: 'General', icon: SettingsIcon },
-  { key: 'members', label: 'Members', icon: Users },
-  { key: 'branches', label: 'Branches', icon: GitBranch },
+  { key: 'general', labelKey: 'trackSettings.tabs.general', icon: SettingsIcon },
+  { key: 'members', labelKey: 'trackSettings.tabs.members', icon: Users },
+  { key: 'branches', labelKey: 'trackSettings.tabs.branches', icon: GitBranch },
 ];
 
 export default function TrackSettings() {
   const router = useRouter();
+  const { t } = useTranslation();
   const trackId = router.isReady ? Number(router.query.id) : null;
   const [track, setTrack] = useState(null);
   const [activeSubTab, setActiveSubTab] = useState('general');
@@ -36,9 +38,9 @@ export default function TrackSettings() {
   if (notFound) {
     return (
       <div className="TrackSettings TrackSettings--notfound">
-        <div className="TrackSettings__NotFoundTitle">Track not found</div>
+        <div className="TrackSettings__NotFoundTitle">{t('trackSettings.notFound')}</div>
         <button className="TrackSettings__BackBtn" onClick={() => router.push('/tracks')}>
-          ← Back to Tracks
+          ← {t('trackSettings.backToTracks')}
         </button>
       </div>
     );
@@ -55,7 +57,7 @@ export default function TrackSettings() {
           className="TrackSettings__BackLink"
           onClick={() => router.push(`/tracks/${trackId}`)}
         >
-          <ArrowLeft size={14} /> Back to Track
+          <ArrowLeft size={14} /> {t('trackSettings.backToTrack')}
         </button>
         <div className="TrackSettings__HeaderTitle">
           <EntityIcon
@@ -69,14 +71,14 @@ export default function TrackSettings() {
       </div>
 
       <div className="TrackSettings__SubTabs">
-        {SUB_TABS.map(({ key, label, icon: Icon }) => (
+        {SUB_TABS.map(({ key, labelKey, icon: Icon }) => (
           <button
             key={key}
             className={`TrackSettings__SubTab ${activeSubTab === key ? 'TrackSettings__SubTab--active' : ''}`}
             onClick={() => setActiveSubTab(key)}
           >
             <Icon size={14} />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>

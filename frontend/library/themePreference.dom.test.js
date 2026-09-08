@@ -79,9 +79,11 @@ describe('nextCycleMode — 순환 규칙', () => {
 describe('THEME_OPTIONS — 3모드 계약', () => {
   it('light/dark/system 순서로 셋뿐이고 각각 라벨·설명을 갖는다', () => {
     expect(THEME_OPTIONS.map((o) => o.value)).toEqual(['light', 'dark', 'system']);
+    // 라벨은 이제 catalog 키다 — 문구는 렌더 시점에 현재 locale로 푼다.
+    // (키가 실제 문구로 풀리는지는 library/i18nCatalog.test.js의 parity가 보장한다.)
     for (const o of THEME_OPTIONS) {
-      expect(o.label, o.value).toBeTruthy();
-      expect(o.hint, o.value).toBeTruthy();
+      expect(o.labelKey, o.value).toBeTruthy();
+      expect(o.hintKey, o.value).toBeTruthy();
     }
   });
 });

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ExternalLink, Pencil, Unlink } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { normalizeLinkHref, isSafeLinkHref, promptSetLink } from '@/library/editorLink';
 
 const POPOVER_H = 36; // 팝오버 대략 높이(px) — 링크 위/아래 배치 판단용
@@ -8,6 +9,7 @@ const POPOVER_H = 36; // 팝오버 대략 높이(px) — 링크 위/아래 배�
 // 에디터가 항상 편집 모드(openOnClick:false)라 클릭으로 링크를 못 여는 것을 보완한다.
 // 위치는 TableBubbleMenu/ScrumCellToolbar처럼 getBoundingClientRect + fixed로 그리드 클리핑을 피한다.
 export default function LinkHoverPopover({ editor }) {
+  const { t } = useTranslation();
   const [anchor, setAnchor] = useState(null);   // 현재 hover 중인 <a>
   const [rect, setRect] = useState(null);
   const closeTimer = useRef(null);
@@ -106,9 +108,9 @@ export default function LinkHoverPopover({ editor }) {
     >
       <span className="LinkHoverPopover__Url" title={href}>{href}</span>
       <span className="LinkHoverPopover__Sep" />
-      <button type="button" className="LinkHoverPopover__Btn" title="열기" onClick={onOpen}><ExternalLink size={13} /></button>
-      <button type="button" className="LinkHoverPopover__Btn" title="편집" onClick={onEdit}><Pencil size={13} /></button>
-      <button type="button" className="LinkHoverPopover__Btn LinkHoverPopover__Btn--danger" title="삭제" onClick={onRemove}><Unlink size={13} /></button>
+      <button type="button" className="LinkHoverPopover__Btn" title={t('common.actions.open')} onClick={onOpen}><ExternalLink size={13} /></button>
+      <button type="button" className="LinkHoverPopover__Btn" title={t('common.actions.edit')} onClick={onEdit}><Pencil size={13} /></button>
+      <button type="button" className="LinkHoverPopover__Btn LinkHoverPopover__Btn--danger" title={t('common.linkPopover.removeLink')} onClick={onRemove}><Unlink size={13} /></button>
     </div>
   );
 }

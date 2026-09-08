@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { getAppContext } from '@/library/appContext';
 import { createPortal } from 'react-dom';
 import Header from './Header';
@@ -38,6 +39,7 @@ function clampPanelWidth(value, fallback, min, maxRatio) {
 
 export default function Layout({ children }) {
   const { isMobile } = useMobile();
+  const { t } = useTranslation();
   const router = useRouter();
   const inApp = !!getAppContext(router.pathname);
   const [showCreateBranch, setShowCreateBranch] = useState(false);
@@ -76,6 +78,10 @@ export default function Layout({ children }) {
     return SIDEBAR_DEFAULT_WIDTH;
   });
   const isResizingRef = useRef(false);
+  // WS 핸들러가 쓰는 t는 ref로 읽는다 — deps에 t를 넣으면 언어 변경마다
+  // WebSocket이 끊겼다 다시 붙는다(문구만 최신이면 충분하다).
+  const tRef = useRef(t);
+  tRef.current = t;
   const wsRef = useRef(null);
   const activeRoomRef = useRef(null);
   const refreshingRef = useRef(false);
@@ -361,16 +367,16 @@ export default function Layout({ children }) {
                 setChatUnreadCount((prev) => prev + 1);
                 // Chrome 알림
                 const notiContent = data.message.content
-                  || (data.message.task_ref ? 'Shared a task' : null)
-                  || (data.message.doc_ref ? 'Shared a document' : null)
-                  || (data.message.issue_ref ? 'Shared an issue' : null)
+                  || (data.message.task_ref ? tRef.current('layout.chatNotification.sharedTask') : null)
+                  || (data.message.doc_ref ? tRef.current('layout.chatNotification.sharedDocument') : null)
+                  || (data.message.issue_ref ? tRef.current('layout.chatNotification.sharedIssue') : null)
                   || '';
                 showNotification(
-                  data.message.sender_name || 'New Message',
+                  data.message.sender_name || tRef.current('layout.chatNotification.newMessage'),
                   notiContent,
                   data.message
                 );
-                showToast(`${data.message.sender_name || 'Someone'}: ${notiContent}`, 'info');
+                showToast(`${data.message.sender_name || tRef.current('layout.chatNotification.someone')}: ${notiContent}`, 'info');
                 playNotificationSound();
               }
             }

@@ -14,6 +14,7 @@ from library.file_validator import validate_image_magic_bytes
 from library.user_directory import strip_email
 from library.icon_storage import delete_image_icon_file
 from library.svg_sanitizer import sanitize_svg
+from library.time_context import personal_today
 
 ICON_UPLOAD_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -69,9 +70,13 @@ async def get_list(request: Request, db: AsyncSession):
 
 
 async def get_home_stats(request: Request, db: AsyncSession):
-    """홈 KPI 집계 (접근 가능한 모든 Branch 기준)"""
+    """홈 KPI 집계 (접근 가능한 모든 Branch 기준)
+
+    '이번 주 마감'은 보는 사람마다 달라지는 개인 파생 상태 → 개인 timezone의 오늘을 쓴다.
+    """
     user_id = request.state.payload.get('user_id')
-    stats = await branch_model.home_stats(user_id, db)
+    today = await personal_today(user_id, db)
+    stats = await branch_model.home_stats(user_id, today, db)
     return {'status': True, **stats}
 
 
@@ -85,7 +90,9 @@ async def get_home_stats_items(request: Request, bucket: str, limit: int, db: As
     if bucket not in _VALID_BUCKETS:
         return error_response(ErrorCode.INVALID_BUCKET)
     user_id = request.state.payload.get('user_id')
-    data = await branch_model.home_stat_items(user_id, bucket, limit, db)
+    # 카드 숫자와 같은 오늘을 써야 목록과 카운트가 어긋나지 않는다.
+    today = await personal_today(user_id, db)
+    data = await branch_model.home_stat_items(user_id, bucket, limit, today, db)
     return {'status': True, 'bucket': bucket, **data}
 
 

@@ -1,7 +1,9 @@
 import { Component } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { withTranslation } from 'react-i18next';
 
-export default class ErrorBoundary extends Component {
+// class component라 훅을 못 쓴다 — withTranslation이 t를 prop으로 내려준다.
+class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false };
@@ -16,21 +18,22 @@ export default class ErrorBoundary extends Component {
   }
 
   render() {
+    const { t } = this.props;
     if (this.state.hasError) {
       return (
         <div className="ErrorBoundary">
           <AlertTriangle className="ErrorBoundary__Icon" size={48} />
           <h2 className="ErrorBoundary__Title">
-            문제가 발생했습니다
+            {t('common.state.error')}
           </h2>
           <p className="ErrorBoundary__Message">
-            예상치 못한 오류가 발생했습니다. 페이지를 새로고침해 주시거나, 문제가 계속되면 관리자에게 문의해 주세요.
+            {t('layout.errorBoundary.message')}
           </p>
           <button
             className="ErrorBoundary__Button"
             onClick={() => window.location.reload()}
           >
-            새로고침
+            {t('layout.errorBoundary.refresh')}
           </button>
         </div>
       );
@@ -39,3 +42,5 @@ export default class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+
+export default withTranslation()(ErrorBoundary);

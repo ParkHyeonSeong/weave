@@ -1,4 +1,5 @@
 import { isAllowedUri } from '@tiptap/extension-link';
+import i18next from '@/library/i18n';
 
 // 스크럼 셀 / Canvas 에디터 공용 링크 헬퍼.
 // TipTap setLink는 (1) bare domain을 정규화하지 않고 (2) isAllowedUri 실패 시
@@ -93,7 +94,8 @@ export function promptSetLink(editor) {
   const mark = editingLinkMark(editor);
   const prev = mark ? (mark.attrs.href || '')
     : (isEditingLink(editor) ? (editor.getAttributes('link').href || '') : '');
-  const url = window.prompt('링크 URL', prev);
+  // React 밖(툴바 헬퍼)이라 i18next 인스턴스를 직접 읽는다.
+  const url = window.prompt(i18next.t('canvas.editor.linkUrlPrompt'), prev);
   if (url === null) return;   // 취소
   applyLinkValue(editor, url);
 }

@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios, getBaseURL } from '@/library/_axios';
 import { MessageSquare, Plus, Bookmark, ChevronDown, Trash2 } from 'lucide-react';
 import AIChatMessage from './AIChatMessage';
 import AIChatInput from './AIChatInput';
 
 export default function AIChat() {
+  const { t } = useTranslation();
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -225,7 +227,7 @@ export default function AIChat() {
     return (
       <div className="AIChat">
         <div className="AIChat__Loading">
-          <span>Loading...</span>
+          <span>{t('common.state.loading')}</span>
         </div>
       </div>
     );
@@ -241,7 +243,7 @@ export default function AIChat() {
             type="button"
           >
             <span className="AIChat__ConversationTitle">
-              {activeConv?.title || 'AI Assistant'}
+              {activeConv?.title || t('home.aiChat.title')}
             </span>
             <ChevronDown size={14} />
           </button>
@@ -265,7 +267,7 @@ export default function AIChat() {
                 </div>
               ))}
               {conversations.length === 0 && (
-                <div className="AIChat__ConvEmpty">No conversations</div>
+                <div className="AIChat__ConvEmpty">{t('home.aiChat.noConversations')}</div>
               )}
             </div>
           )}
@@ -276,7 +278,7 @@ export default function AIChat() {
             className={`AIChat__HeaderBtn ${showPinned ? 'AIChat__HeaderBtn--active' : ''}`}
             onClick={() => setShowPinned(!showPinned)}
             type="button"
-            title="Show pinned messages"
+            title={t('home.aiChat.showPinned')}
           >
             <Bookmark size={15} fill={showPinned ? 'currentColor' : 'none'} />
           </button>
@@ -284,7 +286,7 @@ export default function AIChat() {
             className="AIChat__HeaderBtn"
             onClick={createConversation}
             type="button"
-            title="New conversation"
+            title={t('home.aiChat.newConversation')}
           >
             <Plus size={16} />
           </button>
@@ -296,14 +298,14 @@ export default function AIChat() {
           <div className="AIChat__Welcome">
             <MessageSquare size={32} />
             <span className="AIChat__WelcomeTitle">
-              {showPinned ? 'No pinned messages' : 'AI Assistant'}
+              {showPinned ? t('home.aiChat.noPinnedMessages') : t('home.aiChat.title')}
             </span>
             <span className="AIChat__WelcomeText">
               {showPinned
-                ? 'Pin important messages to find them here.'
+                ? t('home.aiChat.pinnedHint')
                 : conversations.length === 0
-                  ? 'Start a conversation with AI to get help with your projects.'
-                  : 'Send a message to start the conversation.'}
+                  ? t('home.aiChat.startHint')
+                  : t('home.aiChat.sendHint')}
             </span>
           </div>
         ) : (

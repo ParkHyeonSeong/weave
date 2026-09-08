@@ -172,3 +172,18 @@ async def update_ui_prefs(user_id: int, patch: dict, db: AsyncSession):
         SET ui_prefs = COALESCE(ui_prefs, '{}'::jsonb) || CAST(:patch AS jsonb)
         WHERE user_id = :user_id AND deleted_at IS NULL
     """), {'user_id': user_id, 'patch': __import__('json').dumps(patch)})
+
+
+async def get_language_region(user_id: int, db: AsyncSession):
+    """개인 language_region 네임스페이스만 조회 (ui_prefs 전체를 끌어오지 않는다).
+
+    정규화는 하지 않는다 — 호출부(library.locale_prefs.normalize_language_region)가
+    프런트와 같은 규칙으로 검증한다. 손상된 값은 여기서 그대로 나가고 폴백은 호출부 책임.
+    """
+    result = await db.execute(text("""
+        SELECT ui_prefs -> 'language_region' AS language_region
+        FROM "user"
+        WHERE user_id = :user_id AND deleted_at IS NULL
+    """), {'user_id': user_id})
+    row = result.fetchone()
+    return row._mapping['language_region'] if row else None

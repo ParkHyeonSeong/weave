@@ -6,8 +6,10 @@ import { Globe, Lock, AlertTriangle, Upload } from 'lucide-react';
 import JiraMigrationModal from './JiraMigrationModal';
 import AppearanceSection from '@/components/common/AppearanceSection';
 import { DEFAULT_COLORS } from '@/library/entityAppearance';
+import { useTranslation } from 'react-i18next';
 
 export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [branchName, setBranchName] = useState(branch?.branch_name || '');
   const [key, setKey] = useState(branch?.key || '');
@@ -27,7 +29,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
     const upper = v.toUpperCase().replace(/[^A-Z0-9]/g, '');
     setKey(upper);
     if (upper && !/^[A-Z][A-Z0-9]{1,9}$/.test(upper)) {
-      setKeyError('2-10 uppercase letters/numbers, starting with a letter');
+      setKeyError(t('branch2.general.keyFormatError'));
     } else {
       setKeyError('');
     }
@@ -52,7 +54,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
         window.dispatchEvent(new Event('branch:created'));
         setTimeout(() => setSaved(false), 2000);
       } else if (getErrorCode(res.data) === 'KEY_ALREADY_EXISTS') {
-        setKeyError('This key is already in use.');
+        setKeyError(t('errors.KEY_ALREADY_EXISTS'));
       }
     } catch {}
     setSaving(false);
@@ -75,7 +77,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
 
       {/* Branch Name */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Branch Name</label>
+        <label className="SettingsGeneral__Label">{t('branch2.general.branchName')}</label>
         <input
           className="SettingsGeneral__Input"
           value={branchName}
@@ -86,7 +88,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
 
       {/* Key */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Key</label>
+        <label className="SettingsGeneral__Label">{t('branch2.general.key')}</label>
         <input
           className={`SettingsGeneral__Input ${!isAdmin ? 'SettingsGeneral__Input--readonly' : ''}`}
           value={key}
@@ -97,27 +99,27 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
         {keyError && <span className="SettingsGeneral__Error">{keyError}</span>}
         {isAdmin && !keyError && (
           <span className="SettingsGeneral__Hint">
-            Changing the key will update all task IDs (e.g., {branch?.key}-1 → {key || '?'}-1)
+            {t('branch2.general.keyChangeHint', { oldKey: branch?.key || '', newKey: key || '?' })}
           </span>
         )}
       </div>
 
       {/* Description */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Description</label>
+        <label className="SettingsGeneral__Label">{t('branch2.general.description')}</label>
         <textarea
           className="SettingsGeneral__Textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Branch description..."
+          placeholder={t('branch2.general.descriptionPlaceholder')}
           disabled={!isAdmin}
         />
       </div>
 
       {/* Visibility */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Visibility</label>
+        <label className="SettingsGeneral__Label">{t('branch2.general.visibility')}</label>
         <div className="SettingsGeneral__VisibilityGroup">
           <button
             type="button"
@@ -126,7 +128,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
             disabled={!isAdmin}
           >
             <Lock size={14} />
-            Private
+            {t('branch2.general.visibilityPrivate')}
           </button>
           <button
             type="button"
@@ -135,13 +137,13 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
             disabled={!isAdmin}
           >
             <Globe size={14} />
-            Public
+            {t('branch2.general.visibilityPublic')}
           </button>
         </div>
         <span className="SettingsGeneral__Hint">
           {visibility === 'private'
-            ? 'Only invited members can access this branch.'
-            : 'Anyone can find and join this branch.'}
+            ? t('branch2.general.privateHint')
+            : t('branch2.general.publicHint')}
         </span>
       </div>
 
@@ -153,7 +155,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
             onClick={handleSave}
             disabled={!branchName.trim() || !key.trim() || keyError || saving}
           >
-            {saving ? 'Saving...' : saved ? 'Saved' : 'Save Changes'}
+            {saving ? t('common.state.saving') : saved ? t('branch2.saved') : t('branch2.saveChanges')}
           </button>
         </div>
       )}
@@ -166,7 +168,7 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
             onClick={() => setShowJiraMigration(true)}
           >
             <Upload size={14} />
-            Import from Jira
+            {t('branch2.general.importFromJira')}
           </button>
         </div>
       )}
@@ -176,28 +178,30 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
         <div className="SettingsGeneral__Danger">
           <div className="SettingsGeneral__DangerHeader">
             <AlertTriangle size={16} />
-            <span>Danger Zone</span>
+            <span>{t('branch2.general.dangerZone')}</span>
           </div>
 
           {!showDeleteConfirm ? (
             <div className="SettingsGeneral__DangerRow">
               <div className="SettingsGeneral__DangerInfo">
-                <span className="SettingsGeneral__DangerTitle">이 브랜치 아카이브</span>
+                <span className="SettingsGeneral__DangerTitle">{t('branch2.general.archiveTitle')}</span>
                 <span className="SettingsGeneral__DangerDesc">
-                  아카이브하면 목록에서 사라지고, 보관함에서 복원하거나 영구삭제할 수 있어요.
+                  {t('branch2.general.archiveDesc')}
                 </span>
               </div>
               <button
                 className="SettingsGeneral__DeleteBtn"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                아카이브
+                {t('spaceMenu.archive')}
               </button>
             </div>
           ) : (
             <div className="SettingsGeneral__DeleteConfirm">
               <p className="SettingsGeneral__DeleteWarning">
-                보관함에서 되돌릴 수 있어요. 확정하려면 <strong>{branch?.key}</strong> 입력.
+                {t('branch2.general.archiveConfirmLead')}{' '}
+                <strong>{branch?.key}</strong>
+                {t('branch2.general.archiveConfirmTail')}
               </p>
               <input
                 className="SettingsGeneral__Input"
@@ -221,13 +225,13 @@ export default function SettingsGeneral({ branchId, branch, isAdmin, onUpdated }
                     setDeleting(false);
                   }}
                 >
-                  {deleting ? '아카이브 중…' : '아카이브'}
+                  {deleting ? t('branch2.general.archiving') : t('spaceMenu.archive')}
                 </button>
                 <button
                   className="SettingsGeneral__CancelBtn"
                   onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>

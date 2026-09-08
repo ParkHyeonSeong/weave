@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { X, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import EmojiPicker from 'emoji-picker-react';
 import EntityIcon, { LUCIDE_MAP } from './EntityIcon';
 import { axios } from '@/library/_axios';
@@ -21,10 +22,11 @@ const ENTITY_TO_ENDPOINT = {
 const MAX_UPLOAD_SIZE = 2 * 1024 * 1024;
 const ACCEPTED_MIME = /^image\/(png|jpeg|jpg|gif|webp|svg\+xml)$/;
 
+// 라벨은 render 시 t()로 해석한다(모듈 로드 시점에는 locale이 아직 정해지지 않는다).
 const TABS = [
-  { key: 'lucide', label: 'Lucide' },
-  { key: 'emoji',  label: 'Emoji' },
-  { key: 'upload', label: 'Upload Image' },
+  { key: 'lucide', labelKey: 'common.iconPicker.tabLucide' },
+  { key: 'emoji',  labelKey: 'common.iconPicker.tabEmoji' },
+  { key: 'upload', labelKey: 'common.iconPicker.tabUpload' },
 ];
 
 function tabForValue(value) {
@@ -45,6 +47,7 @@ export default function IconPicker({
   entityId,            // unused in this slice; Upload tab (Slice 5) will use it
   onChange,            // (newIconString) => void
 }) {
+  const { t } = useTranslation();
   const fallbackColor = DEFAULT_COLORS[entityType] || DEFAULT_COLORS.branch;
   const { resolved } = useTheme();
 
@@ -70,15 +73,15 @@ export default function IconPicker({
     if (!file) return;
     setUploadError('');
     if (file.size > MAX_UPLOAD_SIZE) {
-      setUploadError('파일이 2MB를 초과합니다.');
+      setUploadError(t('common.iconPicker.fileTooLarge'));
       return;
     }
     if (!ACCEPTED_MIME.test(file.type)) {
-      setUploadError('PNG / JPG / GIF / WebP / SVG만 업로드 가능합니다.');
+      setUploadError(t('common.iconPicker.unsupportedType'));
       return;
     }
     if (!entityId) {
-      setUploadError('엔티티 ID가 없습니다 (저장 후 업로드 가능).');
+      setUploadError(t('common.iconPicker.noEntityId'));
       return;
     }
     setUploading(true);
@@ -93,11 +96,11 @@ export default function IconPicker({
         setDraft(res.data.icon);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '업로드 실패';
+        const msg = errorText(err.code, err.category) ?? t('common.iconPicker.uploadFailed');
         setUploadError(msg);
       }
     } catch {
-      setUploadError('업로드 실패');
+      setUploadError(t('common.iconPicker.uploadFailed'));
     }
     setUploading(false);
   };
@@ -123,20 +126,20 @@ export default function IconPicker({
     <div className="IconPicker__Backdrop" onClick={onClose}>
       <div className="IconPicker" onClick={(e) => e.stopPropagation()}>
         <div className="IconPicker__Header">
-          <h3 className="IconPicker__Title">Choose icon</h3>
-          <button className="IconPicker__Close" onClick={onClose} aria-label="Close">
+          <h3 className="IconPicker__Title">{t('common.iconPicker.title')}</h3>
+          <button className="IconPicker__Close" onClick={onClose} aria-label={t('common.actions.close')}>
             <X size={16} />
           </button>
         </div>
 
         <div className="IconPicker__Tabs">
-          {TABS.map((t) => (
+          {TABS.map((tabItem) => (
             <button
-              key={t.key}
-              className={`IconPicker__Tab${tab === t.key ? ' IconPicker__Tab--active' : ''}`}
-              onClick={() => setTab(t.key)}
+              key={tabItem.key}
+              className={`IconPicker__Tab${tab === tabItem.key ? ' IconPicker__Tab--active' : ''}`}
+              onClick={() => setTab(tabItem.key)}
             >
-              {t.label}
+              {t(tabItem.labelKey)}
             </button>
           ))}
         </div>
@@ -148,7 +151,7 @@ export default function IconPicker({
                 <Search size={14} />
                 <input
                   type="text"
-                  placeholder="Search icons..."
+                  placeholder={t('common.iconPicker.searchIcons')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -180,7 +183,7 @@ export default function IconPicker({
                 onEmojiClick={(emojiData) => setDraft(formatIcon('emoji', emojiData.emoji))}
                 width="100%"
                 height={360}
-                searchPlaceholder="Search emoji..."
+                searchPlaceholder={t('common.iconPicker.searchEmoji')}
                 previewConfig={{ showPreview: false }}
                 // 문자열 enum이라 resolved를 그대로 넘긴다. AUTO 금지 — OS를 따라가 사용자 선택과 어긋난다.
                 theme={resolved}
@@ -191,7 +194,7 @@ export default function IconPicker({
           {tab === 'upload' && (
             <div className="IconPicker__Upload">
               <p className="IconPicker__UploadHint">
-                정사각 256×256+ 권장 (SVG는 크기 무관), PNG/JPG/GIF/WebP/SVG, 2MB 이하
+                {t('common.iconPicker.uploadHint')}
               </p>
               <div
                 className="IconPicker__DropZone"
@@ -204,11 +207,11 @@ export default function IconPicker({
                 }}
               >
                 {uploading ? (
-                  <span>Uploading...</span>
+                  <span>{t('common.iconPicker.uploading')}</span>
                 ) : (
                   <>
-                    <span>이미지를 드래그하거나 클릭해 선택</span>
-                    <button type="button" className="IconPicker__BtnGhost">Choose file</button>
+                    <span>{t('common.iconPicker.dropZone')}</span>
+                    <button type="button" className="IconPicker__BtnGhost">{t('common.iconPicker.chooseFile')}</button>
                   </>
                 )}
                 <input
@@ -222,7 +225,7 @@ export default function IconPicker({
               {uploadError && <p className="IconPicker__UploadError">{uploadError}</p>}
               {parseIcon(draft).type === 'image' && (
                 <div className="IconPicker__UploadPreview">
-                  <span>현재 이미지:</span>
+                  <span>{t('common.iconPicker.currentImage')}</span>
                   <EntityIcon icon={draft} color={color} size={44} entityType={entityType} />
                 </div>
               )}
@@ -232,13 +235,13 @@ export default function IconPicker({
 
         <div className="IconPicker__Footer">
           <div className="IconPicker__Preview">
-            <span>Preview:</span>
+            <span>{t('common.iconPicker.previewLabel')}</span>
             <EntityIcon icon={draft} color={color} size={32} entityType={entityType} />
           </div>
           <div className="IconPicker__Actions">
-            <button className="IconPicker__BtnGhost" onClick={handleReset}>Reset to default</button>
-            <button className="IconPicker__BtnGhost" onClick={onClose}>Cancel</button>
-            <button className="IconPicker__BtnPrimary" onClick={handleApply}>Apply</button>
+            <button className="IconPicker__BtnGhost" onClick={handleReset}>{t('common.iconPicker.resetToDefault')}</button>
+            <button className="IconPicker__BtnGhost" onClick={onClose}>{t('common.actions.cancel')}</button>
+            <button className="IconPicker__BtnPrimary" onClick={handleApply}>{t('common.actions.apply')}</button>
           </div>
         </div>
       </div>

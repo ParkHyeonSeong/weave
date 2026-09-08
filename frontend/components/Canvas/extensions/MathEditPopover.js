@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { renderMathElement, clearMathElement } from '@/library/mathRender';
 
 // 수식 클릭 시 뜨는 LaTeX 편집 팝오버. Cmd/Ctrl+Enter 저장, Esc 취소.
 export default function MathEditPopover({ latex, displayMode, onSave, onCancel }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(latex);
   const previewRef = useRef(null);
   const inputRef = useRef(null);
@@ -31,18 +33,18 @@ export default function MathEditPopover({ latex, displayMode, onSave, onCancel }
         className="MathEditPopover__Input"
         value={value}
         rows={displayMode ? 3 : 1}
-        placeholder="LaTeX (예: E=mc^2)"
+        placeholder={t('canvasExt.math.placeholder')}
         onChange={(e) => setValue(e.target.value)}
       />
       <div ref={previewRef} className="MathEditPopover__Preview" />
       <div className="MathEditPopover__Actions">
-        <button type="button" className="MathEditPopover__Btn" onClick={onCancel}>Cancel</button>
+        <button type="button" className="MathEditPopover__Btn" onClick={onCancel}>{t('common.actions.cancel')}</button>
         <button
           type="button"
           className="MathEditPopover__Btn MathEditPopover__Btn--primary"
           onClick={() => onSave(value)}
         >
-          Save
+          {t('common.actions.save')}
         </button>
       </div>
     </div>

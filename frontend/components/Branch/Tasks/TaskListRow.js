@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, MessageCircle, ChevronRight, ChevronDown } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { selectableEpics } from '@/library/epics';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import CustomSelect from '@/components/common/CustomSelect';
 import DropdownPortal from '@/components/common/DropdownPortal';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
@@ -13,11 +15,12 @@ import { priorityVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
 import { entityTintStyle } from '@/library/entityTint';
 import { orderMembersForPicker } from '@/library/memberOrder';
 
-const priorityOptions = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+// 라벨은 렌더 시 t()로 해석한다(모듈 로드 시점에는 locale이 확정되지 않는다).
+const buildPriorityOptions = (t) => [
+  { value: 'urgent', label: t('branchTasks.priority.urgent'), color: priorityVar('urgent') },
+  { value: 'high', label: t('branchTasks.priority.high'), color: priorityVar('high') },
+  { value: 'medium', label: t('branchTasks.priority.medium'), color: priorityVar('medium') },
+  { value: 'low', label: t('branchTasks.priority.low'), color: priorityVar('low') },
 ];
 
 // 현재 사용자 id — 코드베이스 공통 패턴(TaskList.js:63 등): sessionStorage 'profile'.
@@ -32,10 +35,12 @@ function currentUserId() {
 }
 
 export default function TaskListRow({ task, branchId, taskTypes, workflowStatuses, epics, members, onClick, onContextMenu, isSelected, isOverlay, indent, expandable, expanded, onToggleExpand, progress, contextOnly }) {
+  const { t } = useTranslation();
+  const priorityOptions = useMemo(() => buildPriorityOptions(t), [t]);
   const statusOptions = (workflowStatuses && workflowStatuses.length > 0)
     ? workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))
     : DEFAULT_STATUS_FALLBACK;
-  const typeConfig = (taskTypes || []).find((t) => t.type_key === task.task_type);
+  const typeConfig = (taskTypes || []).find((tt) => tt.type_key === task.task_type);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
   const assigneeRef = useRef(null); // 트리거
   const assigneeDropdownRef = useRef(null); // 포털된 드롭다운
@@ -68,12 +73,10 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
     ...(isDragging ? { opacity: 0.3 } : {}),
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    return new Date(dateStr).toLocaleDateString('ko-KR', {
-      month: '2-digit', day: '2-digit',
-    });
-  };
+  // ⚠️ new Date('YYYY-MM-DD')를 쓰지 않는다 — UTC 자정 instant로 파싱돼 음수 offset
+  // 지역(미주)에서 하루 전으로 렌더된다. due_date는 달력 날짜라 timezone 변환 대상이 아니다.
+  const { formatDateOnlyShort } = useDateFormat();
+  const formatDate = (dateStr) => formatDateOnlyShort(dateStr);
 
   useEffect(() => {
     if (!assigneeOpen) return;
@@ -94,7 +97,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
   };
 
   const epicOptions = [
-    { value: '', label: 'None', color: 'var(--color-text-secondary)' },
+    { value: '', label: t('branchTasks.none'), color: 'var(--color-text-secondary)' },
     ...selectableEpics(epics, task.epic_id).map((e) => ({
       value: String(e.epic_id),
       label: e.epic_name,
@@ -137,7 +140,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
             onMouseDown={stopDrag}
             onTouchStart={stopDrag}
             onClick={(e) => { e.stopPropagation(); onToggleExpand?.(); }}
-            title={expanded ? '하위태스크 접기' : '하위태스크 펼치기'}
+            title={expanded ? t('branchTasks.row.collapseSubtasks') : t('branchTasks.row.expandSubtasks')}
           >
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
@@ -145,13 +148,13 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
         {contextOnly && (
           <span
             className="TaskListRow__ContextTag"
-            title="필터에 일치하는 하위태스크가 있어 맥락용으로 표시됩니다"
+            title={t('branchTasks.row.contextTagTitle')}
           >
-            상위
+            {t('branchTasks.row.contextTag')}
           </span>
         )}
         {progress && progress.total > 0 && (
-          <span className="TaskListRow__Badge" title="완료/전체 하위태스크">
+          <span className="TaskListRow__Badge" title={t('branchTasks.row.progressTitle')}>
             {progressLabel(progress)}
           </span>
         )}
@@ -202,7 +205,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
             onChange={(val) => handleFieldChange('epic_id', val ? Number(val) : null)}
             size="sm"
             hideArrow
-            placeholder="+ Epic"
+            placeholder={t('branchTasks.row.epicPlaceholder')}
             className={`TaskListRow__Epic ${hasEpic ? '' : 'TaskListRow__Epic--empty'}`}
           />
         </div>
@@ -255,7 +258,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
               <button
                 type="button"
                 className={`TaskListRow__Assignee ${!mainAssignee ? 'TaskListRow__Assignee--empty' : ''}`}
-                title={mainAssignee?.username || 'Unassigned'}
+                title={mainAssignee?.username || t('branchTasks.unassigned')}
                 onClick={() => setAssigneeOpen((prev) => !prev)}
               >
                 {mainAssignee
@@ -284,7 +287,7 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
               <span className="TaskListRow__AssigneeAvatar TaskListRow__AssigneeAvatar--empty">
                 <User size={14} />
               </span>
-              <span>Unassigned</span>
+              <span>{t('branchTasks.unassigned')}</span>
             </button>
 
             {memberList.map((m) => {

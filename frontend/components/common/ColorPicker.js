@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 import { COLOR_PRESETS, DEFAULT_COLORS, HEX_RE } from '@/library/entityAppearance';
 
 export default function ColorPicker({
@@ -5,6 +7,7 @@ export default function ColorPicker({
   onChange,
   disabled = false,
 }) {
+  const { t } = useTranslation();
   const hex = (value || '').toLowerCase();
   const isValid = HEX_RE.test(hex);
 
@@ -42,11 +45,11 @@ export default function ColorPicker({
           value={isValid ? value : DEFAULT_COLORS.branch}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          aria-label="Pick color"
+          aria-label={t('common.colorPicker.pickColor')}
         />
       </div>
       {!isValid && !disabled && (
-        <span className="ColorPicker__Error">유효한 hex (#RRGGBB)를 입력하세요</span>
+        <span className="ColorPicker__Error">{t('common.colorPicker.invalidHex')}</span>
       )}
     </div>
   );

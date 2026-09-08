@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Plus, X } from 'lucide-react';
 import MultiSelect from '@/components/common/MultiSelect';
 import { priorityVar } from '@/library/themePalette';
+import { useTranslation } from 'react-i18next';
 // 순수 불변 헬퍼는 library로 분리(vitest 커버). 컴포넌트는 이를 사용만 한다.
 import {
   emptyGroup, addCondition, setGroupOp, removeNode, updateAtPath,
@@ -9,23 +10,25 @@ import {
 
 // ── 컴포넌트 메타 ──────────────────────────────────────────────────
 // FIELD_SPECS(backend/core/query/filter_spec.py)와 의미 일치. text op는 contains만.
+// 라벨은 렌더 시점에 t로 해석한다(모듈 상수는 키만 갖는다).
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+  { value: 'urgent', labelKey: 'branch.priority.urgent', color: priorityVar('urgent') },
+  { value: 'high', labelKey: 'branch.priority.high', color: priorityVar('high') },
+  { value: 'medium', labelKey: 'branch.priority.medium', color: priorityVar('medium') },
+  { value: 'low', labelKey: 'branch.priority.low', color: priorityVar('low') },
 ];
 const STATUS_CATEGORY_OPTIONS = [
-  { value: 'todo', label: 'To Do' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'todo', labelKey: 'branch.statusCategory.todo' },
+  { value: 'in_progress', labelKey: 'branch.statusCategory.inProgress' },
+  { value: 'done', labelKey: 'branch.statusCategory.done' },
+  { value: 'cancelled', labelKey: 'branch.statusCategory.cancelled' },
 ];
 
 // op 라벨 (UI 표기)
-const OP_LABELS = {
-  eq: 'is', in: 'is any of', is_empty: 'is empty', contains: 'contains',
-  lt: 'before', lte: 'on or before', gt: 'after', gte: 'on or after', between: 'between',
+const OP_LABEL_KEYS = {
+  eq: 'branch.filter.op.eq', in: 'branch.filter.op.in', is_empty: 'branch.filter.op.isEmpty',
+  contains: 'branch.filter.op.contains', lt: 'branch.filter.op.lt', lte: 'branch.filter.op.lte',
+  gt: 'branch.filter.op.gt', gte: 'branch.filter.op.gte', between: 'branch.filter.op.between',
 };
 
 // 필드별 허용 op (FIELD_SPECS 미러). custom은 동적으로 _CUSTOM_OPS.
@@ -55,8 +58,6 @@ const BOOL_FIELDS = new Set(['has_subtasks', 'is_top_level']);
 const ENUM_FIELDS = new Set(['status', 'status_category', 'priority', 'task_type']);
 const ID_FIELDS = new Set(['label', 'epic', 'sprint', 'assignee', 'created_by']);
 
-const RELATIVE_DATE_HINT = '$today, $today+7d, $today-3d 또는 YYYY-MM-DD';
-
 const isCustom = (field) => typeof field === 'string' && field.startsWith('cf:');
 const cfId = (field) => field.slice(3);
 
@@ -76,10 +77,11 @@ function defaultValueForOp(op, prevValue) {
 
 // ── 값 입력 위젯 ───────────────────────────────────────────────────
 function EnumValueInput({ field, op, value, onChange, members, labels, epics, taskTypes, workflowStatuses, customFields }) {
+  const { t } = useTranslation();
   // enum/id 필드의 선택 옵션 목록
   const options = useMemo(() => {
-    if (field === 'priority') return PRIORITY_OPTIONS;
-    if (field === 'status_category') return STATUS_CATEGORY_OPTIONS;
+    if (field === 'priority') return PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }));
+    if (field === 'status_category') return STATUS_CATEGORY_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }));
     if (field === 'status') return (workflowStatuses || []).map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }));
     if (field === 'task_type') return (taskTypes || []).map((tt) => ({ value: tt.type_key, label: tt.type_name, color: tt.color }));
     if (field === 'label') return (labels || []).map((lb) => ({ value: lb.label_id, label: lb.label_name, color: lb.color }));
@@ -92,13 +94,13 @@ function EnumValueInput({ field, op, value, onChange, members, labels, epics, ta
       return (cf?.field_options || []).map((o) => ({ value: o, label: o }));
     }
     return [];
-  }, [field, members, labels, epics, taskTypes, workflowStatuses, customFields]);
+  }, [field, members, labels, epics, taskTypes, workflowStatuses, customFields, t]);
 
   if (op === 'in') {
     const selected = new Set(Array.isArray(value) ? value : []);
     return (
       <MultiSelect
-        label={selected.size ? `${selected.size} selected` : 'Select…'}
+        label={selected.size ? t('branch.filter.selected', { count: selected.size }) : t('branch.filter.selectPlaceholder')}
         selectedValues={selected}
         options={options}
         onToggle={(v) => {
@@ -121,7 +123,7 @@ function EnumValueInput({ field, op, value, onChange, members, labels, epics, ta
         onChange(cast);
       }}
     >
-      <option value="">Select…</option>
+      <option value="">{t('branch.filter.selectPlaceholder')}</option>
       {options.map((o) => (
         <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
       ))}
@@ -130,7 +132,9 @@ function EnumValueInput({ field, op, value, onChange, members, labels, epics, ta
 }
 
 function ValueInput(props) {
+  const { t } = useTranslation();
   const { field, op, value, onChange } = props;
+  const relativeDateHint = t('branch.filter.relativeDateHint');
 
   if (op === 'is_empty') return <span className="FilterBuilder__NoValue">—</span>;
 
@@ -141,9 +145,9 @@ function ValueInput(props) {
         value={value === true ? 'true' : value === false ? 'false' : ''}
         onChange={(e) => onChange(e.target.value === 'true')}
       >
-        <option value="">Select…</option>
-        <option value="true">Yes</option>
-        <option value="false">No</option>
+        <option value="">{t('branch.filter.selectPlaceholder')}</option>
+        <option value="true">{t('branch.filter.yes')}</option>
+        <option value="false">{t('branch.filter.no')}</option>
       </select>
     );
   }
@@ -154,14 +158,14 @@ function ValueInput(props) {
       return (
         <span className="FilterBuilder__DateRange">
           <input
-            className="FilterBuilder__DateInput" type="text" placeholder={RELATIVE_DATE_HINT}
-            title={RELATIVE_DATE_HINT} value={arr[0] || ''}
+            className="FilterBuilder__DateInput" type="text" placeholder={relativeDateHint}
+            title={relativeDateHint} value={arr[0] || ''}
             onChange={(e) => onChange([e.target.value, arr[1] || ''])}
           />
           <span className="FilterBuilder__DateSep">→</span>
           <input
-            className="FilterBuilder__DateInput" type="text" placeholder={RELATIVE_DATE_HINT}
-            title={RELATIVE_DATE_HINT} value={arr[1] || ''}
+            className="FilterBuilder__DateInput" type="text" placeholder={relativeDateHint}
+            title={relativeDateHint} value={arr[1] || ''}
             onChange={(e) => onChange([arr[0] || '', e.target.value])}
           />
         </span>
@@ -170,8 +174,8 @@ function ValueInput(props) {
     // 상대 토큰($today±Nd)도 허용해야 하므로 text input(+힌트)
     return (
       <input
-        className="FilterBuilder__DateInput" type="text" placeholder={RELATIVE_DATE_HINT}
-        title={RELATIVE_DATE_HINT} value={value == null ? '' : value}
+        className="FilterBuilder__DateInput" type="text" placeholder={relativeDateHint}
+        title={relativeDateHint} value={value == null ? '' : value}
         onChange={(e) => onChange(e.target.value)}
       />
     );
@@ -190,7 +194,7 @@ function ValueInput(props) {
     const arr = Array.isArray(value) ? value : [];
     return (
       <input
-        className="FilterBuilder__TextInput" type="text" placeholder="comma,separated,values"
+        className="FilterBuilder__TextInput" type="text" placeholder={t('branch.filter.commaSeparated')}
         value={arr.join(', ')}
         onChange={(e) => onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
       />
@@ -198,7 +202,7 @@ function ValueInput(props) {
   }
   return (
     <input
-      className="FilterBuilder__TextInput" type="text" placeholder="value…"
+      className="FilterBuilder__TextInput" type="text" placeholder={t('branch.filter.valuePlaceholder')}
       value={value == null ? '' : value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -207,6 +211,7 @@ function ValueInput(props) {
 
 // ── 조건 행 ────────────────────────────────────────────────────────
 function ConditionRow({ node, path, onChange, fieldOptions, ...rest }) {
+  const { t } = useTranslation();
   const ops = opsForField(node.field);
 
   const setField = (field) => {
@@ -241,7 +246,7 @@ function ConditionRow({ node, path, onChange, fieldOptions, ...rest }) {
         onChange={(e) => setOp(e.target.value)}
       >
         {ops.map((op) => (
-          <option key={op} value={op}>{OP_LABELS[op] || op}</option>
+          <option key={op} value={op}>{OP_LABEL_KEYS[op] ? t(OP_LABEL_KEYS[op]) : op}</option>
         ))}
       </select>
 
@@ -252,7 +257,7 @@ function ConditionRow({ node, path, onChange, fieldOptions, ...rest }) {
       <button
         type="button"
         className="FilterBuilder__RemoveBtn"
-        title="Remove condition"
+        title={t('branch.filter.removeCondition')}
         onClick={() => onChange((root) => removeNode(root, path))}
       >
         <X size={13} />
@@ -263,6 +268,7 @@ function ConditionRow({ node, path, onChange, fieldOptions, ...rest }) {
 
 // ── 그룹 노드 ──────────────────────────────────────────────────────
 function GroupNode({ node, path, onChange, fieldOptions, isRoot, ...rest }) {
+  const { t } = useTranslation();
   const children = node.children || [];
 
   const addCond = () => onChange((root) => addCondition(root, path, {
@@ -291,7 +297,7 @@ function GroupNode({ node, path, onChange, fieldOptions, isRoot, ...rest }) {
           <button
             type="button"
             className="FilterBuilder__RemoveBtn"
-            title="Remove group"
+            title={t('branch.filter.removeGroup')}
             onClick={() => onChange((root) => removeNode(root, path))}
           >
             <X size={13} />
@@ -324,16 +330,16 @@ function GroupNode({ node, path, onChange, fieldOptions, isRoot, ...rest }) {
             )
         ))}
         {children.length === 0 && (
-          <div className="FilterBuilder__Empty">No conditions yet</div>
+          <div className="FilterBuilder__Empty">{t('branch.filter.noConditions')}</div>
         )}
       </div>
 
       <div className="FilterBuilder__GroupActions">
         <button type="button" className="FilterBuilder__AddBtn" onClick={addCond}>
-          <Plus size={12} /> Condition
+          <Plus size={12} /> {t('branch.filter.addCondition')}
         </button>
         <button type="button" className="FilterBuilder__AddBtn" onClick={addGroup}>
-          <Plus size={12} /> Group
+          <Plus size={12} /> {t('branch.filter.addGroup')}
         </button>
       </div>
     </div>
@@ -346,27 +352,28 @@ function GroupNode({ node, path, onChange, fieldOptions, isRoot, ...rest }) {
  * 필드/op/값 목록은 FIELD_SPECS(backend) 계약과 일치.
  */
 export default function FilterBuilder({ spec, onChange, members, labels, epics, taskTypes, workflowStatuses, customFields, availableFields }) {
+  const { t } = useTranslation();
   const root = spec && spec.type === 'group' ? spec : emptyGroup();
 
   // 선택 가능한 필드 목록(브랜치 메타에 맞춰 동적 구성)
   const fieldOptions = useMemo(() => {
     let base = [
-      { value: 'status', label: 'Status' },
-      { value: 'status_category', label: 'Status Category' },
-      { value: 'priority', label: 'Priority' },
-      { value: 'task_type', label: 'Type' },
-      { value: 'label', label: 'Label' },
-      { value: 'epic', label: 'Epic' },
-      { value: 'sprint', label: 'Sprint' },
-      { value: 'assignee', label: 'Assignee' },
-      { value: 'created_by', label: 'Created By' },
-      { value: 'due_date', label: 'Due Date' },
-      { value: 'start_date', label: 'Start Date' },
-      { value: 'created_at', label: 'Created' },
-      { value: 'updated_at', label: 'Updated' },
-      { value: 'text', label: 'Text' },
-      { value: 'has_subtasks', label: 'Has Subtasks' },
-      { value: 'is_top_level', label: 'Top-level' },
+      { value: 'status', label: t('branch.filter.field.status') },
+      { value: 'status_category', label: t('branch.filter.field.statusCategory') },
+      { value: 'priority', label: t('branch.filter.field.priority') },
+      { value: 'task_type', label: t('branch.filter.field.taskType') },
+      { value: 'label', label: t('branch.filter.field.label') },
+      { value: 'epic', label: t('branch.filter.field.epic') },
+      { value: 'sprint', label: t('branch.filter.field.sprint') },
+      { value: 'assignee', label: t('branch.filter.field.assignee') },
+      { value: 'created_by', label: t('branch.filter.field.createdBy') },
+      { value: 'due_date', label: t('branch.filter.field.dueDate') },
+      { value: 'start_date', label: t('branch.filter.field.startDate') },
+      { value: 'created_at', label: t('branch.filter.field.createdAt') },
+      { value: 'updated_at', label: t('branch.filter.field.updatedAt') },
+      { value: 'text', label: t('branch.filter.field.text') },
+      { value: 'has_subtasks', label: t('branch.filter.field.hasSubtasks') },
+      { value: 'is_top_level', label: t('branch.filter.field.isTopLevel') },
     ];
     // availableFields 제공 시 클라이언트 payload가 뒷받침하는 필드만 남긴다.
     // (cf:* 커스텀 필드는 customFields에서 파생되므로 항상 유지)
@@ -378,7 +385,7 @@ export default function FilterBuilder({ spec, onChange, members, labels, epics, 
       value: `cf:${f.custom_field_id}`, label: f.field_name,
     }));
     return [...base, ...cf];
-  }, [customFields, availableFields]);
+  }, [customFields, availableFields, t]);
 
   // onChange를 updater 함수로 래핑(루트 기준 불변 갱신)
   const apply = (updater) => onChange(updater(root));

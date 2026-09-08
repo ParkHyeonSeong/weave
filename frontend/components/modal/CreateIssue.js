@@ -3,8 +3,10 @@ import { X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 export default function CreateIssue({ branchId, taskId, onClose }) {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,11 +28,11 @@ export default function CreateIssue({ branchId, taskId, onClose }) {
         onClose();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to create issue.';
+        const msg = errorText(err.code, err.category) ?? t('modal.createIssue.createFailed');
         setError(msg);
       }
     } catch {
-      setError('Failed to create issue.');
+      setError(t('modal.createIssue.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -40,7 +42,7 @@ export default function CreateIssue({ branchId, taskId, onClose }) {
     <div className="CreateIssue__Backdrop" onClick={onClose}>
       <form className="CreateIssue" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="CreateIssue__Header">
-          <h2 className="CreateIssue__Title">New Issue</h2>
+          <h2 className="CreateIssue__Title">{t('modal.createIssue.title')}</h2>
           <button type="button" className="CreateIssue__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -48,11 +50,11 @@ export default function CreateIssue({ branchId, taskId, onClose }) {
 
         <div className="CreateIssue__Body">
           <div className="CreateIssue__Field">
-            <label className="CreateIssue__Label">Title</label>
+            <label className="CreateIssue__Label">{t('modal.fields.title')}</label>
             <input
               className="CreateIssue__Input"
               type="text"
-              placeholder="Issue title"
+              placeholder={t('modal.createIssue.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -61,10 +63,10 @@ export default function CreateIssue({ branchId, taskId, onClose }) {
           </div>
 
           <div className="CreateIssue__Field">
-            <label className="CreateIssue__Label">Description</label>
+            <label className="CreateIssue__Label">{t('modal.fields.description')}</label>
             <textarea
               className="CreateIssue__Textarea"
-              placeholder="Describe the issue..."
+              placeholder={t('modal.createIssue.descriptionPlaceholder')}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={4}
@@ -76,10 +78,10 @@ export default function CreateIssue({ branchId, taskId, onClose }) {
 
         <div className="CreateIssue__Footer">
           <button type="button" className="CreateIssue__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button type="submit" className="CreateIssue__SubmitBtn" disabled={!title.trim() || loading}>
-            {loading ? 'Creating...' : 'Create'}
+            {loading ? t('modal.creating') : t('common.actions.create')}
           </button>
         </div>
       </form>

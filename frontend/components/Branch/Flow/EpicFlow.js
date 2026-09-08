@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { axios } from '@/library/_axios';
 import { Workflow } from 'lucide-react';
 import FlowCanvas from './FlowCanvas';
+import { useTranslation } from 'react-i18next';
 
 export default function EpicFlow({ branchId, workflowStatuses, onSelectTask }) {
+  const { t } = useTranslation();
   const [epics, setEpics] = useState([]);
   const [selectedEpicId, setSelectedEpicId] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -71,7 +73,7 @@ export default function EpicFlow({ branchId, workflowStatuses, onSelectTask }) {
           </button>
         ))}
         {epics.length === 0 && (
-          <div className="EpicFlow__SidebarEmpty">No epics</div>
+          <div className="EpicFlow__SidebarEmpty">{t('branch.flow.noEpics')}</div>
         )}
       </div>
 
@@ -80,17 +82,17 @@ export default function EpicFlow({ branchId, workflowStatuses, onSelectTask }) {
         {!selectedEpicId ? (
           <div className="EpicFlow__Empty">
             <Workflow size={40} strokeWidth={1} />
-            <p>Select an epic to view its task flow</p>
+            <p>{t('branch.flow.selectEpic')}</p>
           </div>
         ) : initialLoading ? (
           <div className="EpicFlow__Empty">
-            <p>Loading...</p>
+            <p>{t('common.state.loading')}</p>
           </div>
         ) : tasks.length === 0 ? (
           <div className="EpicFlow__Empty">
             <Workflow size={40} strokeWidth={1} />
-            <p>No tasks in this epic</p>
-            <span className="EpicFlow__EmptySub">Add tasks from the Tasks tab</span>
+            <p>{t('branch.epics.noTasksInEpic')}</p>
+            <span className="EpicFlow__EmptySub">{t('branch.flow.addTasksHint')}</span>
           </div>
         ) : (
           <FlowCanvas

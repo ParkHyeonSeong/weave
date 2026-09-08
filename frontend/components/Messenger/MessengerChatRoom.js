@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Pencil, Check, X, File as FileIcon, Download } from 'lucide-react';
 import { axios } from '@/library/_axios';
-import { formatMessageTime } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import Avatar from '@/components/common/Avatar';
 import TaskRefCard from './TaskRefCard';
 import DocRefCard from './DocRefCard';
@@ -14,9 +15,11 @@ import { buildSendMessage, formatFileSize } from '@/library/messengerCompose';
 const isImageType = (fileType) => fileType?.startsWith('image/');
 
 export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, headerLeft, headerRight }) {
+  const { t } = useTranslation();
+  const { formatMessageTime } = useDateFormat();
   const { open: openLightbox } = useLightbox();
   const [messages, setMessages] = useState([]);
-  const [roomName, setRoomName] = useState('Chat');
+  const [roomName, setRoomName] = useState(() => t('messenger.chatRoom.defaultRoomName'));
   const [roomType, setRoomType] = useState('dm');
   const [members, setMembers] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -136,7 +139,7 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
   // -- 메시지 전송 (컴포저 onSubmit) --
   const handleComposerSubmit = async (payload) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) {
-      showToast('메시지를 보낼 수 없습니다. 연결을 확인해주세요.', 'error');
+      showToast(t('messenger.chatRoom.notConnected'), 'error');
       return false;
     }
     const attachments = payload.attachments.map((a) => ({
@@ -276,7 +279,7 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
       {/* 드래그 오버레이 */}
       {isDragOver && (
         <div className="MessengerChatRoom__DragOverlay">
-          <span>Drop files to attach</span>
+          <span>{t('messenger.dropFiles')}</span>
         </div>
       )}
 
@@ -343,7 +346,7 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
               <Fragment key={msg.message_id}>
                 {showUnreadDivider && idx === firstUnreadIdx && (
                   <div className="MessengerChatRoom__UnreadDivider" ref={unreadDividerRef}>
-                    <span>New messages</span>
+                    <span>{t('messenger.chatRoom.newMessages')}</span>
                   </div>
                 )}
                 <div

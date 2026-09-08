@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckSquare, Inbox, SlidersHorizontal, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import CustomSelect from '@/components/common/CustomSelect';
@@ -11,26 +12,28 @@ import { emptyGroup, isEmptySpec } from '@/library/filterBuilderState';
 import { applySavedView } from '@/library/savedViewState';
 import { priorityVar } from '@/library/themePalette';
 import { entityTintStyle } from '@/library/entityTint';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
+// 라벨은 카탈로그 키로만 두고 렌더 시점에 t()로 푼다(모듈 상수는 언어 전환을 못 따라간다).
 const STATUS_CATEGORY_OPTIONS = [
-  { value: 'todo', label: 'To Do' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'todo', labelKey: 'account.myTasks.statusCategory.todo' },
+  { value: 'in_progress', labelKey: 'account.myTasks.statusCategory.inProgress' },
+  { value: 'done', labelKey: 'account.myTasks.statusCategory.done' },
+  { value: 'cancelled', labelKey: 'account.myTasks.statusCategory.cancelled' },
 ];
 
-const priorityOptions = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+const PRIORITY_OPTIONS = [
+  { value: 'urgent', labelKey: 'account.myTasks.priority.urgent', color: priorityVar('urgent') },
+  { value: 'high', labelKey: 'account.myTasks.priority.high', color: priorityVar('high') },
+  { value: 'medium', labelKey: 'account.myTasks.priority.medium', color: priorityVar('medium') },
+  { value: 'low', labelKey: 'account.myTasks.priority.low', color: priorityVar('low') },
 ];
 
 const sortOptions = [
-  { value: 'updated', label: 'Updated' },
-  { value: 'created', label: 'Created' },
-  { value: 'priority', label: 'Priority' },
-  { value: 'due_date', label: 'Due Date' },
+  { value: 'updated', labelKey: 'account.myTasks.sort.updated' },
+  { value: 'created', labelKey: 'account.myTasks.sort.created' },
+  { value: 'priority', labelKey: 'account.myTasks.sort.priority' },
+  { value: 'due_date', labelKey: 'account.myTasks.sort.dueDate' },
 ];
 
 // 고급 빌더가 제공하는 필드 — 크로스브랜치 안전한 글로벌 필드만.
@@ -63,6 +66,7 @@ const sortByFromQuery = (sort) => {
 };
 
 export default function MyTasksView() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
@@ -131,9 +135,9 @@ export default function MyTasksView() {
     try {
       const res = await axios.post('/saved-views', { name, scope_branch_id: null, ...buildViewPayload(), visibility: 'private' });
       if (res.data?.status) { await loadSavedViews(); setActiveViewId(res.data.view_id); setViewError(null); }
-      else setViewError('뷰를 저장할 수 없습니다 (조건을 확인하세요)');
+      else setViewError(t('account.myTasks.saveViewFailed'));
     } catch {
-      setViewError('뷰를 저장할 수 없습니다 (조건을 확인하세요)');
+      setViewError(t('account.myTasks.saveViewFailed'));
     }
   };
 
@@ -141,9 +145,9 @@ export default function MyTasksView() {
     try {
       const res = await axios.patch(`/saved-views/${viewId}`, buildViewPayload());
       if (res.data?.status) { await loadSavedViews(); setViewError(null); }
-      else setViewError('뷰를 수정할 수 없습니다');
+      else setViewError(t('account.myTasks.updateViewFailed'));
     } catch {
-      setViewError('뷰를 수정할 수 없습니다');
+      setViewError(t('account.myTasks.updateViewFailed'));
     }
   };
 
@@ -155,10 +159,10 @@ export default function MyTasksView() {
         if (activeViewId === viewId) setActiveViewId(null);
         setViewError(null);
       } else {
-        setViewError('뷰를 삭제할 수 없습니다');
+        setViewError(t('account.myTasks.deleteViewFailed'));
       }
     } catch {
-      setViewError('뷰를 삭제할 수 없습니다');
+      setViewError(t('account.myTasks.deleteViewFailed'));
     }
   };
 
@@ -182,12 +186,12 @@ export default function MyTasksView() {
           // 백엔드가 spec을 거부({status:False, message:'INVALID_FILTER'}) — 침묵 금지
           setTasks([]);
           setServerTotal(0);
-          setFilterError('필터를 적용할 수 없습니다 (조건을 확인하세요)');
+          setFilterError(t('account.myTasks.filterFailed'));
         }
       } catch {
         setTasks([]);
         setServerTotal(0);
-        setFilterError('필터를 적용할 수 없습니다 (조건을 확인하세요)');
+        setFilterError(t('account.myTasks.filterFailed'));
       }
       setLoading(false);
       return;
@@ -206,7 +210,7 @@ export default function MyTasksView() {
       if (res.data.status) setTasks(res.data.tasks);
     } catch {}
     setLoading(false);
-  }, [filters, serverMode, advancedActive, filterSpec, scope]);
+  }, [filters, serverMode, advancedActive, filterSpec, scope, t]);
 
   useEffect(() => {
     setLoading(true);
@@ -234,7 +238,7 @@ export default function MyTasksView() {
     <div className="MyTasks">
       <div className="MyTasks__Header">
         <CheckSquare size={20} className="MyTasks__HeaderIcon" />
-        <h2 className="MyTasks__Title">My Tasks</h2>
+        <h2 className="MyTasks__Title">{t('account.myTasks.title')}</h2>
         {!loading && (
           <span className="MyTasks__Count">
             {serverMode && serverTotal != null ? serverTotal : tasks.length}
@@ -264,9 +268,9 @@ export default function MyTasksView() {
               value={filters.status}
               onChange={(e) => updateFilter('status', e.target.value)}
             >
-              <option value="">All Status</option>
+              <option value="">{t('account.myTasks.allStatus')}</option>
               {STATUS_CATEGORY_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>{t(o.labelKey)}</option>
               ))}
             </select>
 
@@ -275,9 +279,9 @@ export default function MyTasksView() {
               value={filters.priority}
               onChange={(e) => updateFilter('priority', e.target.value)}
             >
-              <option value="">All Priority</option>
-              {priorityOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+              <option value="">{t('account.myTasks.allPriority')}</option>
+              {PRIORITY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{t(o.labelKey)}</option>
               ))}
             </select>
 
@@ -286,7 +290,7 @@ export default function MyTasksView() {
               value={filters.branch_id}
               onChange={(e) => updateFilter('branch_id', e.target.value)}
             >
-              <option value="">All Branches</option>
+              <option value="">{t('account.myTasks.allBranches')}</option>
               {branches.map((b) => (
                 <option key={b.branch_id} value={b.branch_id}>{b.branch_name}</option>
               ))}
@@ -300,7 +304,9 @@ export default function MyTasksView() {
           onChange={(e) => updateFilter('sort_by', e.target.value)}
         >
           {sortOptions.map((o) => (
-            <option key={o.value} value={o.value}>Sort: {o.label}</option>
+            <option key={o.value} value={o.value}>
+              {t('account.myTasks.sortOption', { label: t(o.labelKey) })}
+            </option>
           ))}
         </select>
 
@@ -311,7 +317,7 @@ export default function MyTasksView() {
           onClick={() => setAdvancedOpen((prev) => !prev)}
         >
           <SlidersHorizontal size={13} />
-          고급 필터
+          {t('account.myTasks.advancedFilter')}
         </button>
       </div>
 
@@ -323,7 +329,7 @@ export default function MyTasksView() {
       {advancedOpen && (
         <div className="MyTasks__AdvancedPanel">
           <div className="MyTasks__AdvancedHeader">
-            <span className="MyTasks__AdvancedTitle">고급 필터</span>
+            <span className="MyTasks__AdvancedTitle">{t('account.myTasks.advancedFilter')}</span>
 
             {/* 스코프 토글: 내 태스크 vs 전체 브랜치 */}
             <div className="MyTasks__ScopeToggle">
@@ -331,12 +337,12 @@ export default function MyTasksView() {
                 type="button"
                 className={`MyTasks__ScopeBtn ${scope === 'my' ? 'MyTasks__ScopeBtn--active' : ''}`}
                 onClick={() => setScope('my')}
-              >내 태스크</button>
+              >{t('account.myTasks.scopeMy')}</button>
               <button
                 type="button"
                 className={`MyTasks__ScopeBtn ${scope === 'all' ? 'MyTasks__ScopeBtn--active' : ''}`}
                 onClick={() => setScope('all')}
-              >전체 브랜치</button>
+              >{t('account.myTasks.scopeAll')}</button>
             </div>
 
             {advancedActive && (
@@ -346,7 +352,7 @@ export default function MyTasksView() {
                 onClick={() => setFilterSpec(emptyGroup())}
               >
                 <X size={12} />
-                초기화
+                {t('account.myTasks.reset')}
               </button>
             )}
           </div>
@@ -373,21 +379,21 @@ export default function MyTasksView() {
       <div className="MyTasks__Table">
         <div className="MyTasks__TableHeader">
           <span />
-          <span>ID</span>
-          <span>Title</span>
+          <span>{t('account.myTasks.columns.id')}</span>
+          <span>{t('account.myTasks.columns.title')}</span>
           <span />
-          <span>Branch</span>
-          <span>Status</span>
-          <span>Due</span>
-          <span>Priority</span>
+          <span>{t('account.myTasks.columns.branch')}</span>
+          <span>{t('account.myTasks.columns.status')}</span>
+          <span>{t('account.myTasks.columns.due')}</span>
+          <span>{t('account.myTasks.columns.priority')}</span>
         </div>
 
         {loading ? (
-          <div className="MyTasks__Empty">Loading...</div>
+          <div className="MyTasks__Empty">{t('common.state.loading')}</div>
         ) : tasks.length === 0 ? (
           <div className="MyTasks__Empty">
             <Inbox size={32} className="MyTasks__EmptyIcon" />
-            <p>No tasks assigned to you.</p>
+            <p>{t('account.myTasks.empty')}</p>
           </div>
         ) : (
           tasks.map((task) => (
@@ -401,6 +407,7 @@ export default function MyTasksView() {
 
 // -- Row --
 function MyTasksRow({ task, onRefresh }) {
+  const { t } = useTranslation();
   // /tasks/query items는 branch_id를 돌려주지 않는다(branch_key/branch_name만).
   // branch_id 없으면 상세/브랜치 링크·인라인 PATCH가 /branch/undefined로 깨지므로
   // 해당 인터랙션만 비활성화하고 행 자체는 그대로 렌더(non-crashing).
@@ -414,13 +421,14 @@ function MyTasksRow({ task, onRefresh }) {
     } catch {}
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' });
-  };
+  // date-only는 timezone 변환하지 않는다(new Date(dateStr)는 UTC 자정으로 파싱된다).
+  const { formatDateOnlyShort, isOverdue: overdueFor } = useDateFormat();
+  const formatDate = (dateStr) => formatDateOnlyShort(dateStr) || '-';
 
   const category = task.status_category || task.status;
-  const isOverdue = task.due_date && category !== 'done' && category !== 'cancelled' && new Date(task.due_date) < new Date();
+  // 연체는 **개인 timezone의 오늘**과 due_date를 문자열로 비교한다. due today는 그 사용자의
+  // 하루가 끝나기 전까지 연체가 아니다. 저장하지 않는 viewer별 파생 표시다.
+  const isOverdue = overdueFor(task.due_date, category);
 
   return (
     <div className="MyTasksRow">
@@ -514,7 +522,7 @@ function MyTasksRow({ task, onRefresh }) {
       <div className="MyTasksRow__Cell" onClick={(e) => e.stopPropagation()}>
         <CustomSelect
           value={task.priority || 'low'}
-          options={priorityOptions}
+          options={PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) }))}
           onChange={(val) => handleFieldChange('priority', val)}
           size="sm"
           hideArrow

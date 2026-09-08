@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Download, AlertTriangle, Loader } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { compileToSvg, downloadPdf } from '@/library/typstCompiler';
 import { sanitizeSvg } from '@/library/sanitize';
 import { yCollab, patchYSync } from '@/library/yCollabPatched';
@@ -36,6 +37,7 @@ function TypstEditorInner({
   onContentChange,
   pageTitle,
 }) {
+  const { t } = useTranslation();
   const editorRef = useRef(null);
   const editorViewRef = useRef(null);
   const previewRef = useRef(null);
@@ -216,7 +218,7 @@ function TypstEditorInner({
       const filename = (pageTitle || 'document').replace(/[^a-zA-Z0-9가-힣\s_-]/g, '') + '.pdf';
       await downloadPdf(source, filename);
     } catch (err) {
-      setCompileErrors([err.message || 'PDF export failed']);
+      setCompileErrors([err.message || t('canvas.typst.exportFailed')]);
     }
     setIsExporting(false);
   };
@@ -226,11 +228,11 @@ function TypstEditorInner({
       {/* 툴바 */}
       <div className="TypstEditor__Toolbar">
         <div className="TypstEditor__ToolbarLeft">
-          <span className="TypstEditor__Label">Typst Editor</span>
+          <span className="TypstEditor__Label">{t('canvas.typst.label')}</span>
           {isCompiling && (
             <span className="TypstEditor__Compiling">
               <Loader size={13} className="TypstEditor__Spin" />
-              Compiling...
+              {t('canvas.typst.compiling')}
             </span>
           )}
         </div>
@@ -239,7 +241,7 @@ function TypstEditorInner({
             className="TypstEditor__ExportBtn"
             onClick={handleExportPdf}
             disabled={isExporting || !lastSourceRef.current?.trim()}
-            title="Download PDF"
+            title={t('canvas.downloadPdf')}
           >
             {isExporting ? <Loader size={14} className="TypstEditor__Spin" /> : <Download size={14} />}
             PDF
@@ -274,10 +276,10 @@ function TypstEditorInner({
               {!isWasmReady ? (
                 <>
                   <Loader size={20} className="TypstEditor__Spin" />
-                  <span>Loading Typst compiler...</span>
+                  <span>{t('canvas.typst.loadingCompiler')}</span>
                 </>
               ) : (
-                <span>Start typing to see preview</span>
+                <span>{t('canvas.typst.emptyPreview')}</span>
               )}
             </div>
           )}

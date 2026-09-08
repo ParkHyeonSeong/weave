@@ -5,7 +5,7 @@
 // 옛 offline.html을 영원히 본다. 버전 숫자만으로는 단조 래칫이라 그 실수를
 // 못 잡는다 — 해시 결속이 그것을 RED로 만든다. 이름 변경은 동시에
 // (a) /sw.js 바이트 변경을 보장하고 (b) 아래 activate의 filter가 옛 캐시를 지우게 한다.
-const CACHE_NAME = 'weave-offline-v2-0eaf420a';
+const CACHE_NAME = 'weave-offline-v3-92f2de73';
 const OFFLINE_URL = '/offline.html';
 
 // 설치: 오프라인 페이지 캐시

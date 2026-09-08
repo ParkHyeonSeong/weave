@@ -211,9 +211,10 @@ describe('ErrorBoundary — 색이 토큰으로 내려갔다', () => {
     // 사용자가 읽는 문구는 "그 요소 안에" 있어야 한다. 파일 어딘가에 같은 문자열이
     // 있기만 하면 통과하는 검사로는 태그·class만 남기고 문구를 지운 빈 오류 화면을 못 잡는다.
     const flat = src.replace(/\s+/g, ' ');
-    expect(flat, 'h2 제목 문구').toContain('<h2 className="ErrorBoundary__Title"> 문제가 발생했습니다 </h2>');
-    expect(flat, 'p 안내 문구').toContain('<p className="ErrorBoundary__Message"> 예상치 못한 오류가 발생했습니다. 페이지를 새로고침해 주시거나, 문제가 계속되면 관리자에게 문의해 주세요. </p>');
-    expect(flat, 'button 라벨').toContain('<button className="ErrorBoundary__Button" onClick={() => window.location.reload()} > 새로고침 </button>');
+    // 문구는 catalog(t)로 옮겨졌다 — 요소 안에 t() 호출이 그대로 있어야 한다(빈 오류 화면 방지).
+    expect(flat, 'h2 제목 문구').toContain('<h2 className="ErrorBoundary__Title"> {t(\'common.state.error\')} </h2>');
+    expect(flat, 'p 안내 문구').toContain('<p className="ErrorBoundary__Message"> {t(\'layout.errorBoundary.message\')} </p>');
+    expect(flat, 'button 라벨').toContain('<button className="ErrorBoundary__Button" onClick={() => window.location.reload()} > {t(\'layout.errorBoundary.refresh\')} </button>');
 
     // 아이콘은 태그 전체를 exact 비교한다. prop이 하나라도 늘면 깨진다 —
     // color="red"·color="var(--color-warning)"는 hex 리터럴 검사로 잡히지 않는다.

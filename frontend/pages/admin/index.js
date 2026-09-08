@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -11,8 +12,11 @@ import ConfirmModal from '@/components/modal/ConfirmModal';
 import Avatar from '@/components/common/Avatar';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function AdminPage() {
+  const { t } = useTranslation();
+  const { formatTimestamp } = useDateFormat();
   const router = useRouter();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +66,7 @@ export default function AdminPage() {
         setUsers(res.data.users);
       }
     } catch {
-      showAlert('Error', 'Failed to load users.');
+      showAlert(t('common.state.error'), t('authAdmin.members.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -75,11 +79,11 @@ export default function AdminPage() {
         fetchUsers();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to approve user.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.members.approveFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to approve user.');
+      showAlert(t('common.state.error'), t('authAdmin.members.approveFailed'));
     }
   };
 
@@ -90,11 +94,11 @@ export default function AdminPage() {
         fetchUsers();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to reject user.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.members.rejectFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to reject user.');
+      showAlert(t('common.state.error'), t('authAdmin.members.rejectFailed'));
     }
   };
 
@@ -105,14 +109,14 @@ export default function AdminPage() {
         fetchUsers();
       } else {
         const err = getError(res.data);
-        let fallback = 'Failed to change role.';
-        if (err.code === 'CANNOT_CHANGE_OWN_ROLE') fallback = 'You cannot change your own role.';
-        else if (err.code === 'USER_NOT_FOUND') fallback = 'User not found.';
+        let fallback = t('authAdmin.members.roleChangeFailed');
+        if (err.code === 'CANNOT_CHANGE_OWN_ROLE') fallback = t('errors.CANNOT_CHANGE_OWN_ROLE');
+        else if (err.code === 'USER_NOT_FOUND') fallback = t('errors.USER_NOT_FOUND');
         const msg = errorText(err.code, err.category) ?? fallback;
-        showAlert('Error', msg);
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to change role.');
+      showAlert(t('common.state.error'), t('authAdmin.members.roleChangeFailed'));
     }
   };
 
@@ -125,11 +129,11 @@ export default function AdminPage() {
         setDeleteTarget(null);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to delete user.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.members.deleteFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to delete user.');
+      showAlert(t('common.state.error'), t('authAdmin.members.deleteFailed'));
     }
   };
 
@@ -141,11 +145,11 @@ export default function AdminPage() {
         fetchUsers();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to update status.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.members.statusUpdateFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to update status.');
+      showAlert(t('common.state.error'), t('authAdmin.members.statusUpdateFailed'));
     }
   };
 
@@ -162,11 +166,14 @@ export default function AdminPage() {
     }
   };
 
+  // 서버 enum(role·status)의 표시 라벨. 매핑이 없는 값은 원문 그대로 보여준다.
+  const roleLabel = (role) => t(`authAdmin.roles.${role}`, { defaultValue: role });
+  const statusLabel = (status) => t(`authAdmin.status.${status}`, { defaultValue: status });
+
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('ko-KR', {
-      year: 'numeric', month: '2-digit', day: '2-digit',
-    });
+    // 가입 시각은 timestamp — 개인 timezone의 달력 날짜로 표시한다.
+    return formatTimestamp(dateStr, { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
   if (loading) return null;
@@ -174,20 +181,20 @@ export default function AdminPage() {
   return (
     <AdminLayout>
       <Head>
-        <title>Admin - Weave</title>
+        <title>{t('authAdmin.pageTitle')}</title>
       </Head>
       <div className="Admin">
         <div className="Admin__Header">
           <Shield size={20} />
-          <h1 className="Admin__Title">Admin Settings</h1>
+          <h1 className="Admin__Title">{t('authAdmin.adminSettings')}</h1>
         </div>
 
         <div className="Admin__Section">
           <div className="Admin__SectionHeader">
-            <h2 className="Admin__SectionTitle">Member Management</h2>
+            <h2 className="Admin__SectionTitle">{t('authAdmin.members.sectionTitle')}</h2>
             <button className="Admin__AddBtn" onClick={() => setShowAddMember(true)}>
               <UserPlus size={14} />
-              Add Member
+              {t('authAdmin.members.addMember')}
             </button>
           </div>
 
@@ -195,16 +202,16 @@ export default function AdminPage() {
           {pendingUsers.length > 0 && (
             <div className="Admin__Subsection">
               <h3 className="Admin__SubsectionTitle">
-                Pending Approval ({pendingUsers.length})
+                {t('authAdmin.members.pendingApproval', { count: pendingUsers.length })}
               </h3>
               <div className="Admin__TableWrap">
                 <table className="Admin__Table">
                 <thead>
                   <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Registered</th>
-                    <th>Actions</th>
+                    <th>{t('authAdmin.members.columns.name')}</th>
+                    <th>{t('authAdmin.members.columns.email')}</th>
+                    <th>{t('authAdmin.members.columns.registered')}</th>
+                    <th>{t('authAdmin.members.columns.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,14 +231,14 @@ export default function AdminPage() {
                           onClick={() => handleApprove(user.user_id)}
                         >
                           <UserCheck size={14} />
-                          Approve
+                          {t('authAdmin.members.approve')}
                         </button>
                         <button
                           className="Admin__RejectBtn"
                           onClick={() => handleReject(user.user_id)}
                         >
                           <UserX size={14} />
-                          Reject
+                          {t('authAdmin.members.reject')}
                         </button>
                       </td>
                     </tr>
@@ -244,17 +251,17 @@ export default function AdminPage() {
 
           {/* 전체 멤버 섹션 */}
           <div className="Admin__Subsection">
-            <h3 className="Admin__SubsectionTitle">All Members ({activeUsers.length})</h3>
+            <h3 className="Admin__SubsectionTitle">{t('authAdmin.members.allMembers', { count: activeUsers.length })}</h3>
             <div className="Admin__TableWrap">
               <table className="Admin__Table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Joined</th>
-                  <th>Actions</th>
+                  <th>{t('authAdmin.members.columns.name')}</th>
+                  <th>{t('authAdmin.members.columns.email')}</th>
+                  <th>{t('authAdmin.members.columns.role')}</th>
+                  <th>{t('authAdmin.members.columns.status')}</th>
+                  <th>{t('authAdmin.members.columns.joined')}</th>
+                  <th>{t('authAdmin.members.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -271,21 +278,21 @@ export default function AdminPage() {
                       <td>{user.email}</td>
                       <td>
                         {isSelf ? (
-                          <span className="Admin__RoleText">{user.role}</span>
+                          <span className="Admin__RoleText">{roleLabel(user.role)}</span>
                         ) : (
                           <select
                             className="Admin__RoleSelect"
                             value={user.role}
                             onChange={(e) => handleRoleChange(user.user_id, e.target.value)}
                           >
-                            <option value="member">member</option>
-                            <option value="admin">admin</option>
+                            <option value="member">{t('authAdmin.roles.member')}</option>
+                            <option value="admin">{t('authAdmin.roles.admin')}</option>
                           </select>
                         )}
                       </td>
                       <td>
                         <span className={`Admin__Badge ${getStatusClass(user.status)}`}>
-                          {user.status}
+                          {statusLabel(user.status)}
                         </span>
                       </td>
                       <td>{formatDate(user.created_at)}</td>
@@ -296,24 +303,24 @@ export default function AdminPage() {
                               <button
                                 className={user.status === 'active' ? 'Admin__DeactivateBtn' : 'Admin__ActivateBtn'}
                                 onClick={() => handleToggleStatus(user.user_id, user.status)}
-                                title={user.status === 'active' ? 'Deactivate' : 'Activate'}
+                                title={user.status === 'active' ? t('authAdmin.members.deactivate') : t('authAdmin.members.activate')}
                               >
                                 {user.status === 'active' ? <Ban size={14} /> : <CircleCheck size={14} />}
-                                {user.status === 'active' ? 'Deactivate' : 'Activate'}
+                                {user.status === 'active' ? t('authAdmin.members.deactivate') : t('authAdmin.members.activate')}
                               </button>
                             )}
                             <button
                               className="Admin__ResetBtn"
                               onClick={() => setResetTarget(user)}
-                              title="Reset Password"
+                              title={t('authAdmin.members.resetPasswordTitle')}
                             >
                               <KeyRound size={14} />
-                              Reset
+                              {t('authAdmin.members.reset')}
                             </button>
                             <button
                               className="Admin__DeleteBtn"
                               onClick={() => setDeleteTarget(user)}
-                              title="Delete"
+                              title={t('common.actions.delete')}
                             >
                               <Trash2 size={14} />
                             </button>
@@ -342,9 +349,9 @@ export default function AdminPage() {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Delete Member"
-        message={`Are you sure you want to delete ${deleteTarget?.username}? This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('authAdmin.members.deleteTitle')}
+        message={t('authAdmin.members.deleteConfirm', { name: deleteTarget?.username })}
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
 

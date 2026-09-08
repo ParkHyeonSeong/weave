@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { X, Maximize2, Trash2, ChevronDown, Star, Pencil, Copy, ArrowUp } from 'lucide-react';
 import useStar from '@/hooks/useStar';
@@ -9,7 +10,7 @@ import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import useTaskDetail from '@/hooks/useTaskDetail';
 import { sanitizeHtml } from '@/library/sanitize';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
-import { formatYMD, formatDateTime } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { selectableEpics } from '@/library/epics';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
@@ -31,14 +32,17 @@ import { buildTaskDescriptionExtensions } from './taskDescriptionExtensions';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
 import { priorityVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
 
-const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+// 라벨은 렌더 시 t()로 해석한다(모듈 로드 시점에는 locale이 확정되지 않는다).
+const priorityOptions = (t) => [
+  { value: 'urgent', label: t('branchTasks.priority.urgent'), color: priorityVar('urgent') },
+  { value: 'high', label: t('branchTasks.priority.high'), color: priorityVar('high') },
+  { value: 'medium', label: t('branchTasks.priority.medium'), color: priorityVar('medium') },
+  { value: 'low', label: t('branchTasks.priority.low'), color: priorityVar('low') },
 ];
 
 export default function TaskDetailPanel({ branchId, branchKey, taskTypes: externalTaskTypes, workflowStatuses: externalStatuses, taskSummary, onClose, onSelectTask }) {
+  const { t } = useTranslation();
+  const { formatTimestamp, formatTimestampYMD } = useDateFormat();
   const router = useRouter();
   const highlightCommentId = router.query.comment_id ? Number(router.query.comment_id) : null;
   const {
@@ -60,7 +64,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
   // 칩이 cross-branch면 자기 branch_id를 싣고, 없으면(부모/의존성=동일 브랜치) 이 패널의 branchId로.
   // 호스트가 브랜치를 옮긴 뒤에도 체이닝이 현재 브랜치가 아닌 이 태스크의 브랜치를 따라가게 한다.
   const selectChainedTask = useCallback(
-    (t) => onSelectTask?.({ ...t, branch_id: t.branch_id ?? branchId }),
+    (chained) => onSelectTask?.({ ...chained, branch_id: chained.branch_id ?? branchId }),
     [onSelectTask, branchId],
   );
 
@@ -131,12 +135,12 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             <X size={16} />
           </button>
         </div>
-        {error && <div className="TaskDetailPanel__ErrorState">접근 권한이 없거나 삭제된 항목입니다.</div>}
+        {error && <div className="TaskDetailPanel__ErrorState">{t('branchTasks.detail.errorState')}</div>}
       </div>
     );
   }
 
-  const typeConfig = (taskTypes || []).find((t) => t.type_key === task.task_type);
+  const typeConfig = (taskTypes || []).find((tt) => tt.type_key === task.task_type);
   const displayId = task.display_id
     || (branchKey ? `${branchKey}-${task.display_number}` : `#${task.display_number}`);
 
@@ -156,14 +160,14 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
           <button
             className={`TaskDetailPanel__StarBtn ${starred ? 'TaskDetailPanel__StarBtn--active' : ''}`}
             onClick={toggleStar}
-            title={starred ? 'Remove star' : 'Add star'}
+            title={starred ? t('branchTasks.star.remove') : t('branchTasks.star.add')}
           >
             <Star size={14} fill={starred ? 'currentColor' : 'none'} />
           </button>
           <NavLink
             href={`/branch/${branchId}/task/${task.task_id}`}
             className="TaskDetailPanel__ExpandBtn"
-            title="Open full page"
+            title={t('branchTasks.openFullPage')}
           >
             <Maximize2 size={14} />
           </NavLink>
@@ -215,7 +219,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
               onChange={(val) => updateField('status', val)}
             />
             {subtaskProgress?.total > 0 && (
-              <span className="TaskDetailPanel__SubtaskBadge" title="완료된 하위태스크">
+              <span className="TaskDetailPanel__SubtaskBadge" title={t('branchTasks.subtasks.doneBadgeTitle')}>
                 {progressLabel(subtaskProgress)}
               </span>
             )}
@@ -242,13 +246,13 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         {/* 설명 */}
         <div className="TaskDetailPanel__Section">
           <div className="TaskDetailPanel__SectionLabel">
-            Description
+            {t('branchTasks.detail.description')}
             {!editingDesc && task.description && (
               <>
-                <button className="TaskDetailPanel__DescEditBtn" onClick={() => setEditingDesc(true)} title="Edit description">
+                <button className="TaskDetailPanel__DescEditBtn" onClick={() => setEditingDesc(true)} title={t('branchTasks.detail.editDescription')}>
                   <Pencil size={11} />
                 </button>
-                <button className="TaskDetailPanel__DescEditBtn" onClick={copyDescMarkdown} title="Copy as Markdown">
+                <button className="TaskDetailPanel__DescEditBtn" onClick={copyDescMarkdown} title={t('branchTasks.copyAsMarkdown')}>
                   <Copy size={11} />
                 </button>
               </>
@@ -288,7 +292,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
                   }}
                 />
               ) : (
-                'Add description...'
+                t('branchTasks.detail.addDescription')
               )}
             </div>
           )}
@@ -298,16 +302,16 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
 
         {/* 세부 사항 */}
         <div className="TaskDetailPanel__Section">
-          <div className="TaskDetailPanel__SectionLabel">Details</div>
+          <div className="TaskDetailPanel__SectionLabel">{t('branchTasks.detail.details')}</div>
           <div className="TaskDetailPanel__Fields">
             {/* 타입 */}
-            <DetailRow label="Type">
+            <DetailRow label={t('branchTasks.fields.type')}>
               <CustomSelect
                 value={task.task_type}
-                options={(taskTypes || []).map((t) => ({
-                  value: t.type_key,
-                  label: t.type_name,
-                  icon: <TaskTypeIcon name={t.icon} size={12} color={t.color} />,
+                options={(taskTypes || []).map((tt) => ({
+                  value: tt.type_key,
+                  label: tt.type_name,
+                  icon: <TaskTypeIcon name={tt.icon} size={12} color={tt.color} />,
                 }))}
                 onChange={(val) => handleSelectChange('task_type', val)}
                 size="sm"
@@ -315,26 +319,26 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 우선순위 */}
-            <DetailRow label="Priority">
+            <DetailRow label={t('branchTasks.fields.priority')}>
               <CustomSelect
                 value={task.priority}
-                options={PRIORITY_OPTIONS}
+                options={priorityOptions(t)}
                 onChange={(val) => handleSelectChange('priority', val)}
                 size="sm"
               />
             </DetailRow>
 
             {/* Sprint */}
-            <DetailRow label="Sprint">
+            <DetailRow label={t('branchTasks.fields.sprint')}>
               {task.parent ? (
-                <span className="TaskDetailPanel__Inherited" title="부모 태스크에서 상속">
-                  {task.parent.sprint_name || 'Backlog'}
+                <span className="TaskDetailPanel__Inherited" title={t('branchTasks.inheritedFromParent')}>
+                  {task.parent.sprint_name || t('branchTasks.backlog')}
                 </span>
               ) : (
                 <CustomSelect
                   value={task.sprint_id || ''}
                   options={[
-                    { value: '', label: 'Backlog' },
+                    { value: '', label: t('branchTasks.backlog') },
                     ...sprints.map((s) => ({ value: s.sprint_id, label: s.sprint_name })),
                   ]}
                   onChange={(val) => handleSelectChange('sprint_id', val)}
@@ -344,16 +348,16 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* Epic */}
-            <DetailRow label="Epic">
+            <DetailRow label={t('branchTasks.fields.epic')}>
               {task.parent ? (
-                <span className="TaskDetailPanel__Inherited" title="부모 태스크에서 상속">
-                  {task.parent.epic_name || 'None'}
+                <span className="TaskDetailPanel__Inherited" title={t('branchTasks.inheritedFromParent')}>
+                  {task.parent.epic_name || t('branchTasks.none')}
                 </span>
               ) : (
                 <CustomSelect
                   value={task.epic_id || ''}
                   options={[
-                    { value: '', label: 'None' },
+                    { value: '', label: t('branchTasks.none') },
                     ...selectableEpics(epics, task.epic_id).map((ep) => ({
                       value: ep.epic_id,
                       label: ep.epic_name,
@@ -367,11 +371,11 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 메인 담당자 */}
-            <DetailRow label="Main Assignee">
+            <DetailRow label={t('branchTasks.fields.mainAssignee')}>
               <CustomSelect
                 value={(task.assignees || []).find((a) => a.role === 'main')?.user_id || ''}
                 options={[
-                  { value: '', label: 'Unassigned' },
+                  { value: '', label: t('branchTasks.unassigned') },
                   ...pickerMembers.map((m) => ({ value: m.user_id, label: m.username })),
                 ]}
                 onChange={(val) => {
@@ -384,7 +388,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 서브 담당자 */}
-            <DetailRow label="Sub Assignees">
+            <DetailRow label={t('branchTasks.fields.subAssignees')}>
               <SubAssigneeDropdown
                 members={members.filter((m) => {
                   const mainId = (task.assignees || []).find((a) => a.role === 'main')?.user_id;
@@ -399,7 +403,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 라벨 */}
-            <DetailRow label="Labels">
+            <DetailRow label={t('branchTasks.fields.labels')}>
               <LabelTagInput
                 assignedLabels={task.labels || []}
                 allLabels={labels}
@@ -411,7 +415,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 시작일 */}
-            <DetailRow label="Start date">
+            <DetailRow label={t('branchTasks.fields.startDate')}>
               <DatePicker
                 size="sm"
                 value={task.start_date || null}
@@ -421,7 +425,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 마감일 */}
-            <DetailRow label="Due date">
+            <DetailRow label={t('branchTasks.fields.dueDate')}>
               <DatePicker
                 size="sm"
                 value={task.due_date || null}
@@ -431,7 +435,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 생성자 */}
-            <DetailRow label="Created by">
+            <DetailRow label={t('branchTasks.fields.createdBy')}>
               {task.creator ? (
                 <span className="TaskDetailPanel__Creator">
                   <Avatar user={task.creator} size="xs" />
@@ -443,12 +447,12 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
             </DetailRow>
 
             {/* 생성일 */}
-            <DetailRow label="Created">
+            <DetailRow label={t('branchTasks.fields.created')}>
               <span
                 className="TaskDetailPanel__CreatedAt"
-                title={formatDateTime(task.created_at) || undefined}
+                title={formatTimestamp(task.created_at) || undefined}
               >
-                {formatYMD(task.created_at) || '—'}
+                {formatTimestampYMD(task.created_at) || '—'}
               </span>
             </DetailRow>
           </div>
@@ -459,7 +463,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
           <>
             <div className="TaskDetailPanel__Divider" />
             <div className="TaskDetailPanel__Section">
-              <div className="TaskDetailPanel__SectionLabel">Custom Fields</div>
+              <div className="TaskDetailPanel__SectionLabel">{t('branchTasks.detail.customFields')}</div>
               <div className="TaskDetailPanel__Fields">
                 {customFields.map((cf) => (
                   <DetailRow key={cf.custom_field_id} label={cf.field_name}>
@@ -525,7 +529,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         {/* 삭제 */}
         <button className="TaskDetailPanel__DeleteBtn" onClick={() => setShowDeleteConfirm(true)}>
           <Trash2 size={14} />
-          Delete task
+          {t('branchTasks.detail.deleteTask')}
         </button>
       </div>
 
@@ -533,11 +537,12 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={onDelete}
-        title="Delete Task"
+        title={t('branchTasks.deleteTaskTitle')}
         message={taskDeleteMessage(task, {
-          prefix: `"${displayId} - ${task.title}" 을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+          prefix: t('branchTasks.deleteTaskConfirm', { target: `${displayId} - ${task.title}` }),
+          t,
         })}
-        confirmLabel="Delete"
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
     </div>
@@ -554,6 +559,7 @@ function DetailRow({ label, children, align }) {
 }
 
 function CustomFieldInput({ field, value, onChange }) {
+  const { t } = useTranslation();
   switch (field.field_type) {
     case 'text':
       return (
@@ -597,7 +603,7 @@ function CustomFieldInput({ field, value, onChange }) {
           value={value || ''}
           onChange={(e) => onChange(e.target.value || null)}
         >
-          <option value="">Select...</option>
+          <option value="">{t('branchTasks.selectPlaceholder')}</option>
           {(field.field_options || []).map((opt) => (
             <option key={opt} value={opt}>{opt}</option>
           ))}
@@ -626,6 +632,7 @@ function CustomFieldInput({ field, value, onChange }) {
 }
 
 function SubAssigneeDropdown({ members, selectedIds, onChange }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -657,7 +664,7 @@ function SubAssigneeDropdown({ members, selectedIds, onChange }) {
         onClick={() => setOpen((prev) => !prev)}
       >
         <span className={selectedNames.length > 0 ? '' : 'TaskDetailPanel__SubAssigneePlaceholder'}>
-          {selectedNames.length > 0 ? selectedNames.join(', ') : 'None'}
+          {selectedNames.length > 0 ? selectedNames.join(', ') : t('branchTasks.none')}
         </span>
         <ChevronDown size={12} />
       </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Pencil, X, RotateCcw, Info } from 'lucide-react';
 import ConfirmModal from '@/components/modal/ConfirmModal';
@@ -11,6 +12,7 @@ import EntityIcon from '@/components/common/EntityIcon';
 
 export default function SettingsBranches({ trackId, isEditor }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -43,7 +45,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
       !draftColor || draftColor === branch.branch_real_color ? null : draftColor;
 
     if (colorPayload && !HEX_RE.test(colorPayload)) {
-      showToast('유효한 hex (#RRGGBB)를 입력하세요', 'error');
+      showToast(t('trackSettings.branches.invalidHex'), 'error');
       return;
     }
     try {
@@ -57,11 +59,11 @@ export default function SettingsBranches({ trackId, isEditor }) {
         window.dispatchEvent(new Event('track:updated'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '저장 실패';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.branches.saveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('저장 실패', 'error');
+      showToast(t('trackSettings.branches.saveFailed'), 'error');
     }
   };
 
@@ -77,7 +79,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
         window.dispatchEvent(new Event('track:updated'));
       }
     } catch {
-      showToast('초기화 실패', 'error');
+      showToast(t('trackSettings.branches.resetFailed'), 'error');
     }
   };
 
@@ -88,11 +90,11 @@ export default function SettingsBranches({ trackId, isEditor }) {
         fetchBranches();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '제거 실패';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.branches.removeFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('제거 실패', 'error');
+      showToast(t('trackSettings.branches.removeFailed'), 'error');
     }
     setConfirmRemove(null);
   };
@@ -104,23 +106,24 @@ export default function SettingsBranches({ trackId, isEditor }) {
       <div className="SettingsBranches__Banner">
         <Info size={14} />
         <div>
-          <strong>Branch는 bulk add/drag 시 자동으로 합류합니다.</strong>{' '}
-          여기선 이 Track에서만 다르게 보이도록 표시 이름과 색을 덮어쓰거나,
-          제거해 모든 item과 의존을 정리할 수 있어요.
+          <strong>{t('trackSettings.branches.bannerHeadline')}</strong>{' '}
+          {t('trackSettings.branches.bannerBody')}
         </div>
       </div>
 
       {branches.length === 0 ? (
         <div className="SettingsBranches__Empty">
-          <div className="SettingsBranches__EmptyTitle">아직 참여 중인 branch가 없어요</div>
+          <div className="SettingsBranches__EmptyTitle">{t('trackSettings.branches.emptyTitle')}</div>
           <div className="SettingsBranches__EmptyHint">
-            Track으로 돌아가 <strong>Add by Sprint / Epic / Filter</strong>로 시작하세요.
+            {t('trackSettings.branches.emptyHintBefore')}{' '}
+            <strong>{t('trackSettings.branches.emptyHintAction')}</strong>
+            {t('trackSettings.branches.emptyHintAfter')}
           </div>
           <button
             className="SettingsBranches__EmptyBtn"
             onClick={() => router.push(`/tracks/${trackId}`)}
           >
-            Back to Track
+            {t('trackSettings.backToTrack')}
           </button>
         </div>
       ) : (
@@ -142,7 +145,9 @@ export default function SettingsBranches({ trackId, isEditor }) {
                     <span className="SettingsBranches__Sub">
                       {b.branch_key}
                       {overridden && (
-                        <em className="SettingsBranches__OverrideMark">overridden</em>
+                        <em className="SettingsBranches__OverrideMark">
+                          {t('trackSettings.branches.overridden')}
+                        </em>
                       )}
                     </span>
                   </div>
@@ -151,7 +156,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
                       <button
                         className="SettingsBranches__IconBtn"
                         onClick={() => startEdit(b)}
-                        title="Edit display name / color"
+                        title={t('trackSettings.branches.editTitle')}
                       >
                         <Pencil size={13} />
                       </button>
@@ -161,7 +166,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
                           branch_id: b.branch_id,
                           display_name: b.display_name,
                         })}
-                        title="Remove branch (item·dep cascade)"
+                        title={t('trackSettings.branches.removeTitle')}
                       >
                         <X size={13} />
                       </button>
@@ -173,7 +178,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
                   <div className="SettingsBranches__Edit">
                     <label className="SettingsBranches__EditField">
                       <span className="SettingsBranches__EditLabel">
-                        Display name (이 Track에서만)
+                        {t('trackSettings.branches.displayNameLabel')}
                       </span>
                       <input
                         className="SettingsBranches__EditInput"
@@ -185,7 +190,7 @@ export default function SettingsBranches({ trackId, isEditor }) {
                     </label>
                     <label className="SettingsBranches__EditField">
                       <span className="SettingsBranches__EditLabel">
-                        Color (이 Track에서만)
+                        {t('trackSettings.branches.colorLabel')}
                       </span>
                       <div className="SettingsBranches__ColorRow">
                         <div className="SettingsBranches__Swatches">
@@ -214,9 +219,9 @@ export default function SettingsBranches({ trackId, isEditor }) {
                         <button
                           className="SettingsBranches__ResetBtn"
                           onClick={() => resetOverrides(b)}
-                          title="원본 이름·색으로 되돌리기"
+                          title={t('trackSettings.branches.resetTitle')}
                         >
-                          <RotateCcw size={12} /> Reset
+                          <RotateCcw size={12} /> {t('trackSettings.branches.reset')}
                         </button>
                       )}
                       <span style={{ flex: 1 }} />
@@ -224,13 +229,13 @@ export default function SettingsBranches({ trackId, isEditor }) {
                         className="SettingsBranches__CancelBtn"
                         onClick={cancelEdit}
                       >
-                        Cancel
+                        {t('common.actions.cancel')}
                       </button>
                       <button
                         className="SettingsBranches__SaveBtn"
                         onClick={() => saveEdit(b)}
                       >
-                        Save
+                        {t('common.actions.save')}
                       </button>
                     </div>
                   </div>
@@ -245,13 +250,13 @@ export default function SettingsBranches({ trackId, isEditor }) {
         isOpen={!!confirmRemove}
         onClose={() => setConfirmRemove(null)}
         onConfirm={() => confirmRemove && removeBranch(confirmRemove.branch_id)}
-        title="Remove branch from track"
+        title={t('trackSettings.branches.removeConfirmTitle')}
         message={
           confirmRemove
-            ? `"${confirmRemove.display_name}" branch를 이 Track에서 빼면 해당 branch의 모든 item과 materialize된 의존이 함께 정리됩니다. 계속할까요?`
+            ? t('trackSettings.branches.removeConfirmMessage', { name: confirmRemove.display_name })
             : ''
         }
-        confirmLabel="Remove"
+        confirmLabel={t('common.actions.remove')}
         variant="danger"
       />
     </div>

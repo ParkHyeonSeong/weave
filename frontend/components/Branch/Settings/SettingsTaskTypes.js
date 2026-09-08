@@ -3,6 +3,7 @@ import { axios } from '@/library/_axios';
 import { Plus, Trash2, X } from 'lucide-react';
 import TaskTypeIcon, { ICON_OPTIONS } from '@/components/common/TaskTypeIcon';
 import SettingsCustomFields from './SettingsCustomFields';
+import { useTranslation } from 'react-i18next';
 
 const PRESET_COLORS = [
   '#5E6AD2', '#DC2626', '#16A34A', '#2563EB', '#F59E0B',
@@ -10,6 +11,7 @@ const PRESET_COLORS = [
 ];
 
 export default function SettingsTaskTypes({ branchId, isAdmin }) {
+  const { t } = useTranslation();
   const [types, setTypes] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -133,13 +135,13 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
                     className="SettingsTaskTypes__AddInput"
                     value={newKey}
                     onChange={(e) => setNewKey(e.target.value)}
-                    placeholder="type_key (e.g. feature)"
+                    placeholder={t('branch2.taskTypes.typeKeyPlaceholder')}
                   />
                   <input
                     className="SettingsTaskTypes__AddInput"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Display name"
+                    placeholder={t('branch2.taskTypes.displayNamePlaceholder')}
                   />
                 </div>
                 <div className="SettingsTaskTypes__IconPicker">
@@ -166,17 +168,17 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
                 </div>
                 <div className="SettingsTaskTypes__AddActions">
                   <button className="SettingsTaskTypes__SubmitBtn" onClick={handleAdd}>
-                    Add Type
+                    {t('branch2.taskTypes.addType')}
                   </button>
                   <button className="SettingsTaskTypes__CancelBtn" onClick={() => setShowAdd(false)}>
-                    Cancel
+                    {t('common.actions.cancel')}
                   </button>
                 </div>
               </div>
             ) : (
               <button className="SettingsTaskTypes__AddBtn" onClick={() => setShowAdd(true)}>
                 <Plus size={14} />
-                Add Task Type
+                {t('branch2.taskTypes.addTaskType')}
               </button>
             )}
           </>
@@ -201,18 +203,18 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
 
           {/* Appearance */}
           <div className="SettingsTaskTypes__DetailSection">
-            <div className="SettingsTaskTypes__DetailSectionTitle">Appearance</div>
+            <div className="SettingsTaskTypes__DetailSectionTitle">{t('branch2.taskTypes.appearance')}</div>
             <div className="SettingsTaskTypes__DetailField">
-              <label className="SettingsTaskTypes__DetailLabel">Name</label>
+              <label className="SettingsTaskTypes__DetailLabel">{t('auth.name')}</label>
               <input
                 className="SettingsTaskTypes__DetailInput"
                 value={editName}
                 onChange={(e) => { setEditName(e.target.value); setDirty(true); }}
-                placeholder="Type name"
+                placeholder={t('branch2.taskTypes.typeNamePlaceholder')}
               />
             </div>
             <div className="SettingsTaskTypes__DetailField">
-              <label className="SettingsTaskTypes__DetailLabel">Icon</label>
+              <label className="SettingsTaskTypes__DetailLabel">{t('branch2.taskTypes.icon')}</label>
               <div className="SettingsTaskTypes__IconPicker">
                 {ICON_OPTIONS.map((opt) => (
                   <button
@@ -227,7 +229,7 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
               </div>
             </div>
             <div className="SettingsTaskTypes__DetailField">
-              <label className="SettingsTaskTypes__DetailLabel">Color</label>
+              <label className="SettingsTaskTypes__DetailLabel">{t('branch2.taskTypes.color')}</label>
               <div className="SettingsTaskTypes__ColorPicker">
                 {PRESET_COLORS.map((c) => (
                   <button
@@ -241,14 +243,14 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
             </div>
             {dirty && (
               <button className="SettingsTaskTypes__DetailSaveBtn" onClick={saveDetail}>
-                Save Changes
+                {t('branch2.saveChanges')}
               </button>
             )}
           </div>
 
           {/* Custom Fields */}
           <div className="SettingsTaskTypes__DetailSection">
-            <div className="SettingsTaskTypes__DetailSectionTitle">Custom Fields</div>
+            <div className="SettingsTaskTypes__DetailSectionTitle">{t('branch2.taskTypes.customFields')}</div>
             <SettingsCustomFields
               branchId={branchId}
               typeId={selectedType.type_id}
@@ -264,14 +266,14 @@ export default function SettingsTaskTypes({ branchId, isAdmin }) {
                 onClick={() => handleDelete(selectedType.type_id)}
               >
                 <Trash2 size={13} />
-                Delete this task type
+                {t('branch2.taskTypes.deleteThisTaskType')}
               </button>
             </div>
           )}
         </div>
       ) : (
         <div className="SettingsTaskTypes__DetailEmpty">
-          Select a task type to edit
+          {t('branch2.taskTypes.selectToEdit')}
         </div>
       )}
     </div>

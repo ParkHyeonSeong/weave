@@ -17,6 +17,7 @@ import CrossBranchTaskNode from './CrossBranchTaskNode';
 import RestrictedNode from './RestrictedNode';
 import TrackEdge from './TrackEdge';
 import { PICKER_DATA_MIME } from '../SourcePicker/SourcePickerSidebar';
+import { useTranslation } from 'react-i18next';
 
 const nodeTypes = { task: CrossBranchTaskNode, restricted: RestrictedNode };
 const edgeTypes = { track: TrackEdge };
@@ -110,6 +111,7 @@ function CanvasInner({
   onLinkCreate, onLinkDelete, onItemDelete,
   onEdgeTypeChange, onMaterializeChange,
 }) {
+  const { t } = useTranslation();
   const wrapperRef = useRef(null);
   const { screenToFlowPosition } = useReactFlow();
   const { resolved } = useTheme();
@@ -262,18 +264,18 @@ function CanvasInner({
 
         <Panel position="top-right" className="TrackCanvas__Toolbar">
           <div className="TrackCanvas__ToolbarGroup">
-            <span className="TrackCanvas__ToolbarCaption">Edge</span>
+            <span className="TrackCanvas__ToolbarCaption">{t('track.canvas.edgeCaption')}</span>
             <button
               className={`TrackCanvas__ToolbarBtn ${edgeType === 'flow_to' ? 'TrackCanvas__ToolbarBtn--active' : ''}`}
               onClick={() => onEdgeTypeChange('flow_to')}
-              title="Flow / depends on"
+              title={t('track.canvas.edgeFlowTitle')}
             >
               <ArrowRight size={13} />
             </button>
             <button
               className={`TrackCanvas__ToolbarBtn ${edgeType === 'relates_to' ? 'TrackCanvas__ToolbarBtn--active' : ''}`}
               onClick={() => onEdgeTypeChange('relates_to')}
-              title="Relates to"
+              title={t('track.canvas.edgeRelatesTitle')}
             >
               <Minus size={13} />
             </button>
@@ -283,12 +285,12 @@ function CanvasInner({
             className={`TrackCanvas__MatToggle ${materializeOnCreate ? 'TrackCanvas__MatToggle--on' : ''}`}
             onClick={() => onMaterializeChange(!materializeOnCreate)}
             disabled={edgeType !== 'flow_to'}
-            title="새 flow edge를 실제 task dependency로 박을지"
+            title={t('track.canvas.materializeTitle')}
           >
             <Anchor size={11} />
-            <span>materialize</span>
+            <span>{t('track.canvas.materialize')}</span>
             <span className={`TrackCanvas__MatPill ${materializeOnCreate ? 'TrackCanvas__MatPill--on' : ''}`}>
-              {materializeOnCreate ? 'ON' : 'OFF'}
+              {materializeOnCreate ? t('track.canvas.on') : t('track.canvas.off')}
             </span>
           </button>
         </Panel>
@@ -299,20 +301,20 @@ function CanvasInner({
               <line x1="0" y1="3" x2="30" y2="3" stroke="var(--color-primary)" strokeWidth="2.2" />
               <polygon points="30,0 36,3 30,6" fill="var(--color-primary)" />
             </svg>
-            <span>blocks / dep</span>
+            <span>{t('track.canvas.legendDep')}</span>
           </div>
           <div className="TrackCanvas__LegendRow">
             <svg width="36" height="6" viewBox="0 0 36 6">
               <line x1="0" y1="3" x2="30" y2="3" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeDasharray="4 5" />
               <polygon points="30,0 36,3 30,6" fill="var(--color-text-tertiary)" />
             </svg>
-            <span>draft flow</span>
+            <span>{t('track.canvas.legendDraft')}</span>
           </div>
           <div className="TrackCanvas__LegendRow">
             <svg width="36" height="6" viewBox="0 0 36 6">
               <line x1="0" y1="3" x2="36" y2="3" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeDasharray="6 4" />
             </svg>
-            <span>relates</span>
+            <span>{t('track.canvas.legendRelates')}</span>
           </div>
         </Panel>
       </ReactFlow>

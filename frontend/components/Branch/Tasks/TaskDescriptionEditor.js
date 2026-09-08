@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { taskRefPluginKey } from '@/components/Canvas/extensions/TaskRefExtension';
 import { slashCommandPluginKey } from '@/components/Canvas/extensions/SlashCommandsExtension';
@@ -14,6 +15,7 @@ import { useRawMode } from '@/library/rawMode';
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
 export default function TaskDescriptionEditor({ content, onSave, branchId }) {
+  const { t } = useTranslation();
   const savedRef = useRef(false);
 
   const extensions = useMemo(
@@ -125,7 +127,7 @@ export default function TaskDescriptionEditor({ content, onSave, branchId }) {
           value={rawText}
           onChange={handleRawChange}
           onBlur={handleRawBlur}
-          placeholder="Add description... (markdown)"
+          placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: t('branchTasks.detail.addDescription') })}
         />
       )}
       <div style={{ display: isRaw ? 'none' : undefined }}>

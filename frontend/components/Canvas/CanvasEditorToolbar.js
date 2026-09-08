@@ -12,6 +12,7 @@ import {
   AlignStartVertical, AlignCenterVertical, AlignEndVertical,
 } from 'lucide-react';
 import { TextSelection } from '@tiptap/pm/state';
+import { useTranslation } from 'react-i18next';
 import { promptSetLink } from '@/library/editorLink';
 import { mathEditPluginKey } from './extensions/mathExtensions';
 
@@ -23,12 +24,12 @@ const TEXT_COLORS = [
 ];
 
 const HIGHLIGHT_COLORS = [
-  { label: 'Yellow', color: '#FEF08A' },
-  { label: 'Green', color: '#BBF7D0' },
-  { label: 'Blue', color: '#BFDBFE' },
-  { label: 'Pink', color: '#FBCFE8' },
-  { label: 'Orange', color: '#FED7AA' },
-  { label: 'Purple', color: '#DDD6FE' },
+  { labelKey: 'canvas.editor.highlightColors.yellow', color: '#FEF08A' },
+  { labelKey: 'canvas.editor.highlightColors.green', color: '#BBF7D0' },
+  { labelKey: 'canvas.editor.highlightColors.blue', color: '#BFDBFE' },
+  { labelKey: 'canvas.editor.highlightColors.pink', color: '#FBCFE8' },
+  { labelKey: 'canvas.editor.highlightColors.orange', color: '#FED7AA' },
+  { labelKey: 'canvas.editor.highlightColors.purple', color: '#DDD6FE' },
 ];
 
 const CELL_BG_COLORS = [
@@ -37,7 +38,7 @@ const CELL_BG_COLORS = [
 ];
 
 const CODE_LANGUAGES = [
-  { value: null, label: 'Plain Text' },
+  { value: null, labelKey: 'canvas.editor.plainText', label: 'Plain Text' },
   { value: 'javascript', label: 'JavaScript' },
   { value: 'typescript', label: 'TypeScript' },
   { value: 'python', label: 'Python' },
@@ -97,6 +98,7 @@ const insertMathWithPopover = (editor, kind, latex) => {
 };
 
 export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, rawModeActive = false, onToggleRawMode }) {
+  const { t } = useTranslation();
   const [openDropdown, setOpenDropdown] = useState(null);
 
   if (!editor) return null;
@@ -124,13 +126,13 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
     for (let i = 1; i <= 3; i++) {
       if (editor.isActive('heading', { level: i })) return `H${i}`;
     }
-    return 'Text';
+    return t('canvas.editor.headingText');
   };
 
   const addLink = () => promptSetLink(editor);
 
   const addImage = () => {
-    const url = window.prompt('Image URL:');
+    const url = window.prompt(t('canvas.editor.imageUrlPrompt'));
     if (url) {
       editor.chain().focus().setImage({ src: url }).run();
     }
@@ -162,10 +164,10 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
   if (rawModeEnabled && rawModeActive) {
     return (
       <div className="CanvasEditorToolbar" onMouseDown={(e) => e.preventDefault()}>
-        <Btn onClick={onToggleRawMode} active title="Rich text 편집으로 전환">
+        <Btn onClick={onToggleRawMode} active title={t('canvas.editor.switchToRichText')}>
           <CodeXml size={16} />
         </Btn>
-        <span className="CanvasEditorToolbar__RawLabel">Markdown 소스 편집 중</span>
+        <span className="CanvasEditorToolbar__RawLabel">{t('canvas.editor.rawModeLabel')}</span>
       </div>
     );
   }
@@ -192,7 +194,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
               className={`CanvasEditorToolbar__DropdownItem ${!editor.isActive('heading') ? 'CanvasEditorToolbar__DropdownItem--active' : ''}`}
               onClick={() => { editor.chain().focus().setParagraph().run(); closeDropdown(); }}
             >
-              <span style={{ fontSize: '14px' }}>Normal text</span>
+              <span style={{ fontSize: '14px' }}>{t('canvas.editor.normalText')}</span>
             </button>
             {[1, 2, 3].map((level) => (
               <button
@@ -200,7 +202,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                 className={`CanvasEditorToolbar__DropdownItem ${editor.isActive('heading', { level }) ? 'CanvasEditorToolbar__DropdownItem--active' : ''}`}
                 onClick={() => { editor.chain().focus().toggleHeading({ level }).run(); closeDropdown(); }}
               >
-                <span style={{ fontSize: `${20 - level * 2}px`, fontWeight: 700 }}>Heading {level}</span>
+                <span style={{ fontSize: `${20 - level * 2}px`, fontWeight: 700 }}>{t('canvas.editor.heading', { level })}</span>
               </button>
             ))}
           </div>
@@ -211,37 +213,37 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
 
       {/* 텍스트 서식 */}
       <Btn onClick={() => editor.chain().focus().toggleBold().run()}
-        active={editor.isActive('bold')} title="Bold (Ctrl+B)">
+        active={editor.isActive('bold')} title={t('canvas.editor.bold')}>
         <Bold size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleItalic().run()}
-        active={editor.isActive('italic')} title="Italic (Ctrl+I)">
+        active={editor.isActive('italic')} title={t('canvas.editor.italic')}>
         <Italic size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleUnderline().run()}
-        active={editor.isActive('underline')} title="Underline (Ctrl+U)">
+        active={editor.isActive('underline')} title={t('canvas.editor.underline')}>
         <Underline size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleStrike().run()}
-        active={editor.isActive('strike')} title="Strikethrough">
+        active={editor.isActive('strike')} title={t('canvas.editor.strikethrough')}>
         <Strikethrough size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleCode().run()}
-        active={editor.isActive('code')} title="Inline Code">
+        active={editor.isActive('code')} title={t('canvas.editor.inlineCode')}>
         <Code size={16} />
       </Btn>
 
       {/* 텍스트 컬러/하이라이트 드롭다운 — 스키마에 있는 섹션만 노출 */}
       {(canColor || canHighlight) && (
         <DropdownWrapper isOpen={openDropdown === 'color'} onClose={closeDropdown}>
-          <Btn onClick={() => toggleDropdown('color')} title={canColor ? 'Text Color' : 'Highlight'}>
+          <Btn onClick={() => toggleDropdown('color')} title={canColor ? t('canvas.editor.textColor') : t('canvas.editor.highlight')}>
             <Palette size={16} />
           </Btn>
           {openDropdown === 'color' && (
             <div className="CanvasEditorToolbar__DropdownMenu CanvasEditorToolbar__ColorMenu">
               {canColor && (
                 <div className="CanvasEditorToolbar__ColorSection">
-                  <span className="CanvasEditorToolbar__ColorLabel">Text</span>
+                  <span className="CanvasEditorToolbar__ColorLabel">{t('canvas.editor.textSection')}</span>
                   <div className="CanvasEditorToolbar__ColorGrid">
                     {TEXT_COLORS.map((c) => (
                       <button
@@ -256,20 +258,20 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                     className="CanvasEditorToolbar__ColorReset"
                     onClick={() => { editor.chain().focus().unsetColor().run(); closeDropdown(); }}
                   >
-                    Reset color
+                    {t('canvas.editor.resetColor')}
                   </button>
                 </div>
               )}
               {canHighlight && (
                 <div className="CanvasEditorToolbar__ColorSection">
-                  <span className="CanvasEditorToolbar__ColorLabel">Highlight</span>
+                  <span className="CanvasEditorToolbar__ColorLabel">{t('canvas.editor.highlight')}</span>
                   <div className="CanvasEditorToolbar__ColorGrid">
                     {HIGHLIGHT_COLORS.map((h) => (
                       <button
                         key={h.color}
                         className="CanvasEditorToolbar__ColorSwatch CanvasEditorToolbar__ColorSwatch--highlight"
                         style={{ backgroundColor: h.color }}
-                        title={h.label}
+                        title={t(h.labelKey)}
                         onClick={() => { editor.chain().focus().toggleHighlight({ color: h.color }).run(); closeDropdown(); }}
                       />
                     ))}
@@ -278,7 +280,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                     className="CanvasEditorToolbar__ColorReset"
                     onClick={() => { editor.chain().focus().unsetHighlight().run(); closeDropdown(); }}
                   >
-                    Remove highlight
+                    {t('canvas.editor.removeHighlight')}
                   </button>
                 </div>
               )}
@@ -291,15 +293,15 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
 
       {/* 리스트 */}
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()}
-        active={editor.isActive('bulletList')} title="Bullet List">
+        active={editor.isActive('bulletList')} title={t('canvas.editor.bulletList')}>
         <List size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        active={editor.isActive('orderedList')} title="Ordered List">
+        active={editor.isActive('orderedList')} title={t('canvas.editor.orderedList')}>
         <ListOrdered size={16} />
       </Btn>
       <Btn onClick={() => editor.chain().focus().toggleTaskList().run()}
-        active={editor.isActive('taskList')} title="Checklist">
+        active={editor.isActive('taskList')} title={t('canvas.editor.checklist')}>
         <ListChecks size={16} />
       </Btn>
 
@@ -309,15 +311,15 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
         <>
           {/* 정렬 */}
           <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()}
-            active={editor.isActive({ textAlign: 'left' })} title="Align Left">
+            active={editor.isActive({ textAlign: 'left' })} title={t('canvas.editor.alignLeft')}>
             <AlignLeft size={16} />
           </Btn>
           <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()}
-            active={editor.isActive({ textAlign: 'center' })} title="Align Center">
+            active={editor.isActive({ textAlign: 'center' })} title={t('canvas.editor.alignCenter')}>
             <AlignCenter size={16} />
           </Btn>
           <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()}
-            active={editor.isActive({ textAlign: 'right' })} title="Align Right">
+            active={editor.isActive({ textAlign: 'right' })} title={t('canvas.editor.alignRight')}>
             <AlignRight size={16} />
           </Btn>
           <Sep />
@@ -326,13 +328,13 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
 
       {/* 삽입: 인용, 콜아웃, 코드블록, 구분선 */}
       <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        active={editor.isActive('blockquote')} title="Quote">
+        active={editor.isActive('blockquote')} title={t('canvas.editor.quote')}>
         <Quote size={16} />
       </Btn>
 
       {/* 콜아웃 패널 드롭다운 */}
       <DropdownWrapper isOpen={openDropdown === 'callout'} onClose={closeDropdown}>
-        <Btn onClick={() => toggleDropdown('callout')} title="Info Panel"
+        <Btn onClick={() => toggleDropdown('callout')} title={t('canvas.editor.infoPanel')}
           active={editor.isActive('callout')}>
           <Info size={16} />
         </Btn>
@@ -340,19 +342,19 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
           <div className="CanvasEditorToolbar__DropdownMenu">
             <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('info').run(); closeDropdown(); }}>
-              <Info size={14} style={{ color: 'var(--color-status-in-progress)' }} /> Info
+              <Info size={14} style={{ color: 'var(--color-status-in-progress)' }} /> {t('canvas.editor.calloutInfo')}
             </button>
             <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('warning').run(); closeDropdown(); }}>
-              <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} /> Warning
+              <AlertTriangle size={14} style={{ color: 'var(--color-warning)' }} /> {t('canvas.editor.calloutWarning')}
             </button>
             <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('success').run(); closeDropdown(); }}>
-              <CheckCircle2 size={14} style={{ color: 'var(--color-success)' }} /> Success
+              <CheckCircle2 size={14} style={{ color: 'var(--color-success)' }} /> {t('canvas.editor.calloutSuccess')}
             </button>
             <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('error').run(); closeDropdown(); }}>
-              <XCircle size={14} style={{ color: 'var(--color-error)' }} /> Error
+              <XCircle size={14} style={{ color: 'var(--color-error)' }} /> {t('canvas.editor.calloutError')}
             </button>
           </div>
         )}
@@ -360,13 +362,13 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
 
       {/* 코드 블록 언어 선택 드롭다운 */}
       <DropdownWrapper isOpen={openDropdown === 'codeblock'} onClose={closeDropdown}>
-        <Btn onClick={() => toggleDropdown('codeblock')} title="Code Block"
+        <Btn onClick={() => toggleDropdown('codeblock')} title={t('canvas.editor.codeBlock')}
           active={editor.isActive('codeBlock')}>
           <CodeSquare size={16} />
         </Btn>
         {openDropdown === 'codeblock' && (
           <div className="CanvasEditorToolbar__DropdownMenu CanvasEditorToolbar__CodeMenu">
-            {CODE_LANGUAGES.map(({ value, label }) => (
+            {CODE_LANGUAGES.map(({ value, label, labelKey }) => (
               <button
                 key={label}
                 className="CanvasEditorToolbar__DropdownItem"
@@ -379,30 +381,30 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                   closeDropdown();
                 }}
               >
-                {label}
+                {labelKey ? t(labelKey) : label}
               </button>
             ))}
           </div>
         )}
       </DropdownWrapper>
-      <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider">
+      <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title={t('canvas.editor.divider')}>
         <Minus size={16} />
       </Btn>
 
       <Sep />
 
       {/* 링크, 이미지, 테이블 */}
-      <Btn onClick={addLink} active={editor.isActive('link')} title="Link">
+      <Btn onClick={addLink} active={editor.isActive('link')} title={t('canvas.editor.link')}>
         <LinkIcon size={16} />
       </Btn>
       {hasExtension('image') && (
-        <Btn onClick={addImage} title="Image">
+        <Btn onClick={addImage} title={t('canvas.editor.image')}>
           <ImageIcon size={16} />
         </Btn>
       )}
       {hasExtension('table') && (
         <DropdownWrapper isOpen={openDropdown === 'table'} onClose={() => { closeDropdown(); setTableSize({ rows: 0, cols: 0 }); }}>
-          <Btn onClick={() => toggleDropdown('table')} title="Table">
+          <Btn onClick={() => toggleDropdown('table')} title={t('canvas.editor.table')}>
             <TableIcon size={16} />
           </Btn>
           {openDropdown === 'table' && (
@@ -420,7 +422,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                 )}
               </div>
               <div className="CanvasEditorToolbar__TableLabel">
-                {tableSize.rows > 0 ? `${tableSize.rows} × ${tableSize.cols}` : 'Select size'}
+                {tableSize.rows > 0 ? `${tableSize.rows} × ${tableSize.cols}` : t('canvas.editor.selectSize')}
               </div>
               {/* 커스텀 크기 입력 */}
               <div className="CanvasEditorToolbar__TableCustom">
@@ -429,7 +431,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                   className="CanvasEditorToolbar__TableCustomInput"
                   min={1}
                   max={50}
-                  placeholder="Rows"
+                  placeholder={t('canvas.editor.rowsPlaceholder')}
                   value={customTableSize.rows}
                   onChange={(e) => setCustomTableSize({ ...customTableSize, rows: e.target.value })}
                   onMouseDown={(e) => e.stopPropagation()}
@@ -440,7 +442,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                   className="CanvasEditorToolbar__TableCustomInput"
                   min={1}
                   max={50}
-                  placeholder="Cols"
+                  placeholder={t('canvas.editor.colsPlaceholder')}
                   value={customTableSize.cols}
                   onChange={(e) => setCustomTableSize({ ...customTableSize, cols: e.target.value })}
                   onMouseDown={(e) => e.stopPropagation()}
@@ -454,7 +456,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                     setCustomTableSize({ rows: '', cols: '' });
                   }}
                 >
-                  Insert
+                  {t('canvas.editor.insert')}
                 </button>
               </div>
             </div>
@@ -463,12 +465,12 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
       )}
       {hasExtension('table') && (
         <DropdownWrapper isOpen={openDropdown === 'cellBg'} onClose={closeDropdown}>
-          <Btn onClick={() => toggleDropdown('cellBg')} title="Cell Background">
+          <Btn onClick={() => toggleDropdown('cellBg')} title={t('canvas.editor.cellBackground')}>
             <PaintBucket size={16} />
           </Btn>
           {openDropdown === 'cellBg' && (
             <div className="CanvasEditorToolbar__DropdownMenu CanvasEditorToolbar__ColorMenu" style={{ minWidth: 160 }}>
-              <span className="CanvasEditorToolbar__ColorLabel">Cell background</span>
+              <span className="CanvasEditorToolbar__ColorLabel">{t('canvas.editor.cellBackgroundLabel')}</span>
               <div className="CanvasEditorToolbar__ColorGrid">
                 {CELL_BG_COLORS.map((c) => (
                   <button
@@ -483,7 +485,7 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                 className="CanvasEditorToolbar__ColorReset"
                 onClick={() => { editor.chain().focus().setCellAttribute('backgroundColor', null).run(); closeDropdown(); }}
               >
-                Remove color
+                {t('canvas.editor.removeColor')}
               </button>
             </div>
           )}
@@ -492,22 +494,22 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
       {hasExtension('table') && (
         <>
           <Btn onClick={() => editor.chain().focus().setCellAttribute('verticalAlign', 'top').run()}
-            title="Align Top">
+            title={t('canvas.editor.alignTop')}>
             <AlignStartVertical size={16} />
           </Btn>
           <Btn onClick={() => editor.chain().focus().setCellAttribute('verticalAlign', 'middle').run()}
-            title="Align Middle">
+            title={t('canvas.editor.alignMiddle')}>
             <AlignCenterVertical size={16} />
           </Btn>
           <Btn onClick={() => editor.chain().focus().setCellAttribute('verticalAlign', 'bottom').run()}
-            title="Align Bottom">
+            title={t('canvas.editor.alignBottom')}>
             <AlignEndVertical size={16} />
           </Btn>
         </>
       )}
       {!!editor.schema.nodes.inlineMath && (
         <DropdownWrapper isOpen={openDropdown === 'math'} onClose={closeDropdown}>
-          <Btn onClick={() => toggleDropdown('math')} title="Math Equation">
+          <Btn onClick={() => toggleDropdown('math')} title={t('canvas.editor.mathEquation')}>
             <Sigma size={16} />
           </Btn>
           {openDropdown === 'math' && (
@@ -516,20 +518,20 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
                 className="CanvasEditorToolbar__DropdownItem"
                 onClick={() => { insertMathWithPopover(editor, 'inline', 'E=mc^2'); closeDropdown(); }}
               >
-                Inline equation
+                {t('canvas.editor.inlineEquation')}
               </button>
               <button
                 className="CanvasEditorToolbar__DropdownItem"
                 onClick={() => { insertMathWithPopover(editor, 'block', '\\int_a^b f(x)\\,dx'); closeDropdown(); }}
               >
-                Block equation
+                {t('canvas.editor.blockEquation')}
               </button>
             </div>
           )}
         </DropdownWrapper>
       )}
       {hasExtension('mermaid') && (
-        <Btn onClick={() => editor.chain().focus().insertMermaid().run()} title="Mermaid Diagram">
+        <Btn onClick={() => editor.chain().focus().insertMermaid().run()} title={t('canvas.editor.mermaidDiagram')}>
           <Workflow size={16} />
         </Btn>
       )}
@@ -539,17 +541,17 @@ export default function CanvasEditorToolbar({ editor, rawModeEnabled = false, ra
       {/* Undo / Redo */}
       {/* Yjs undo/redo는 포커스가 필요 없다 — blur 상태에서 focus()를 태우면 rAF 지연 selection이
           빈 fragment redo와 겹쳐 문서를 <p></p><p>…</p>로 오염시킨다(WEAVE-37). commands.undo/redo만 호출. */}
-      <Btn onClick={() => editor.commands.undo()} title="Undo">
+      <Btn onClick={() => editor.commands.undo()} title={t('canvas.editor.undo')}>
         <Undo2 size={16} />
       </Btn>
-      <Btn onClick={() => editor.commands.redo()} title="Redo">
+      <Btn onClick={() => editor.commands.redo()} title={t('canvas.editor.redo')}>
         <Redo2 size={16} />
       </Btn>
 
       {rawModeEnabled && (
         <>
           <Sep />
-          <Btn onClick={onToggleRawMode} title="Markdown 소스로 편집">
+          <Btn onClick={onToggleRawMode} title={t('canvas.editor.switchToMarkdown')}>
             <CodeXml size={16} />
           </Btn>
         </>

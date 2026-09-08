@@ -138,14 +138,18 @@ async def find_accessible(user_id: int, db: AsyncSession):
     return branches
 
 
-async def home_stats(user_id: int, db: AsyncSession):
+async def home_stats(user_id: int, today, db: AsyncSession):
     """사용자가 접근 가능한 Branch 전체에 대한 홈 KPI 집계.
 
     - open_count: 미완료(done/cancelled 외) 중 in_progress 가 아닌 태스크 수
     - in_progress_count: category = 'in_progress' 태스크 수
-    - due_this_week_count: due_date 가 오늘~+7일 이내인 미완료 태스크 수
+    - due_this_week_count: due_date 가 today~+7일 이내인 미완료 태스크 수
     - active_sprint_count: status = 'active' 스프린트 수
     모두 사용자가 멤버인(아카이브 안 된) branch 기준.
+
+    today: 컨트롤러가 넘기는 **개인 timezone의 오늘**(datetime.date). 홈 카드의 '이번 주 마감'은
+    사용자별 파생 상태라 서버·DB 세션의 CURRENT_DATE(UTC)를 쓰면 뉴욕 사용자에게 하루 어긋난다.
+    home_stat_items 도 같은 값을 받아 카운트와 목록이 항상 1:1로 맞는다.
     """
     result = await db.execute(text("""
         WITH my_branches AS (
@@ -171,14 +175,14 @@ async def home_stats(user_id: int, db: AsyncSession):
             COUNT(*) FILTER (
                 WHERE category NOT IN ('done', 'cancelled')
                   AND due_date IS NOT NULL
-                  AND due_date >= CURRENT_DATE
-                  AND due_date < CURRENT_DATE + 7
+                  AND due_date >= CAST(:today AS DATE)
+                  AND due_date < CAST(:today AS DATE) + 7
             ) AS due_this_week_count,
             (SELECT COUNT(*) FROM sprint s
              INNER JOIN my_branches mb2 ON mb2.branch_id = s.branch_id
              WHERE s.status = 'active') AS active_sprint_count
         FROM my_tasks
-    """), {'user_id': user_id})
+    """), {'user_id': user_id, 'today': today})
     row = result.fetchone()
     return {
         'open_count': row._mapping['open_count'],
@@ -195,16 +199,16 @@ _TASK_BUCKET_WHERE = {
     'due_this_week': (
         "category NOT IN ('done', 'cancelled') "
         "AND due_date IS NOT NULL "
-        "AND due_date >= CURRENT_DATE AND due_date < CURRENT_DATE + 7"
+        "AND due_date >= CAST(:today AS DATE) AND due_date < CAST(:today AS DATE) + 7"
     ),
 }
 
 
-async def home_stat_items(user_id: int, bucket: str, limit: int, db: AsyncSession):
+async def home_stat_items(user_id: int, bucket: str, limit: int, today, db: AsyncSession):
     """home_stats 카드 숫자 뒤의 실제 행. bucket 으로 분기.
 
     태스크 버킷(open/in_progress/due_this_week)은 home_stats 와 동일한
-    my_branches CTE + 동일 필터를 재사용해 카운트와 1:1 일치한다.
+    my_branches CTE + 동일 필터 + **동일한 today**(개인 timezone)를 재사용해 카운트와 1:1 일치한다.
     active_sprint 버킷은 Task 2 에서 추가.
     반환: {'total_count': int, 'items': [...]}  (COUNT(*) OVER() 로 cap 전 총계).
     """
@@ -273,7 +277,7 @@ async def home_stat_items(user_id: int, bucket: str, limit: int, db: AsyncSessio
         WHERE {where}
         ORDER BY due_date ASC NULLS LAST, task_id
         LIMIT :limit
-    """), {'user_id': user_id, 'limit': limit})
+    """), {'user_id': user_id, 'limit': limit, 'today': today})
     rows = result.fetchall()
     items = [{
         'task_id': r._mapping['task_id'],

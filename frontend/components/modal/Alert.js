@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 
 export default function Alert({ isOpen, onClose, title, contents }) {
+  const { t } = useTranslation();
   const confirmRef = useRef(null);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function Alert({ isOpen, onClose, title, contents }) {
           <p className="Alert__Contents">{contents}</p>
         </div>
         <div className="Alert__Footer">
-          <button ref={confirmRef} className="Alert__ConfirmBtn" onClick={onClose}>OK</button>
+          <button ref={confirmRef} className="Alert__ConfirmBtn" onClick={onClose}>{t('modal.alert.ok')}</button>
         </div>
       </div>
     </div>

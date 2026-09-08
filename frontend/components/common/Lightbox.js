@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Minus, Maximize, Download, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { clampScale, getOneToOneScale, zoomAtPoint } from '@/library/lightboxZoom';
 import { downloadImage, copyImageToClipboard } from '@/library/lightboxIO';
 import { showToast } from '@/components/Layout/Toast';
@@ -11,6 +12,7 @@ const WHEEL_STEP = 1.0015; // deltaY당 배율(부드러운 휠 줌)
 const BTN_STEP = 1.25;
 
 export default function Lightbox({ images, index, onClose, onIndexChange }) {
+  const { t } = useTranslation();
   const stageRef = useRef(null);
   const imgRef = useRef(null);
   const dragRef = useRef(null); // { startX, startY, tx, ty }
@@ -109,14 +111,17 @@ export default function Lightbox({ images, index, onClose, onIndexChange }) {
 
   const onDownload = async () => {
     const ok = await downloadImage(current.src, current.filename);
-    showToast(ok ? '이미지를 다운로드했습니다' : '새 탭에서 이미지를 열었습니다', ok ? 'success' : 'info');
+    showToast(
+      ok ? t('common.lightbox.downloaded') : t('common.lightbox.openedInNewTab'),
+      ok ? 'success' : 'info',
+    );
   };
   const onCopy = async () => {
     try {
       await copyImageToClipboard(current.src);
-      showToast('이미지를 클립보드에 복사했습니다', 'success');
+      showToast(t('common.lightbox.copied'), 'success');
     } catch {
-      showToast('이미지 복사에 실패했습니다', 'error');
+      showToast(t('common.lightbox.copyFailed'), 'error');
     }
   };
 
@@ -125,22 +130,22 @@ export default function Lightbox({ images, index, onClose, onIndexChange }) {
       <div className="Lightbox__Topbar">
         {hasGallery && <span className="Lightbox__Counter">{index + 1} / {images.length}</span>}
         <div className="Lightbox__TopActions">
-          <button className="Lightbox__IconBtn" title="복사" onClick={onCopy}><Copy size={18} /></button>
-          <button className="Lightbox__IconBtn" title="다운로드" onClick={onDownload}><Download size={18} /></button>
-          <button className="Lightbox__IconBtn" title="닫기" onClick={onClose}><X size={20} /></button>
+          <button className="Lightbox__IconBtn" title={t('common.lightbox.copy')} onClick={onCopy}><Copy size={18} /></button>
+          <button className="Lightbox__IconBtn" title={t('common.lightbox.download')} onClick={onDownload}><Download size={18} /></button>
+          <button className="Lightbox__IconBtn" title={t('common.actions.close')} onClick={onClose}><X size={20} /></button>
         </div>
       </div>
 
       {hasGallery && (
         <>
-          <button className="Lightbox__Nav Lightbox__Nav--prev" title="이전" onClick={goPrev}><ChevronLeft size={32} /></button>
-          <button className="Lightbox__Nav Lightbox__Nav--next" title="다음" onClick={goNext}><ChevronRight size={32} /></button>
+          <button className="Lightbox__Nav Lightbox__Nav--prev" title={t('common.actions.previous')} onClick={goPrev}><ChevronLeft size={32} /></button>
+          <button className="Lightbox__Nav Lightbox__Nav--next" title={t('common.actions.next')} onClick={goNext}><ChevronRight size={32} /></button>
         </>
       )}
 
       <div className="Lightbox__Stage" ref={stageRef} onClick={handleBackdrop}>
         {loadError ? (
-          <div className="Lightbox__Error">이미지를 불러올 수 없습니다</div>
+          <div className="Lightbox__Error">{t('common.lightbox.loadError')}</div>
         ) : (
           <img
             ref={imgRef}
@@ -164,10 +169,10 @@ export default function Lightbox({ images, index, onClose, onIndexChange }) {
       </div>
 
       <div className="Lightbox__Zoombar" onClick={(e) => e.stopPropagation()}>
-        <button className="Lightbox__IconBtn" title="축소" onClick={() => zoomByButton(1 / BTN_STEP)}><Minus size={18} /></button>
-        <button className="Lightbox__ZoomBtn" title="실제 크기" onClick={setOneToOne}>100%</button>
-        <button className="Lightbox__ZoomBtn" title="화면 맞춤" onClick={reset}><Maximize size={16} /></button>
-        <button className="Lightbox__IconBtn" title="확대" onClick={() => zoomByButton(BTN_STEP)}><Plus size={18} /></button>
+        <button className="Lightbox__IconBtn" title={t('common.lightbox.zoomOut')} onClick={() => zoomByButton(1 / BTN_STEP)}><Minus size={18} /></button>
+        <button className="Lightbox__ZoomBtn" title={t('common.lightbox.actualSize')} onClick={setOneToOne}>100%</button>
+        <button className="Lightbox__ZoomBtn" title={t('common.lightbox.fitToScreen')} onClick={reset}><Maximize size={16} /></button>
+        <button className="Lightbox__IconBtn" title={t('common.lightbox.zoomIn')} onClick={() => zoomByButton(BTN_STEP)}><Plus size={18} /></button>
       </div>
     </div>,
     document.body

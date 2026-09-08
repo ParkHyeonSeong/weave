@@ -3,12 +3,12 @@ import { ChevronDown, ChevronRight, AlertCircle, Lock, CalendarDays } from 'luci
 import EntityIcon from '@/components/common/EntityIcon';
 import Avatar from '@/components/common/Avatar';
 import { entitySolidStyle, entityTintStyle } from '@/library/entityTint';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { useTranslation } from 'react-i18next';
 
-function formatDue(date) {
-  if (!date) return null;
-  const d = new Date(date);
-  return `${d.getMonth() + 1}/${d.getDate()}`;
-}
+// due_date는 date-only다 — new Date('YYYY-MM-DD')로 파싱하면 UTC 자정 instant가 되어
+// 음수 offset(미주)에서 하루 전으로 렌더된다. 표시는 useDateFormat().formatDateOnly로만.
+const DUE_OPTS = { month: 'numeric', day: 'numeric' };
 
 /**
  * Tree view — 같은 mock 데이터를 outline 형태로.
@@ -19,6 +19,9 @@ export default function TrackTree({
   items, links, branchById, workflowStatuses,
   selectedItemId, onSelectItem,
 }) {
+  const { t } = useTranslation();
+  const { formatDateOnly } = useDateFormat();
+  const formatDue = (date) => (date ? formatDateOnly(date, DUE_OPTS) : null);
   // outgoing dependency 카운트
   const outCount = useMemo(() => {
     const map = new Map();
@@ -38,13 +41,14 @@ export default function TrackTree({
     });
     return Array.from(byBranch.entries())
       .map(([bid, list]) => ({
-        branch: branchById[bid] || (bid === null ? { name: 'Restricted', color: '#9CA3AF', key: '?' } : { name: '?', color: '#9CA3AF', key: '?' }),
+        branch: branchById[bid] || (bid === null ? { name: t('track.restricted.short'), color: '#9CA3AF', key: '?' } : { name: '?', color: '#9CA3AF', key: '?' }),
         branchId: bid,
         items: list.sort((a, b) => {
           if (a.restricted || b.restricted) return a.restricted ? 1 : -1;
-          const ad = a.due_date ? new Date(a.due_date) : new Date('2099-01-01');
-          const bd = b.due_date ? new Date(b.due_date) : new Date('2099-01-01');
-          return ad - bd;
+          // date-only는 문자열 비교로 정렬한다(instant 파싱 금지). 마감 없음은 맨 뒤.
+          const ad = a.due_date ? String(a.due_date).slice(0, 10) : '9999-99-99';
+          const bd = b.due_date ? String(b.due_date).slice(0, 10) : '9999-99-99';
+          return ad < bd ? -1 : ad > bd ? 1 : 0;
         }),
       }))
       .sort((a, b) => {
@@ -53,7 +57,7 @@ export default function TrackTree({
         if (b.branchId === null) return -1;
         return a.branch.name.localeCompare(b.branch.name);
       });
-  }, [items, branchById]);
+  }, [items, branchById, t]);
 
   const [openGroups, setOpenGroups] = useState(() => new Set(groups.map((g) => g.branchId)));
   const toggleGroup = (id) => {
@@ -67,12 +71,12 @@ export default function TrackTree({
   return (
     <div className="TrackTree">
       <div className="TrackTree__Head">
-        <div className="TrackTree__HeadCell TrackTree__HeadCell--main">Title</div>
-        <div className="TrackTree__HeadCell">Status</div>
-        <div className="TrackTree__HeadCell">Priority</div>
-        <div className="TrackTree__HeadCell">Assignee</div>
-        <div className="TrackTree__HeadCell">Due</div>
-        <div className="TrackTree__HeadCell TrackTree__HeadCell--narrow">Links</div>
+        <div className="TrackTree__HeadCell TrackTree__HeadCell--main">{t('track.fields.title')}</div>
+        <div className="TrackTree__HeadCell">{t('track.fields.status')}</div>
+        <div className="TrackTree__HeadCell">{t('track.fields.priority')}</div>
+        <div className="TrackTree__HeadCell">{t('track.fields.assignee')}</div>
+        <div className="TrackTree__HeadCell">{t('track.fields.due')}</div>
+        <div className="TrackTree__HeadCell TrackTree__HeadCell--narrow">{t('track.fields.links')}</div>
       </div>
 
       <div className="TrackTree__Body">
@@ -111,7 +115,7 @@ export default function TrackTree({
                       <div className="TrackTree__Cell TrackTree__Cell--main">
                         <span className="TrackTree__Indent" />
                         <Lock size={12} className="TrackTree__RestrictedIcon" />
-                        <span className="TrackTree__RestrictedTitle">Restricted item</span>
+                        <span className="TrackTree__RestrictedTitle">{t('track.restricted.title')}</span>
                         <span className="TrackTree__RestrictedHint">{it.restricted_hint}</span>
                       </div>
                       <div className="TrackTree__Cell" />
@@ -146,7 +150,7 @@ export default function TrackTree({
                         </span>
                       )}
                       {it.priority === 'urgent' && (
-                        <span className="TrackTree__UrgentFlag" title="Urgent">
+                        <span className="TrackTree__UrgentFlag" title={t('track.priority.urgent')}>
                           <AlertCircle size={11} />
                         </span>
                       )}
@@ -165,7 +169,9 @@ export default function TrackTree({
                     </div>
                     <div className="TrackTree__Cell">
                       <span className={`TrackTree__Priority TrackTree__Priority--${it.priority}`}>
-                        {it.priority}
+                        {it.priority
+                          ? t(`track.priority.${it.priority}`, { defaultValue: it.priority })
+                          : null}
                       </span>
                     </div>
                     <div className="TrackTree__Cell">
@@ -186,7 +192,7 @@ export default function TrackTree({
                     </div>
                     <div className="TrackTree__Cell TrackTree__Cell--narrow">
                       {out > 0 ? (
-                        <span className="TrackTree__LinkCount" title={`leads to ${out} item(s)`}>
+                        <span className="TrackTree__LinkCount" title={t('track.tree.leadsTo', { count: out })}>
                           → {out}
                         </span>
                       ) : <span className="TrackTree__Empty">—</span>}

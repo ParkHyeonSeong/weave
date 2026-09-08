@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  byTextAsc, byNumberDesc, byDateDesc, ROLE_GROUP,
+  byTextAsc, byNumberDesc, byDateDesc, roleGroup,
   initialFilters, resetFilters, countActiveFilters, applyFilters, processHomeList,
 } from './homeListControls.js';
+
+// ROLE_GROUP은 라벨을 catalog에서 받는 팩토리 roleGroup(t)가 됐다 — 여기서는 identity t로
+// 만들어 라벨이 키 문자열('common.roleFilter.*')인 그룹으로 헬퍼 계약만 검증한다.
+const ROLE_GROUP = roleGroup((k) => k);
 
 describe('comparators', () => {
   it('byTextAsc: 한글 오름차순', () => {

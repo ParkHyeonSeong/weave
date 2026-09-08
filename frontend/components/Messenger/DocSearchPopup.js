@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, FileText } from 'lucide-react';
 import { axios } from '@/library/_axios';
 
 export default function DocSearchPopup({ keyword, onSelect, onClose }) {
+  const { t } = useTranslation();
   const [docs, setDocs] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -52,12 +54,12 @@ export default function DocSearchPopup({ keyword, onSelect, onClose }) {
     <div className="DocSearchPopup">
       <div className="DocSearchPopup__Header">
         <Search size={12} />
-        /d - Search Documents
+        {t('messenger.search.docHeader')}
       </div>
       <ul className="DocSearchPopup__List">
-        {loading && <li className="DocSearchPopup__Empty">Searching...</li>}
+        {loading && <li className="DocSearchPopup__Empty">{t('messenger.search.searching')}</li>}
         {!loading && docs.length === 0 && (
-          <li className="DocSearchPopup__Empty">No documents found</li>
+          <li className="DocSearchPopup__Empty">{t('messenger.search.noDocs')}</li>
         )}
         {!loading && docs.map((doc, idx) => (
           <li

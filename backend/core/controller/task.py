@@ -1,5 +1,3 @@
-import datetime
-
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +16,7 @@ from library import notification_service
 from library import activity_service
 from library.custom_field_validator import validate_custom_field_values
 from library.mention_parser import extract_mention_user_ids
+from library.time_context import personal_today
 from library.date_validator import is_valid_date_order
 from library.html_markdown import ensure_html, html_to_markdown
 from library.assignee_cascade import cascade_main_assignee_to_subtasks, main_of
@@ -651,7 +650,9 @@ async def query_branch(branch_id, body, request, db):
         await validate_custom_fields(spec, branch_id, db)
     except FilterError as e:
         return error_response(ErrorCode.INVALID_FILTER, detail=str(e))
-    ctx = {'user_id': user_id, 'today': datetime.date.today()}
+    # $today / $today±Nd 는 **요청 사용자 개인** timezone 기준이다(서버 로컬이 아니라).
+    # 프런트 My Tasks 연체 표시와 같은 날짜 계약을 써야 같은 Task가 한쪽에서만 연체로 보이지 않는다.
+    ctx = {'user_id': user_id, 'today': await personal_today(user_id, db)}
     limit, offset = _paging(body)
     result = await task_model.query([branch_id], spec, sort, group_by, limit, offset, ctx, db)
     return {'status': True, **result}
@@ -682,7 +683,9 @@ async def query_cross_branch(body, request, db):
         return {'status': True, 'items': [], 'total': 0, 'groups': None}
     if effective_scope == "my":
         spec = _and(spec, {"type": "cond", "field": "assignee", "op": "eq", "value": "$me", "negate": False})
-    ctx = {'user_id': user_id, 'today': datetime.date.today()}
+    # $today / $today±Nd 는 **요청 사용자 개인** timezone 기준이다(서버 로컬이 아니라).
+    # 프런트 My Tasks 연체 표시와 같은 날짜 계약을 써야 같은 Task가 한쪽에서만 연체로 보이지 않는다.
+    ctx = {'user_id': user_id, 'today': await personal_today(user_id, db)}
     limit, offset = _paging(body)
     result = await task_model.query(list(member_ids), spec, sort, group_by, limit, offset, ctx, db)
     return {'status': True, **result}

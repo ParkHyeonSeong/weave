@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Check, RotateCcw, Trash2, MoreHorizontal, MessageSquare } from 'lucide-react';
 import { sanitizeHtml } from '@/library/sanitize';
 import { useRefHydration } from '@/library/refHydration';
-import { formatRelative } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { useTranslation } from 'react-i18next';
 import Avatar from '@/components/common/Avatar';
 import IssueEditor from '@/components/Branch/Tasks/IssueEditor';
 
@@ -24,6 +25,8 @@ export default function AnnotationSidebar({
   onSubmitNewAnnotation,
   onCancelNewAnnotation,
 }) {
+  const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const [tab, setTab] = useState('open');
   const [replyingTo, setReplyingTo] = useState(null);
   const [menuOpenId, setMenuOpenId] = useState(null);
@@ -85,7 +88,7 @@ export default function AnnotationSidebar({
   return (
     <div className="AnnotationSidebar">
       <div className="AnnotationSidebar__Header">
-        <h3 className="AnnotationSidebar__Title">Comments</h3>
+        <h3 className="AnnotationSidebar__Title">{t('canvas.annotations.title')}</h3>
         <button className="AnnotationSidebar__Close" onClick={onClose}>
           <X size={16} />
         </button>
@@ -96,13 +99,13 @@ export default function AnnotationSidebar({
           className={`AnnotationSidebar__Tab${tab === 'open' ? ' AnnotationSidebar__Tab--active' : ''}`}
           onClick={() => setTab('open')}
         >
-          Open ({openCount})
+          {t('canvas.annotations.tabOpen', { count: openCount })}
         </button>
         <button
           className={`AnnotationSidebar__Tab${tab === 'resolved' ? ' AnnotationSidebar__Tab--active' : ''}`}
           onClick={() => setTab('resolved')}
         >
-          Resolved ({resolvedCount})
+          {t('canvas.annotations.tabResolved', { count: resolvedCount })}
         </button>
       </div>
 
@@ -116,19 +119,19 @@ export default function AnnotationSidebar({
                 : newAnnotationData.quoted_text}"
             </div>
             <div className="AnnotationSidebar__NewEditor">
-              <IssueEditor ref={newCommentRef} placeholder="Write a comment..." minHeight={80} />
+              <IssueEditor ref={newCommentRef} placeholder={t('canvas.annotations.commentPlaceholder')} minHeight={80} />
               <div className="AnnotationSidebar__NewActions">
                 <button
                   className="AnnotationSidebar__Btn AnnotationSidebar__Btn--secondary"
                   onClick={onCancelNewAnnotation}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
                 <button
                   className="AnnotationSidebar__Btn AnnotationSidebar__Btn--primary"
                   onClick={handleSubmitNew}
                 >
-                  Comment
+                  {t('canvas.annotations.submit')}
                 </button>
               </div>
             </div>
@@ -138,7 +141,7 @@ export default function AnnotationSidebar({
         {filtered.length === 0 && !newAnnotationData && (
           <div className="AnnotationSidebar__Empty">
             <MessageSquare size={24} />
-            <span>{tab === 'open' ? 'No open comments' : 'No resolved comments'}</span>
+            <span>{tab === 'open' ? t('canvas.annotations.emptyOpen') : t('canvas.annotations.emptyResolved')}</span>
           </div>
         )}
 
@@ -187,7 +190,7 @@ export default function AnnotationSidebar({
                                 setMenuOpenId(null);
                               }}
                             >
-                              <Trash2 size={12} /> Delete
+                              <Trash2 size={12} /> {t('common.actions.delete')}
                             </button>
                           </div>
                         )}
@@ -206,19 +209,19 @@ export default function AnnotationSidebar({
             <div className="AnnotationSidebar__CardActions">
               {replyingTo === ann.annotation_id ? (
                 <div className="AnnotationSidebar__ReplyEditor">
-                  <IssueEditor ref={replyEditorRef} placeholder="Reply..." minHeight={60} />
+                  <IssueEditor ref={replyEditorRef} placeholder={t('canvas.annotations.replyPlaceholder')} minHeight={60} />
                   <div className="AnnotationSidebar__NewActions">
                     <button
                       className="AnnotationSidebar__Btn AnnotationSidebar__Btn--secondary"
                       onClick={(e) => { e.stopPropagation(); setReplyingTo(null); }}
                     >
-                      Cancel
+                      {t('common.actions.cancel')}
                     </button>
                     <button
                       className="AnnotationSidebar__Btn AnnotationSidebar__Btn--primary"
                       onClick={(e) => { e.stopPropagation(); handleSubmitReply(ann.annotation_id); }}
                     >
-                      Reply
+                      {t('canvas.annotations.reply')}
                     </button>
                   </div>
                 </div>
@@ -228,30 +231,30 @@ export default function AnnotationSidebar({
                     className="AnnotationSidebar__ActionBtn"
                     onClick={(e) => { e.stopPropagation(); setReplyingTo(ann.annotation_id); }}
                   >
-                    Reply
+                    {t('canvas.annotations.reply')}
                   </button>
                   {ann.status === 'open' ? (
                     <button
                       className="AnnotationSidebar__ActionBtn AnnotationSidebar__ActionBtn--resolve"
                       onClick={(e) => { e.stopPropagation(); onResolve(ann.annotation_id); }}
-                      title="Resolve"
+                      title={t('canvas.annotations.resolve')}
                     >
-                      <Check size={14} /> Resolve
+                      <Check size={14} /> {t('canvas.annotations.resolve')}
                     </button>
                   ) : (
                     <button
                       className="AnnotationSidebar__ActionBtn"
                       onClick={(e) => { e.stopPropagation(); onReopen(ann.annotation_id); }}
-                      title="Reopen"
+                      title={t('canvas.annotations.reopen')}
                     >
-                      <RotateCcw size={14} /> Reopen
+                      <RotateCcw size={14} /> {t('canvas.annotations.reopen')}
                     </button>
                   )}
                   {ann.created_by === myProfile.user_id && (
                     <button
                       className="AnnotationSidebar__ActionBtn AnnotationSidebar__ActionBtn--danger"
                       onClick={(e) => { e.stopPropagation(); onDelete(ann.annotation_id); }}
-                      title="Delete"
+                      title={t('common.actions.delete')}
                     >
                       <Trash2 size={14} />
                     </button>

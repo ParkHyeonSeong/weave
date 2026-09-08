@@ -5,14 +5,15 @@ import { UserPlus, X, Search, LogOut } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
 import Avatar from '@/components/common/Avatar';
 import ConfirmModal from '@/components/modal/ConfirmModal';
-
-const roleOptions = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function SettingsMembers({ branchId, isAdmin }) {
+  const { t } = useTranslation();
   const router = useRouter();
+  const roleOptions = [
+    { value: 'admin', label: t('branch2.members.roleAdmin') },
+    { value: 'member', label: t('branch2.members.roleMember') },
+  ];
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -122,7 +123,7 @@ export default function SettingsMembers({ branchId, isAdmin }) {
             onClick={() => setShowInvite(!showInvite)}
           >
             <UserPlus size={14} />
-            Invite Member
+            {t('branch2.members.inviteMember')}
           </button>
 
           {showInvite && (
@@ -131,7 +132,7 @@ export default function SettingsMembers({ branchId, isAdmin }) {
                 <Search size={14} className="SettingsMembers__SearchIcon" />
                 <input
                   className="SettingsMembers__SearchInput"
-                  placeholder="Search by name or email..."
+                  placeholder={t('branch2.members.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   autoFocus
@@ -139,10 +140,10 @@ export default function SettingsMembers({ branchId, isAdmin }) {
               </div>
               <div className="SettingsMembers__SearchResults">
                 {searching && (
-                  <div className="SettingsMembers__SearchEmpty">Searching...</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('branch2.members.searching')}</div>
                 )}
                 {!searching && searchQuery && searchResults.length === 0 && (
-                  <div className="SettingsMembers__SearchEmpty">No users found</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('branch2.members.noUsersFound')}</div>
                 )}
                 {searchResults.map((user) => (
                   <button
@@ -167,9 +168,9 @@ export default function SettingsMembers({ branchId, isAdmin }) {
       {/* 멤버 테이블 */}
       <div className="SettingsMembers__Table">
         <div className="SettingsMembers__TableHeader">
-          <span className="SettingsMembers__Col SettingsMembers__Col--name">Name</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--email">Email</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--role">Role</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--name">{t('auth.name')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--email">{t('auth.email')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--role">{t('branch2.members.roleColumn')}</span>
           {isAdmin && <span className="SettingsMembers__Col SettingsMembers__Col--action" />}
         </div>
         {members.map((member) => (
@@ -198,7 +199,7 @@ export default function SettingsMembers({ branchId, isAdmin }) {
                 <button
                   className="SettingsMembers__RemoveBtn"
                   onClick={() => handleRemove(member.user_id)}
-                  title="Remove member"
+                  title={t('branch2.members.removeMember')}
                 >
                   <X size={14} />
                 </button>
@@ -214,10 +215,10 @@ export default function SettingsMembers({ branchId, isAdmin }) {
           className="SettingsMembers__LeaveBtn"
           onClick={() => setShowLeaveConfirm(true)}
           disabled={isLastAdmin}
-          title={isLastAdmin ? '마지막 관리자는 나갈 수 없습니다' : ''}
+          title={isLastAdmin ? t('branch2.members.lastAdminCannotLeave') : ''}
         >
           <LogOut size={14} />
-          Leave Branch
+          {t('sidebar.leaveBranchTitle')}
         </button>
       </div>
 
@@ -225,9 +226,9 @@ export default function SettingsMembers({ branchId, isAdmin }) {
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
         onConfirm={handleLeave}
-        title="Leave Branch"
-        message="이 브랜치에서 나가시겠습니까? 기존 태스크의 담당자 배정은 유지됩니다."
-        confirmLabel="Leave"
+        title={t('sidebar.leaveBranchTitle')}
+        message={t('branch2.members.leaveConfirmMessage')}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </div>

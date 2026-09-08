@@ -8,25 +8,26 @@ import { isEmptySpec, emptyGroup } from '@/library/filterBuilderState';
 import FilterBuilder from './FilterBuilder';
 import { priorityVar, chipTintStyle } from '@/library/themePalette';
 import { entityBorderStyle, entityTintStyle } from '@/library/entityTint';
+import { useTranslation } from 'react-i18next';
 
 const MAX_VISIBLE = 5;
 
 const SORT_OPTIONS = [
-  { value: 'priority', label: 'Priority' },
-  { value: 'due_date', label: 'Due Date' },
-  { value: 'status', label: 'Status' },
-  { value: 'created', label: 'Created' },
+  { value: 'priority', labelKey: 'branch2.filters.fields.priority' },
+  { value: 'due_date', labelKey: 'branch2.filters.fields.dueDate' },
+  { value: 'status', labelKey: 'branch2.filters.fields.status' },
+  { value: 'created', labelKey: 'branch2.filters.fields.created' },
 ];
 
 // 그룹핑 키 (taskViewState.groupTasks의 KEY와 의미 일치)
 const GROUP_BY_OPTIONS = [
-  { value: 'none', label: 'No grouping' },
-  { value: 'status', label: 'Status' },
-  { value: 'assignee', label: 'Assignee' },
-  { value: 'epic', label: 'Epic' },
-  { value: 'sprint', label: 'Sprint' },
-  { value: 'label', label: 'Label' },
-  { value: 'priority', label: 'Priority' },
+  { value: 'none', labelKey: 'branch2.filters.noGrouping' },
+  { value: 'status', labelKey: 'branch2.filters.fields.status' },
+  { value: 'assignee', labelKey: 'branch2.filters.fields.assignee' },
+  { value: 'epic', labelKey: 'branch2.filters.fields.epic' },
+  { value: 'sprint', labelKey: 'branch2.filters.fields.sprint' },
+  { value: 'label', labelKey: 'branch2.filters.fields.label' },
+  { value: 'priority', labelKey: 'branch2.filters.fields.priority' },
 ];
 
 // 다중정렬 키 = SORT_OPTIONS에서 'status' 제외. 다중정렬은 taskViewState.applySort로 평가되는데
@@ -35,10 +36,10 @@ const GROUP_BY_OPTIONS = [
 const MULTI_SORT_FIELDS = SORT_OPTIONS.filter((o) => o.value !== 'status');
 
 const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+  { value: 'urgent', labelKey: 'branch2.filters.priorityValues.urgent', color: priorityVar('urgent') },
+  { value: 'high', labelKey: 'branch2.filters.priorityValues.high', color: priorityVar('high') },
+  { value: 'medium', labelKey: 'branch2.filters.priorityValues.medium', color: priorityVar('medium') },
+  { value: 'low', labelKey: 'branch2.filters.priorityValues.low', color: priorityVar('low') },
 ];
 
 export default function TaskFilterBar({
@@ -57,6 +58,12 @@ export default function TaskFilterBar({
   savedViews = [], activeViewId = null, onApplyView, onSaveView, onUpdateView, onDeleteView,
   pinnedViewIds = [], onTogglePin,
 }) {
+  const { t } = useTranslation();
+  // 라벨은 렌더 시점에 번역한다(모듈 상수는 키만 들고 있다).
+  const priorityOptions = useMemo(
+    () => PRIORITY_OPTIONS.map((o) => ({ ...o, label: t(o.labelKey) })),
+    [t],
+  );
   // 호출자가 group-by 옵션을 제한할 수 있다(예: Board는 payload가 epic_id/sprint_id 미포함).
   // 미지정 시 전체 GROUP_BY_OPTIONS. 'none'은 항상 유지(그룹핑 해제 보장).
   const groupOptions = groupByOptions
@@ -100,6 +107,7 @@ export default function TaskFilterBar({
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [moreOpen]);
+  const activeSortOption = SORT_OPTIONS.find((o) => o.value === sortConfig?.field);
   const visibleMembers = members.slice(0, MAX_VISIBLE);
   const remaining = members.length - MAX_VISIBLE;
 
@@ -116,7 +124,7 @@ export default function TaskFilterBar({
   const activeChips = useMemo(() => {
     const chips = [];
     (filters.priorities || new Set()).forEach((v) => {
-      const opt = PRIORITY_OPTIONS.find((o) => o.value === v);
+      const opt = priorityOptions.find((o) => o.value === v);
       if (opt) chips.push({ category: 'priorities', value: v, label: opt.label, color: opt.color });
     });
     (filters.statusKeys || new Set()).forEach((v) => {
@@ -124,7 +132,7 @@ export default function TaskFilterBar({
       if (ws) chips.push({ category: 'statusKeys', value: v, label: ws.label, color: ws.color });
     });
     (filters.typeKeys || new Set()).forEach((v) => {
-      const tt = taskTypes.find((t) => t.type_key === v);
+      const tt = taskTypes.find((ty) => ty.type_key === v);
       if (tt) chips.push({ category: 'typeKeys', value: v, label: tt.type_name });
     });
     (filters.labelIds || new Set()).forEach((v) => {
@@ -136,7 +144,7 @@ export default function TaskFilterBar({
       if (ep) chips.push({ category: 'epicIds', value: v, label: ep.epic_name, color: ep.color });
     });
     return chips;
-  }, [filters, labels, epics, taskTypes, workflowStatuses]);
+  }, [filters, labels, epics, taskTypes, workflowStatuses, priorityOptions]);
 
   return (
     <div className="TaskFilterBar">
@@ -157,7 +165,7 @@ export default function TaskFilterBar({
         <Search size={14} className="TaskFilterBar__SearchIcon" />
         <input
           className="TaskFilterBar__SearchInput"
-          placeholder="Search tasks..."
+          placeholder={t('branch2.filters.searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
         />
@@ -167,15 +175,15 @@ export default function TaskFilterBar({
       {onToggleFilter && (
         <div className="TaskFilterBar__Filters">
           <MultiSelect
-            label="Priority"
+            label={t('branch2.filters.fields.priority')}
             selectedValues={filters.priorities || new Set()}
-            options={PRIORITY_OPTIONS}
+            options={priorityOptions}
             onToggle={(val) => onToggleFilter('priorities', val)}
           />
 
           {workflowStatuses.length > 0 && (
             <MultiSelect
-              label="Status"
+              label={t('branch2.filters.fields.status')}
               selectedValues={filters.statusKeys || new Set()}
               options={workflowStatuses.map((ws) => ({ value: ws.key, label: ws.label, color: ws.color }))}
               onToggle={(val) => onToggleFilter('statusKeys', val)}
@@ -184,7 +192,7 @@ export default function TaskFilterBar({
 
           {taskTypes.length > 0 && (
             <MultiSelect
-              label="Type"
+              label={t('branch2.filters.fields.type')}
               selectedValues={filters.typeKeys || new Set()}
               options={taskTypes.map((tt) => ({
                 value: tt.type_key,
@@ -197,7 +205,7 @@ export default function TaskFilterBar({
 
           {labels.length > 0 && (
             <MultiSelect
-              label="Label"
+              label={t('branch2.filters.fields.label')}
               selectedValues={filters.labelIds || new Set()}
               options={labels.map((lb) => ({ value: lb.label_id, label: lb.label_name, color: lb.color }))}
               onToggle={(val) => onToggleFilter('labelIds', val)}
@@ -206,7 +214,7 @@ export default function TaskFilterBar({
 
           {epics.length > 0 && (
             <MultiSelect
-              label="Epic"
+              label={t('branch2.filters.fields.epic')}
               selectedValues={filters.epicIds || new Set()}
               options={epics.map((ep) => ({ value: ep.epic_id, label: ep.epic_name, color: ep.color || '#5E6AD2' }))}
               onToggle={(val) => onToggleFilter('epicIds', val)}
@@ -220,7 +228,7 @@ export default function TaskFilterBar({
               onClick={onClearFilters}
             >
               <X size={12} />
-              Clear
+              {t('branch2.filters.clear')}
             </button>
           )}
         </div>
@@ -235,9 +243,7 @@ export default function TaskFilterBar({
             onClick={() => setSortOpen((prev) => !prev)}
           >
             <ArrowUpDown size={13} />
-            {sortConfig?.field
-              ? `${SORT_OPTIONS.find((o) => o.value === sortConfig.field)?.label || 'Sort'}`
-              : 'Sort'}
+            {activeSortOption ? t(activeSortOption.labelKey) : t('branch2.filters.sort')}
             {sortConfig?.field && (
               sortConfig.direction === 'asc'
                 ? <ArrowUp size={11} />
@@ -249,7 +255,7 @@ export default function TaskFilterBar({
               type="button"
               className="TaskFilterBar__SortClear"
               onClick={() => onSortChange(null)}
-              title="Clear sort"
+              title={t('branch2.filters.clearSort')}
             >
               <X size={12} />
             </button>
@@ -268,7 +274,7 @@ export default function TaskFilterBar({
                     }
                   }}
                 >
-                  <span>{opt.label}</span>
+                  <span>{t(opt.labelKey)}</span>
                   {sortConfig?.field === opt.value && (
                     sortConfig.direction === 'asc'
                       ? <ArrowUp size={12} />
@@ -288,11 +294,11 @@ export default function TaskFilterBar({
             className={`TaskFilterBar__GroupBySelect ${groupBy !== 'none' ? 'TaskFilterBar__GroupBySelect--active' : ''}`}
             value={groupBy}
             onChange={(e) => onGroupByChange(e.target.value)}
-            title="Group tasks by"
+            title={t('branch2.filters.groupTasksBy')}
           >
             {groupOptions.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.value === 'none' ? o.label : `Group: ${o.label}`}
+                {o.value === 'none' ? t(o.labelKey) : t('branch2.filters.groupPrefix', { label: t(o.labelKey) })}
               </option>
             ))}
           </select>
@@ -308,12 +314,12 @@ export default function TaskFilterBar({
             onClick={() => setAdvancedOpen((prev) => !prev)}
           >
             <SlidersHorizontal size={13} />
-            고급 필터
+            {t('branch2.filters.advanced')}
           </button>
           {advancedOpen && (
             <div className="TaskFilterBar__AdvancedPanel">
               <div className="TaskFilterBar__AdvancedHeader">
-                <span className="TaskFilterBar__AdvancedTitle">고급 필터</span>
+                <span className="TaskFilterBar__AdvancedTitle">{t('branch2.filters.advanced')}</span>
                 {advancedActive && (
                   <button
                     type="button"
@@ -321,7 +327,7 @@ export default function TaskFilterBar({
                     onClick={() => onFilterSpecChange(emptyGroup())}
                   >
                     <X size={12} />
-                    초기화
+                    {t('branch2.filters.reset')}
                   </button>
                 )}
               </div>
@@ -340,7 +346,7 @@ export default function TaskFilterBar({
               {/* 다중키 정렬 (그룹핑/플랫 정렬용) */}
               {onMultiSortChange && (
                 <div className="TaskFilterBar__MultiSort">
-                  <div className="TaskFilterBar__MultiSortTitle">정렬 (다중키)</div>
+                  <div className="TaskFilterBar__MultiSortTitle">{t('branch2.filters.multiSort')}</div>
                   {sort.map((s, i) => (
                     <div key={i} className="TaskFilterBar__MultiSortRow">
                       <select
@@ -352,7 +358,7 @@ export default function TaskFilterBar({
                         }}
                       >
                         {MULTI_SORT_FIELDS.map((f) => (
-                          <option key={f.value} value={f.value}>{f.label}</option>
+                          <option key={f.value} value={f.value}>{t(f.labelKey)}</option>
                         ))}
                       </select>
                       <button
@@ -362,7 +368,7 @@ export default function TaskFilterBar({
                           const next = sort.map((x, j) => (j === i ? { ...x, dir: x.dir === 'desc' ? 'asc' : 'desc' } : x));
                           onMultiSortChange(next);
                         }}
-                        title={s.dir === 'desc' ? 'Descending' : 'Ascending'}
+                        title={s.dir === 'desc' ? t('branch2.filters.descending') : t('branch2.filters.ascending')}
                       >
                         {s.dir === 'desc' ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
                       </button>
@@ -370,7 +376,7 @@ export default function TaskFilterBar({
                         type="button"
                         className="TaskFilterBar__MultiSortRemove"
                         onClick={() => onMultiSortChange(sort.filter((_, j) => j !== i))}
-                        title="Remove sort key"
+                        title={t('branch2.filters.removeSortKey')}
                       >
                         <X size={12} />
                       </button>
@@ -386,7 +392,7 @@ export default function TaskFilterBar({
                     }}
                   >
                     <Plus size={12} />
-                    정렬 키 추가
+                    {t('branch2.filters.addSortKey')}
                   </button>
                 </div>
               )}
@@ -451,7 +457,7 @@ export default function TaskFilterBar({
         <button
           type="button"
           className={`TaskFilterBar__Unassigned ${selectedUserIds.has(0) ? 'TaskFilterBar__Unassigned--selected' : ''}`}
-          title="Unassigned"
+          title={t('branch2.filters.unassigned')}
           onClick={() => onToggleUser(0)}
         >
           <User size={14} />
@@ -475,7 +481,7 @@ export default function TaskFilterBar({
               type="button"
               className="TaskFilterBar__MoreBtn"
               onClick={() => setMoreOpen((prev) => !prev)}
-              title="More members"
+              title={t('branch2.filters.moreMembers')}
             >
               +{remaining}
             </button>

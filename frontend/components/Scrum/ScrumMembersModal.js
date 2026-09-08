@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { Users, X } from 'lucide-react';
 import ScrumMembersPanel from './ScrumMembersPanel';
 
@@ -8,6 +9,7 @@ import ScrumMembersPanel from './ScrumMembersPanel';
  * 본문은 ScrumMembersPanel을 그대로 감싼다.
  */
 export default function ScrumMembersModal({ boardId, myRole, count, onClose, onChanged }) {
+  const { t } = useTranslation();
   const router = useRouter();
 
   // ESC 닫기
@@ -23,14 +25,14 @@ export default function ScrumMembersModal({ boardId, myRole, count, onClose, onC
         <header className="ScrumMembers__Head">
           <div className="ScrumMembers__HeadTitle">
             <Users size={16} />
-            <span>멤버</span>
+            <span>{t('scrum.members.title')}</span>
             {typeof count === 'number' && <em className="ScrumMembers__Count">{count}</em>}
           </div>
           <button
             type="button"
             className="ScrumMembers__Close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.actions.close')}
           >
             <X size={16} />
           </button>

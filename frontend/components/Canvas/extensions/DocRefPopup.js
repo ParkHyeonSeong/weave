@@ -1,7 +1,9 @@
 import { Search, FileText } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useRefSearchPopup } from './useRefSearchPopup';
 
 export default function DocRefPopup({ onSelect, onClose, onDismiss, onBack }) {
+  const { t } = useTranslation();
   const {
     keyword, setKeyword, items: docs, activeIdx, setActiveIdx, loading,
     inputRef, listRef, finish, handleKeyDown, handleBlur,
@@ -15,22 +17,22 @@ export default function DocRefPopup({ onSelect, onClose, onDismiss, onBack }) {
     <div className="DocRefPopup">
       <div className="DocRefPopup__Header">
         <Search size={12} />
-        /d - Documents
+        {t('canvasExt.refPopup.docsHeader')}
       </div>
       <div className="DocRefPopup__Search">
         <input
           ref={inputRef}
           value={keyword}
-          placeholder="문서 검색…"
+          placeholder={t('canvasExt.refPopup.searchDocs')}
           onChange={(e) => setKeyword(e.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
         />
       </div>
       <ul className="DocRefPopup__List" ref={listRef}>
-        {loading && <li className="DocRefPopup__Empty">Searching...</li>}
+        {loading && <li className="DocRefPopup__Empty">{t('canvasExt.searching')}</li>}
         {!loading && docs.length === 0 && (
-          <li className="DocRefPopup__Empty">No documents found</li>
+          <li className="DocRefPopup__Empty">{t('canvasExt.refPopup.noDocs')}</li>
         )}
         {!loading && docs.map((doc, idx) => (
           <li

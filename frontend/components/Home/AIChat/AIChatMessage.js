@@ -5,8 +5,10 @@ import { Bookmark } from 'lucide-react';
 import { useLightbox } from '@/components/common/LightboxProvider';
 import { deriveFilename } from '@/library/lightboxImages';
 import MarkdownMath from '@/components/common/MarkdownMath';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function AIChatMessage({ message, onTogglePin, isStreaming }) {
+  const { formatTimestampTime } = useDateFormat();
   const { open: openLightbox } = useLightbox();
   const isUser = message.role === 'user';
   const isPinned = message.is_pinned;
@@ -14,7 +16,7 @@ export default function AIChatMessage({ message, onTogglePin, isStreaming }) {
   const formatTime = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatTimestampTime(d);
   };
 
   return (

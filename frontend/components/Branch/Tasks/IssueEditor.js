@@ -1,4 +1,5 @@
 import { useImperativeHandle, forwardRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditor, EditorContent } from '@tiptap/react';
 import CanvasEditorToolbar from '@/components/Canvas/CanvasEditorToolbar';
 import { useEditorRefHydration } from '@/library/refHydration';
@@ -11,6 +12,7 @@ import { useRawMode } from '@/library/rawMode';
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
 const IssueEditor = forwardRef(({ content, placeholder, minHeight = 150, branchId, onChange, rawModeEnabled = false }, ref) => {
+  const { t } = useTranslation();
   const extensions = useMemo(
     () => buildMarkdownExtensions([...buildIssueEditorExtensions({ placeholder, branchId }), MarkdownClipboardExtension]),
     [placeholder, branchId]
@@ -67,7 +69,7 @@ const IssueEditor = forwardRef(({ content, placeholder, minHeight = 150, branchI
           key={session}
           value={rawText}
           onChange={(text) => { handleRawChange(text); onChange?.(isRawEmpty()); }}
-          placeholder={placeholder || 'Write something... (markdown)'}
+          placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: placeholder || t('branchTasks.rawEditor.defaultPlaceholder') })}
         />
       )}
       <div style={{ display: isRaw ? 'none' : undefined }}>

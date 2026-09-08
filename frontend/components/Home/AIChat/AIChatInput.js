@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUp, Square } from 'lucide-react';
 
 export default function AIChatInput({ onSend, disabled, isStreaming, onStop }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState('');
   const textareaRef = useRef(null);
 
@@ -34,7 +36,7 @@ export default function AIChatInput({ onSend, disabled, isStreaming, onStop }) {
       <textarea
         ref={textareaRef}
         className="AIChatInput__Textarea"
-        placeholder="Ask anything..."
+        placeholder={t('home.aiChat.inputPlaceholder')}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}

@@ -1,8 +1,10 @@
 import { useRouter } from 'next/router';
 import { ArrowLeft, Users, Blocks } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminSidebar() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   return (
     <aside className="AdminSidebar">
@@ -11,7 +13,7 @@ export default function AdminSidebar() {
           <button className="AdminSidebar__BackBtn" onClick={() => router.push('/')}>
             <ArrowLeft size={16} />
           </button>
-          <span className="AdminSidebar__Title">Admin Settings</span>
+          <span className="AdminSidebar__Title">{t('authAdmin.adminSettings')}</span>
         </div>
 
         <nav className="AdminSidebar__Menu">
@@ -20,14 +22,14 @@ export default function AdminSidebar() {
             onClick={() => router.push('/admin')}
           >
             <Users size={16} className="AdminSidebar__MenuIcon" />
-            Members
+            {t('authAdmin.nav.members')}
           </button>
           <button
             className={`AdminSidebar__MenuItem ${router.pathname === '/admin/integrations' ? 'AdminSidebar__MenuItem--active' : ''}`}
             onClick={() => router.push('/admin/integrations')}
           >
             <Blocks size={16} className="AdminSidebar__MenuIcon" />
-            Integrations
+            {t('authAdmin.nav.integrations')}
           </button>
         </nav>
       </div>

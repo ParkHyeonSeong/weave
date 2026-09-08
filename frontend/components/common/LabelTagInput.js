@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, Plus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { entityBorderStyle, entityTintStyle } from '@/library/entityTint';
 
 const PRESET_COLORS = [
@@ -15,6 +16,7 @@ function getRandomColor() {
 }
 
 export default function LabelTagInput({ assignedLabels = [], allLabels = [], onToggle, onCreate, onDelete, onUpdateColor }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [colorPickerLabelId, setColorPickerLabelId] = useState(null);
@@ -140,7 +142,7 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={assignedLabels.length === 0 ? 'Add label...' : ''}
+          placeholder={assignedLabels.length === 0 ? t('common.labelInput.placeholder') : ''}
         />
       </div>
 
@@ -184,7 +186,7 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
                 onMouseDown={(e) => { e.preventDefault(); handleCreate(); }}
               >
                 <Plus size={12} />
-                <span>&ldquo;{query.trim()}&rdquo; 생성</span>
+                <span>{t('common.labelInput.create', { name: query.trim() })}</span>
               </div>
             </>
           )}

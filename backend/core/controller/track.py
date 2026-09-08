@@ -18,6 +18,7 @@ from core.model import task as task_model
 from core.model import task_dependency as dep_model
 from library.file_validator import validate_image_magic_bytes
 from library.icon_storage import delete_image_icon_file
+from library.time_context import personal_today
 from library.svg_sanitizer import sanitize_svg
 
 ICON_UPLOAD_DIR = os.path.join(
@@ -88,9 +89,13 @@ async def get_list(request: Request, db: AsyncSession):
 
 
 async def get_home_stats(request: Request, db: AsyncSession):
-    """홈 KPI 집계 (접근 가능한 모든 Track 기준)"""
+    """홈 KPI 집계 (접근 가능한 모든 Track 기준)
+
+    Branch 홈과 같은 정책 — '이번 주 마감'은 개인 timezone의 오늘 기준이다.
+    """
     user_id = request.state.payload.get('user_id')
-    stats = await track_model.home_stats(user_id, db)
+    today = await personal_today(user_id, db)
+    stats = await track_model.home_stats(user_id, today, db)
     return {'status': True, **stats}
 
 

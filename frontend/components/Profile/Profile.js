@@ -4,6 +4,8 @@ import { axios } from '@/library/_axios';
 import Alert from '@/components/modal/Alert';
 import ProfileTokens from '@/components/Profile/ProfileTokens';
 import AppearanceSection from '@/components/Profile/AppearanceSection';
+import LanguageRegionSection from '@/components/Profile/LanguageRegionSection';
+import { useTranslation } from 'react-i18next';
 import Avatar from '@/components/common/Avatar';
 import { AVATAR_COLORS } from '@/library/userAvatar';
 import { getError } from '@/library/errorCode';
@@ -19,6 +21,7 @@ function syncProfileSession(patch) {
 }
 
 export default function Profile() {
+  const { t } = useTranslation();
   // 프로필 정보
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -77,7 +80,7 @@ export default function Profile() {
         }
       }
     } catch {
-      showAlert('Error', 'Failed to load profile.');
+      showAlert(t('account.alerts.error'), t('account.profile.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -88,7 +91,7 @@ export default function Profile() {
     e.preventDefault();
     if (usernameSaving) return;
     if (!newUsername.trim()) {
-      showAlert('Error', 'Name must not be empty.');
+      showAlert(t('account.alerts.error'), t('account.profile.nameRequired'));
       return;
     }
     if (newUsername === username) return;
@@ -100,14 +103,14 @@ export default function Profile() {
         sessionStorage.setItem('profile', JSON.stringify(res.data.profile));
         setUsername(newUsername);
         window.dispatchEvent(new CustomEvent('profile:updated'));
-        showAlert('Success', 'Name updated.');
+        showAlert(t('account.alerts.success'), t('account.profile.nameUpdated'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to update name.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('account.profile.nameUpdateFailed');
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to update name.');
+      showAlert(t('account.alerts.error'), t('account.profile.nameUpdateFailed'));
     } finally {
       setUsernameSaving(false);
     }
@@ -118,15 +121,15 @@ export default function Profile() {
     e.preventDefault();
     if (passwordSaving) return;
     if (!currentPassword) {
-      showAlert('Error', 'Please enter current password.');
+      showAlert(t('account.alerts.error'), t('account.password.currentRequired'));
       return;
     }
     if (newPassword.length < 8) {
-      showAlert('Error', 'New password must be at least 8 characters.');
+      showAlert(t('account.alerts.error'), t('account.password.tooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert('Error', 'Passwords do not match.');
+      showAlert(t('account.alerts.error'), t('auth.passwordMismatch'));
       return;
     }
 
@@ -141,17 +144,17 @@ export default function Profile() {
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
-        showAlert('Success', 'Password updated.');
+        showAlert(t('account.alerts.success'), t('account.password.updated'));
       } else {
         const err = getError(res.data);
-        let fallback = 'Failed to update password.';
-        if (err.code === 'INVALID_CURRENT_PASSWORD') fallback = 'Current password is incorrect.';
-        else if (err.code === 'PASSWORD_MISMATCH') fallback = 'New passwords do not match.';
+        let fallback = t('account.password.updateFailed');
+        if (err.code === 'INVALID_CURRENT_PASSWORD') fallback = t('account.password.currentIncorrect');
+        else if (err.code === 'PASSWORD_MISMATCH') fallback = t('account.password.newMismatch');
         const msg = errorText(err.code, err.category) ?? fallback;
-        showAlert('Error', msg);
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to update password.');
+      showAlert(t('account.alerts.error'), t('account.password.updateFailed'));
     } finally {
       setPasswordSaving(false);
     }
@@ -168,11 +171,11 @@ export default function Profile() {
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      showAlert('Error', 'Only JPG, PNG, GIF, WebP images are allowed.');
+      showAlert(t('account.alerts.error'), t('account.avatar.invalidType'));
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
-      showAlert('Error', 'File size must be less than 2MB.');
+      showAlert(t('account.alerts.error'), t('account.avatar.tooLarge'));
       return;
     }
 
@@ -187,17 +190,17 @@ export default function Profile() {
         setAvatarUrl(res.data.avatar_url);
         sessionStorage.setItem('avatar_url', res.data.avatar_url);
         window.dispatchEvent(new CustomEvent('profile:updated'));
-        showAlert('Success', 'Avatar updated.');
+        showAlert(t('account.alerts.success'), t('account.avatar.updated'));
       } else {
         const err = getError(res.data);
-        let fallback = 'Failed to upload avatar.';
-        if (err.code === 'INVALID_FILE_TYPE') fallback = 'Invalid file type.';
-        else if (err.code === 'FILE_TOO_LARGE') fallback = 'File size must be less than 2MB.';
+        let fallback = t('account.avatar.uploadFailed');
+        if (err.code === 'INVALID_FILE_TYPE') fallback = t('account.avatar.invalidTypeShort');
+        else if (err.code === 'FILE_TOO_LARGE') fallback = t('account.avatar.tooLarge');
         const msg = errorText(err.code, err.category) ?? fallback;
-        showAlert('Error', msg);
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to upload avatar.');
+      showAlert(t('account.alerts.error'), t('account.avatar.uploadFailed'));
     } finally {
       setAvatarUploading(false);
       e.target.value = '';
@@ -217,11 +220,11 @@ export default function Profile() {
         window.dispatchEvent(new CustomEvent('profile:updated'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to remove avatar.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('account.avatar.removeFailed');
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to remove avatar.');
+      showAlert(t('account.alerts.error'), t('account.avatar.removeFailed'));
     } finally {
       setAvatarDeleting(false);
     }
@@ -242,12 +245,12 @@ export default function Profile() {
       } else {
         setAvatarColor(prev);
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to update avatar color.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('account.avatar.colorUpdateFailed');
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
       setAvatarColor(prev);
-      showAlert('Error', 'Failed to update avatar color.');
+      showAlert(t('account.alerts.error'), t('account.avatar.colorUpdateFailed'));
     } finally {
       setColorSaving(false);
     }
@@ -257,11 +260,11 @@ export default function Profile() {
 
   return (
     <div className="Profile">
-      <h1 className="Profile__Title">Profile Settings</h1>
+      <h1 className="Profile__Title">{t('account.profile.title')}</h1>
 
       {/* 아바타 섹션 */}
       <div className="Profile__Section">
-        <h2 className="Profile__SectionTitle">Avatar</h2>
+        <h2 className="Profile__SectionTitle">{t('profile.avatar')}</h2>
         <div className="Profile__AvatarArea">
           <div className="Profile__AvatarPreview" onClick={handleAvatarClick}>
             <Avatar
@@ -288,7 +291,7 @@ export default function Profile() {
             hidden
           />
           <div className="Profile__AvatarSide">
-            <p className="Profile__AvatarHint">Click to upload (JPG, PNG, GIF, WebP, max 2MB)</p>
+            <p className="Profile__AvatarHint">{t('account.avatar.uploadHint')}</p>
             {avatarUrl && (
               <button
                 type="button"
@@ -297,18 +300,18 @@ export default function Profile() {
                 disabled={avatarDeleting}
               >
                 <Trash2 size={13} />
-                {avatarDeleting ? 'Removing...' : 'Remove photo'}
+                {avatarDeleting ? t('account.avatar.removing') : t('account.avatar.removePhoto')}
               </button>
             )}
-            <div className="Profile__ColorLabel">사진 없을 때 색</div>
+            <div className="Profile__ColorLabel">{t('account.avatar.colorLabel')}</div>
             <div className="Profile__ColorRow">
               <button
                 type="button"
                 className={`Profile__ColorAuto ${avatarColor == null ? 'Profile__ColorAuto--selected' : ''}`}
-                title="자동 (계정 기본 색)"
+                title={t('account.avatar.autoColorTitle')}
                 onClick={() => handleColorSelect(null)}
               >
-                자동
+                {t('account.avatar.auto')}
               </button>
               {AVATAR_COLORS.map((c) => (
                 <button
@@ -327,24 +330,24 @@ export default function Profile() {
 
       {/* 이름 변경 섹션 */}
       <div className="Profile__Section">
-        <h2 className="Profile__SectionTitle">Name</h2>
+        <h2 className="Profile__SectionTitle">{t('profile.name')}</h2>
         <form className="Profile__Form" onSubmit={handleUsernameSubmit}>
           <div className="Profile__Field">
-            <label className="Profile__Label">Email</label>
+            <label className="Profile__Label">{t('auth.email')}</label>
             <div className="Profile__InputWrap">
               <Mail size={16} className="Profile__InputIcon" />
               <input className="Profile__Input Profile__Input--disabled" value={email} disabled />
             </div>
           </div>
           <div className="Profile__Field">
-            <label className="Profile__Label">Name</label>
+            <label className="Profile__Label">{t('auth.name')}</label>
             <div className="Profile__InputWrap">
               <User size={16} className="Profile__InputIcon" />
               <input
                 className="Profile__Input"
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="Your name"
+                placeholder={t('auth.namePlaceholder')}
               />
             </div>
           </div>
@@ -353,7 +356,7 @@ export default function Profile() {
             className="Profile__SaveBtn"
             disabled={usernameSaving || newUsername === username}
           >
-            {usernameSaving ? 'Saving...' : 'Save Name'}
+            {usernameSaving ? t('common.state.saving') : t('account.profile.saveName')}
           </button>
         </form>
       </div>
@@ -361,12 +364,14 @@ export default function Profile() {
       {/* 표시 설정 섹션 — 공개 플래그 뒤에서만 DOM을 만든다 */}
       <AppearanceSection />
 
+      <LanguageRegionSection />
+
       {/* 비밀번호 변경 섹션 */}
       <div className="Profile__Section">
-        <h2 className="Profile__SectionTitle">Change Password</h2>
+        <h2 className="Profile__SectionTitle">{t('profile.changePassword')}</h2>
         <form className="Profile__Form" onSubmit={handlePasswordSubmit}>
           <div className="Profile__Field">
-            <label className="Profile__Label">Current Password</label>
+            <label className="Profile__Label">{t('account.password.currentLabel')}</label>
             <div className="Profile__InputWrap">
               <Lock size={16} className="Profile__InputIcon" />
               <input
@@ -374,7 +379,7 @@ export default function Profile() {
                 type={showCurrentPw ? 'text' : 'password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Current password"
+                placeholder={t('account.password.currentPlaceholder')}
               />
               <button
                 type="button"
@@ -386,7 +391,7 @@ export default function Profile() {
             </div>
           </div>
           <div className="Profile__Field">
-            <label className="Profile__Label">New Password</label>
+            <label className="Profile__Label">{t('account.password.newLabel')}</label>
             <div className="Profile__InputWrap">
               <Lock size={16} className="Profile__InputIcon" />
               <input
@@ -394,7 +399,7 @@ export default function Profile() {
                 type={showNewPw ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="New password (min 8 chars)"
+                placeholder={t('account.password.newPlaceholder')}
               />
               <button
                 type="button"
@@ -406,7 +411,7 @@ export default function Profile() {
             </div>
           </div>
           <div className="Profile__Field">
-            <label className="Profile__Label">Confirm Password</label>
+            <label className="Profile__Label">{t('account.password.confirmLabel')}</label>
             <div className="Profile__InputWrap">
               <Lock size={16} className="Profile__InputIcon" />
               <input
@@ -414,7 +419,7 @@ export default function Profile() {
                 type={showNewPw ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password"
+                placeholder={t('account.password.confirmPlaceholder')}
               />
             </div>
           </div>
@@ -423,7 +428,7 @@ export default function Profile() {
             className="Profile__SaveBtn"
             disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
           >
-            {passwordSaving ? 'Saving...' : 'Change Password'}
+            {passwordSaving ? t('common.state.saving') : t('profile.changePassword')}
           </button>
         </form>
       </div>

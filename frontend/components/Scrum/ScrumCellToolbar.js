@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bold, Italic, Strikethrough, ListChecks, List, Link as LinkIcon } from 'lucide-react';
 import { promptSetLink } from '@/library/editorLink';
 
@@ -17,6 +18,7 @@ const TBtn = ({ active, onClick, title, children }) => (
 // 스크럼 셀 포커스 시 칸 위에 뜨는 미니 서식 툴바.
 // TableBubbleMenu와 동일하게 getBoundingClientRect + fixed 로 그리드 클리핑을 피한다.
 export default function ScrumCellToolbar({ editor }) {
+  const { t } = useTranslation();
   const [pos, setPos] = useState(null);
   const [, force] = useState(0);
   const toolbarRef = useRef(null);
@@ -68,14 +70,14 @@ export default function ScrumCellToolbar({ editor }) {
       ref={toolbarRef}
       style={{ position: 'fixed', left: `${pos.left}px`, top: `${Math.max(8, pos.top - 38)}px`, zIndex: 600 }}
     >
-      <TBtn title="굵게" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></TBtn>
-      <TBtn title="기울임" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></TBtn>
-      <TBtn title="취소선" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={14} /></TBtn>
+      <TBtn title={t('scrum.cellToolbar.bold')} active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={14} /></TBtn>
+      <TBtn title={t('scrum.cellToolbar.italic')} active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={14} /></TBtn>
+      <TBtn title={t('scrum.cellToolbar.strike')} active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={14} /></TBtn>
       <span className="ScrumCellToolbar__Sep" />
-      <TBtn title="체크리스트" active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={14} /></TBtn>
-      <TBtn title="목록" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></TBtn>
+      <TBtn title={t('scrum.cellToolbar.checklist')} active={editor.isActive('taskList')} onClick={() => editor.chain().focus().toggleTaskList().run()}><ListChecks size={14} /></TBtn>
+      <TBtn title={t('scrum.cellToolbar.bulletList')} active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={14} /></TBtn>
       <TBtn
-        title="링크"
+        title={t('scrum.cellToolbar.link')}
         active={editor.isActive('link')}
         onClick={() => promptSetLink(editor)}
       ><LinkIcon size={14} /></TBtn>

@@ -3,8 +3,10 @@ import { X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode, getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 export default function AddMember({ onClose }) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -29,14 +31,14 @@ export default function AddMember({ onClose }) {
         window.dispatchEvent(new Event('member:created'));
         onClose();
       } else if (getErrorCode(res.data) === 'EMAIL_ALREADY_EXISTS') {
-        setError('This email is already registered.');
+        setError(t('errors.EMAIL_ALREADY_EXISTS'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to create member.';
+        const msg = errorText(err.code, err.category) ?? t('modal.addMember.createFailed');
         setError(msg);
       }
     } catch {
-      setError('Failed to create member.');
+      setError(t('modal.addMember.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -46,7 +48,7 @@ export default function AddMember({ onClose }) {
     <div className="AddMember__Backdrop" onClick={onClose}>
       <form className="AddMember" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="AddMember__Header">
-          <h2 className="AddMember__Title">Add Member</h2>
+          <h2 className="AddMember__Title">{t('modal.addMember.title')}</h2>
           <button type="button" className="AddMember__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -54,7 +56,7 @@ export default function AddMember({ onClose }) {
 
         <div className="AddMember__Body">
           <div className="AddMember__Field">
-            <label className="AddMember__Label">Email</label>
+            <label className="AddMember__Label">{t('auth.email')}</label>
             <input
               className="AddMember__Input"
               type="email"
@@ -67,11 +69,11 @@ export default function AddMember({ onClose }) {
           </div>
 
           <div className="AddMember__Field">
-            <label className="AddMember__Label">Name</label>
+            <label className="AddMember__Label">{t('auth.name')}</label>
             <input
               className="AddMember__Input"
               type="text"
-              placeholder="User name"
+              placeholder={t('modal.addMember.namePlaceholder')}
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -79,11 +81,11 @@ export default function AddMember({ onClose }) {
           </div>
 
           <div className="AddMember__Field">
-            <label className="AddMember__Label">Password</label>
+            <label className="AddMember__Label">{t('auth.password')}</label>
             <input
               className="AddMember__Input"
               type="password"
-              placeholder="Minimum 8 characters"
+              placeholder={t('modal.addMember.passwordPlaceholder')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -91,14 +93,14 @@ export default function AddMember({ onClose }) {
           </div>
 
           <div className="AddMember__Field">
-            <label className="AddMember__Label">Role</label>
+            <label className="AddMember__Label">{t('modal.addMember.role')}</label>
             <select
               className="AddMember__Select"
               value={role}
               onChange={(e) => setRole(e.target.value)}
             >
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
+              <option value="member">{t('modal.addMember.roleMember')}</option>
+              <option value="admin">{t('modal.addMember.roleAdmin')}</option>
             </select>
           </div>
 
@@ -107,14 +109,14 @@ export default function AddMember({ onClose }) {
 
         <div className="AddMember__Footer">
           <button type="button" className="AddMember__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="submit"
             className="AddMember__SubmitBtn"
             disabled={!email.trim() || !username.trim() || password.length < 8 || loading}
           >
-            {loading ? 'Adding...' : 'Add Member'}
+            {loading ? t('modal.addMember.adding') : t('modal.addMember.title')}
           </button>
         </div>
       </form>

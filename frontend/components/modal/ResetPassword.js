@@ -3,8 +3,10 @@ import { X, Copy, Check, Mail, Link2 } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation, Trans } from 'react-i18next';
 
 export default function ResetPassword({ user, onClose }) {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,13 +36,13 @@ export default function ResetPassword({ user, onClose }) {
         }
       } else {
         const err = getError(res.data);
-        let fallback = 'Failed to reset password.';
-        if (err.code === 'CANNOT_RESET_OWN_PASSWORD') fallback = 'You cannot reset your own password.';
-        else if (err.code === 'USER_NOT_FOUND') fallback = 'User not found.';
+        let fallback = t('modal.resetPassword.failed');
+        if (err.code === 'CANNOT_RESET_OWN_PASSWORD') fallback = t('errors.CANNOT_RESET_OWN_PASSWORD');
+        else if (err.code === 'USER_NOT_FOUND') fallback = t('errors.USER_NOT_FOUND');
         setError(errorText(err.code, err.category) ?? fallback);
       }
     } catch {
-      setError('Failed to reset password.');
+      setError(t('modal.resetPassword.failed'));
     } finally {
       setLoading(false);
     }
@@ -70,7 +72,7 @@ export default function ResetPassword({ user, onClose }) {
       <div className="ResetPassword__Backdrop" onClick={onClose}>
         <div className="ResetPassword" onClick={(e) => e.stopPropagation()}>
           <div className="ResetPassword__Header">
-            <h2 className="ResetPassword__Title">Password Reset</h2>
+            <h2 className="ResetPassword__Title">{t('modal.resetPassword.doneTitle')}</h2>
             <button type="button" className="ResetPassword__CloseBtn" onClick={onClose}>
               <X size={16} />
             </button>
@@ -80,18 +82,18 @@ export default function ResetPassword({ user, onClose }) {
             <div className="ResetPassword__EmailSent">
               <Mail size={32} style={{ color: 'var(--color-primary)', marginBottom: 12 }} />
               <p className="ResetPassword__Description">
-                A password reset link has been sent to<br />
+                {t('modal.resetPassword.emailSentTo')}<br />
                 <strong>{user.email}</strong>
               </p>
               <p className="ResetPassword__Notice">
-                The link can be used once and expires in 1 hour.
+                {t('modal.resetPassword.linkNotice')}
               </p>
             </div>
           </div>
 
           <div className="ResetPassword__Footer">
             <button type="button" className="ResetPassword__SubmitBtn" onClick={onClose}>
-              Done
+              {t('modal.done')}
             </button>
           </div>
         </div>
@@ -105,7 +107,7 @@ export default function ResetPassword({ user, onClose }) {
       <div className="ResetPassword__Backdrop" onClick={onClose}>
         <div className="ResetPassword" onClick={(e) => e.stopPropagation()}>
           <div className="ResetPassword__Header">
-            <h2 className="ResetPassword__Title">Password Reset</h2>
+            <h2 className="ResetPassword__Title">{t('modal.resetPassword.doneTitle')}</h2>
             <button type="button" className="ResetPassword__CloseBtn" onClick={onClose}>
               <X size={16} />
             </button>
@@ -113,7 +115,11 @@ export default function ResetPassword({ user, onClose }) {
 
           <div className="ResetPassword__Body">
             <p className="ResetPassword__Description">
-              Reset link for <strong>{user.username}</strong>
+              <Trans
+                i18nKey="modal.resetPassword.linkFor"
+                values={{ name: user.username }}
+                components={{ b: <strong /> }}
+              />
             </p>
             <div className="ResetPassword__LinkDisplay">
               <Link2 size={16} className="ResetPassword__LinkIcon" />
@@ -124,17 +130,17 @@ export default function ResetPassword({ user, onClose }) {
                 onClick={handleCopy}
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? 'Copied' : 'Copy'}
+                {copied ? t('modal.resetPassword.copied') : t('modal.resetPassword.copy')}
               </button>
             </div>
             <p className="ResetPassword__Notice">
-              Share this link with the user. It can be used once and expires in 1 hour.
+              {t('modal.resetPassword.shareNotice')}
             </p>
           </div>
 
           <div className="ResetPassword__Footer">
             <button type="button" className="ResetPassword__SubmitBtn" onClick={onClose}>
-              Done
+              {t('modal.done')}
             </button>
           </div>
         </div>
@@ -147,7 +153,7 @@ export default function ResetPassword({ user, onClose }) {
     <div className="ResetPassword__Backdrop" onClick={onClose}>
       <form className="ResetPassword" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="ResetPassword__Header">
-          <h2 className="ResetPassword__Title">Reset Password</h2>
+          <h2 className="ResetPassword__Title">{t('modal.resetPassword.title')}</h2>
           <button type="button" className="ResetPassword__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -155,11 +161,14 @@ export default function ResetPassword({ user, onClose }) {
 
         <div className="ResetPassword__Body">
           <p className="ResetPassword__Description">
-            Reset password for <strong>{user.username}</strong> ({user.email})
+            <Trans
+              i18nKey="modal.resetPassword.confirmFor"
+              values={{ name: user.username, email: user.email }}
+              components={{ b: <strong /> }}
+            />
           </p>
           <p className="ResetPassword__Notice">
-            A single-use reset link will be generated. If email is configured, it will be
-            sent to the user; otherwise the link will be shown here for you to share.
+            {t('modal.resetPassword.confirmNotice')}
           </p>
 
           {error && <div className="ResetPassword__Error">{error}</div>}
@@ -167,14 +176,14 @@ export default function ResetPassword({ user, onClose }) {
 
         <div className="ResetPassword__Footer">
           <button type="button" className="ResetPassword__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="submit"
             className="ResetPassword__SubmitBtn"
             disabled={loading}
           >
-            {loading ? 'Resetting...' : 'Reset Password'}
+            {loading ? t('modal.resetPassword.resetting') : t('modal.resetPassword.title')}
           </button>
         </div>
       </form>

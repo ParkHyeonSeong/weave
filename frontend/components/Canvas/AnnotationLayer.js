@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { MessageSquarePlus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * DOM 노드 경로 계산: contentRef 기준으로 태그:인덱스 형태
@@ -217,6 +218,7 @@ export default function AnnotationLayer({
   activeAnnotationId,
   onAnnotationClick,
 }) {
+  const { t } = useTranslation();
   const [markerPositions, setMarkerPositions] = useState([]);
   const [floatingBtn, setFloatingBtn] = useState(null); // { x, y, anchorData }
   const floatingBtnRef = useRef(null);
@@ -380,7 +382,7 @@ export default function AnnotationLayer({
               onMouseEnter={() => handleMarkerHover(m.annotation_id, true)}
               onMouseLeave={() => handleMarkerHover(m.annotation_id, false)}
               onClick={() => onAnnotationClick?.(m.annotation_id)}
-              title="View comment"
+              title={t('canvas.annotations.viewComment')}
             />
           ))}
         </div>
@@ -401,7 +403,7 @@ export default function AnnotationLayer({
           <button
             className="AnnotationFloatingBtn__Btn"
             onClick={handleFloatingClick}
-            title="Add comment"
+            title={t('canvas.annotations.addComment')}
           >
             <MessageSquarePlus size={16} />
           </button>

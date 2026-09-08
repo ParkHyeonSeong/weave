@@ -6,10 +6,13 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import EpicBar from './EpicBar';
 import EpicModal from '@/components/modal/EpicModal';
 import DropdownPortal from '@/components/common/DropdownPortal';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { diffDateOnlyDays, toDateOnly } from '@/library/formatDateTime';
 
 import { formatSprintRange } from '@/library/formatTime';
+import { useTranslation } from 'react-i18next';
 
-const STATUS_LABELS = { future: 'Future', active: 'Active', closed: 'Closed' };
+const STATUS_LABEL_KEYS = { future: 'branch.sprintStatus.future', active: 'branch.sprintStatus.active', closed: 'branch.sprintStatus.closed' };
 
 // 겹치는 스프린트를 별도 lane에 배치
 function assignLanes(sprintBars) {
@@ -34,9 +37,9 @@ function assignLanes(sprintBars) {
 }
 
 const VIEW_MODES = [
-  { key: 'week', label: 'Week', pxPerDay: 16 },
-  { key: 'month', label: 'Month', pxPerDay: 4 },
-  { key: 'quarter', label: 'Quarter', pxPerDay: 1.5 },
+  { key: 'week', labelKey: 'branch.epics.viewMode.week', pxPerDay: 16 },
+  { key: 'month', labelKey: 'branch.epics.viewMode.month', pxPerDay: 4 },
+  { key: 'quarter', labelKey: 'branch.epics.viewMode.quarter', pxPerDay: 1.5 },
 ];
 
 const DEFAULT_nameColWidth = 400;
@@ -44,6 +47,10 @@ const MIN_nameColWidth = 200;
 const MAX_nameColWidth = 600;
 
 export default function EpicTimeline({ branchId, onSelectEpic }) {
+  const { t } = useTranslation();
+  const { formatDateOnly, today: personalToday, timeZone } = useDateFormat();
+  // 타임라인의 "오늘"은 파생값 — 개인 timezone의 달력 날짜('YYYY-MM-DD')를 쓴다.
+  const todayStr = useMemo(() => personalToday(), [personalToday, timeZone]);
   const [epics, setEpics] = useState([]);
   const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,63 +141,72 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
   const modeConfig = VIEW_MODES.find((m) => m.key === viewMode);
   const pxPerDay = modeConfig?.pxPerDay || 4;
 
-  // 고정 범위: 1년 전 ~ 2년 후
-  const { timelineStart, timelineEnd, totalDays, headerLabels } = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const start = new Date(now.getFullYear() - 1, now.getMonth(), 1);
-    const end = new Date(now.getFullYear() + 2, now.getMonth(), 0);
-    const total = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+  // 고정 범위: 1년 전 ~ 2년 후.
+  // 축은 **달력 날짜**다 — 로컬 Date로 구성하되 픽셀 산술에 쓰는 값은 'YYYY-MM-DD'로
+  // 뽑아 diffDateOnlyDays로 센다(ms 나눗셈은 DST 경계에서 하루가 어긋난다).
+  const { timelineStartStr, totalDays, headerLabels } = useMemo(() => {
+    const p = todayStr.split('-');
+    const y = Number(p[0]);
+    const m = Number(p[1]);            // 1-based
+    const start = new Date(y - 1, m - 1, 1);
+    const end = new Date(y + 2, m - 1, 0);
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const startStr = ymd(start);
+    const endStr = ymd(end);
+    const total = diffDateOnlyDays(startStr, endStr) ?? 0;
 
     // 월 단위 라벨
     const labels = [];
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
     while (cursor <= end) {
-      const dayOffset = Math.ceil((new Date(cursor) - start) / (1000 * 60 * 60 * 24));
       const isJan = cursor.getMonth() === 0;
+      // 눈금 라벨은 달력 축이지 instant가 아니다 — date-only 문자열로 만들어 넘긴다.
+      const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-01`;
       labels.push({
         label: isJan
-          ? cursor.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-          : cursor.toLocaleDateString('en-US', { month: 'short' }),
-        offset: dayOffset,
+          ? formatDateOnly(monthKey, { month: 'short', year: 'numeric' })
+          : formatDateOnly(monthKey, { month: 'short' }),
+        offset: diffDateOnlyDays(startStr, monthKey) ?? 0,
         isYear: isJan,
       });
       cursor.setMonth(cursor.getMonth() + 1);
     }
 
-    return { timelineStart: start, timelineEnd: end, totalDays: total, headerLabels: labels };
-  }, []);
+    return { timelineStartStr: startStr, totalDays: total, headerLabels: labels };
+    // formatDateOnly는 locale에 의존한다 — 언어를 바꾸면 눈금 라벨도 다시 계산돼야 한다.
+  }, [formatDateOnly, todayStr]);
 
   const timelineWidth = totalDays * pxPerDay;
 
-  // 날짜 -> px 위치
+  // 날짜 -> px 위치.
+  // sprint/epic 날짜는 date-only다 — new Date('YYYY-MM-DD')는 UTC 자정 instant라
+  // 음수 offset(미주)에서 막대가 하루 왼쪽으로 밀렸다. 달력 일수로만 센다.
   const getPosition = useCallback((dateStr) => {
-    if (!dateStr) return null;
-    const d = new Date(dateStr);
-    const days = (d - timelineStart) / (1000 * 60 * 60 * 24);
+    const days = diffDateOnlyDays(timelineStartStr, toDateOnly(dateStr));
+    if (days == null) return null;
     return days * pxPerDay;
-  }, [timelineStart, pxPerDay]);
+  }, [timelineStartStr, pxPerDay]);
 
   // 오늘 위치로 자동 스크롤 (최초 1회)
   useEffect(() => {
     if (loading || didScroll.current || !scrollRef.current) return;
-    const todayPx = getPosition(new Date().toISOString());
+    const todayPx = getPosition(todayStr);
     if (todayPx != null) {
       const container = scrollRef.current;
       container.scrollLeft = todayPx - container.clientWidth / 3;
       didScroll.current = true;
     }
-  }, [loading, getPosition]);
+  }, [loading, getPosition, todayStr]);
 
   // viewMode 변경 시 오늘 중심으로 재스크롤
   useEffect(() => {
     if (!scrollRef.current) return;
-    const todayPx = getPosition(new Date().toISOString());
+    const todayPx = getPosition(todayStr);
     if (todayPx != null) {
       const container = scrollRef.current;
       container.scrollLeft = todayPx - container.clientWidth / 3;
     }
-  }, [viewMode, getPosition]);
+  }, [viewMode, getPosition, todayStr]);
 
   // 팝오버 외부 클릭 닫기
   useEffect(() => {
@@ -220,8 +236,8 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
   }, [sprints, getPosition]);
 
   const todayPx = useMemo(() => {
-    return getPosition(new Date().toISOString());
-  }, [getPosition]);
+    return getPosition(todayStr);
+  }, [getPosition, todayStr]);
 
   // 필터: done 숨기기 (sort_order는 서버에서 이미 적용)
   const filteredEpics = useMemo(() => {
@@ -272,12 +288,12 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
           onClick={() => setEpicModal({ open: true })}
         >
           <Plus size={14} />
-          Create Epic
+          {t('branch.epics.createEpic')}
         </button>
 
         <label className="EpicTimeline__ShowDone">
           <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
-          Show Done
+          {t('branch.epics.showDone')}
         </label>
 
         <div className="EpicTimeline__ViewModes">
@@ -287,7 +303,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
               className={`EpicTimeline__ViewBtn ${viewMode === mode.key ? 'EpicTimeline__ViewBtn--active' : ''}`}
               onClick={() => setViewMode(mode.key)}
             >
-              {mode.label}
+              {t(mode.labelKey)}
             </button>
           ))}
         </div>
@@ -295,7 +311,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
 
       {filteredEpics.length === 0 ? (
         <div className="EpicTimeline__Empty">
-          No epics yet. Create one to start planning.
+          {t('branch.epics.empty')}
         </div>
       ) : (
         <div className="EpicTimeline__Container">
@@ -310,7 +326,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
                     className="EpicTimeline__ResizeHandle"
                     onMouseDown={handleResizeStart}
                     onDoubleClick={handleResizeReset}
-                    title="더블클릭: 폭 자동 맞춤"
+                    title={t('branch.epics.resizeHint')}
                   />
                 </div>
                 <div className="EpicTimeline__TimelineCol" style={{ width: timelineWidth }}>
@@ -330,7 +346,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
               {sprintBars.length > 0 && (
                 <div className="EpicTimeline__SprintRow">
                   <div className="EpicTimeline__NameCol" style={{ width: nameColWidth, minWidth: nameColWidth }}>
-                    <span className="EpicTimeline__SprintRowLabel">Sprints</span>
+                    <span className="EpicTimeline__SprintRowLabel">{t('branch.epics.sprintsRow')}</span>
                   </div>
                   <div
                     className="EpicTimeline__SprintRowTimeline"
@@ -369,7 +385,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
                               <div className="EpicTimeline__SprintPopoverName">{s.sprint_name}</div>
                               <div className="EpicTimeline__SprintPopoverMeta">
                                 <span className={`EpicTimeline__SprintPopoverStatus EpicTimeline__SprintPopoverStatus--${s.status}`}>
-                                  {STATUS_LABELS[s.status] || s.status}
+                                  {STATUS_LABEL_KEYS[s.status] ? t(STATUS_LABEL_KEYS[s.status]) : s.status}
                                 </span>
                                 <span className="EpicTimeline__SprintPopoverDate">
                                   {formatSprintRange(s.start_date, s.end_date)}
@@ -379,7 +395,7 @@ export default function EpicTimeline({ branchId, onSelectEpic }) {
                                 <div className="EpicTimeline__SprintPopoverGoal">{s.goal}</div>
                               )}
                               <div className="EpicTimeline__SprintPopoverTasks">
-                                {s.task_count != null ? `${s.task_count} tasks` : ''}
+                                {s.task_count != null ? t('branch.epics.taskCount', { count: s.task_count }) : ''}
                               </div>
                             </div>
                           )}

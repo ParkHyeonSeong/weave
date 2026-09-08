@@ -764,3 +764,10 @@
     padding: $space-3 $space-4;
   }
 }
+
+// 빈 콘텐츠 안내 — 번역 문구를 __html로 흘리지 않기 위해 별도 요소로 그린다(storedHtmlInvariance).
+.CanvasPageView__EmptyHint {
+  color: $color-text-secondary;
+  font-size: $font-size-md;
+  margin: 0;
+}

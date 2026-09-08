@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { ArrowLeft, CircleDot, MoreHorizontal, Pencil, Copy, Trash2, XCircle, CheckCircle2 } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -11,8 +12,11 @@ import IssueEditor from './IssueEditor';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { buildIssueEditorExtensions } from './issueEditorExtensions';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function TaskIssueDetail() {
+  const { t } = useTranslation();
+  const { formatTimestamp } = useDateFormat();
   const router = useRouter();
   const { id: branchId, taskId, issueId } = router.query;
 
@@ -187,7 +191,7 @@ export default function TaskIssueDetail() {
             : c
           )
         );
-        setTimeline((prev) => prev.map((t) => (t.kind === 'comment' && t.comment_id === commentId) ? { ...t, content: html, updated_at: new Date().toISOString() } : t));
+        setTimeline((prev) => prev.map((item) => (item.kind === 'comment' && item.comment_id === commentId) ? { ...item, content: html, updated_at: new Date().toISOString() } : item));
       }
     } catch {}
     setEditingCommentId(null);
@@ -201,7 +205,7 @@ export default function TaskIssueDetail() {
       );
       if (res.data.status) {
         setComments((prev) => prev.filter((c) => c.comment_id !== commentId));
-        setTimeline((prev) => prev.filter((t) => !(t.kind === 'comment' && t.comment_id === commentId)));
+        setTimeline((prev) => prev.filter((item) => !(item.kind === 'comment' && item.comment_id === commentId)));
       }
     } catch {}
   };
@@ -225,7 +229,7 @@ export default function TaskIssueDetail() {
   };
 
   if (loading || !issue) {
-    return <div className="IssueDetail"><div className="IssueDetail__Loading">Loading...</div></div>;
+    return <div className="IssueDetail"><div className="IssueDetail__Loading">{t('common.state.loading')}</div></div>;
   }
 
   const isAuthor = myProfile.user_id === issue.created_by;
@@ -234,13 +238,13 @@ export default function TaskIssueDetail() {
     const d = new Date(dateStr);
     const diff = Date.now() - d.getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t('common.time.justNow');
+    if (mins < 60) return t('branchTasks.issue.minutesAgo', { n: mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) return t('branchTasks.issue.hoursAgo', { n: hours });
     const days = Math.floor(hours / 24);
-    if (days < 30) return `${days}d ago`;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (days < 30) return t('branchTasks.issue.daysAgo', { n: days });
+    return formatTimestamp(d, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const isEdited = (item) => item.updated_at && item.updated_at !== item.created_at;
@@ -254,7 +258,7 @@ export default function TaskIssueDetail() {
           onClick={() => router.push(`/branch/${branchId}/task/${taskId}`)}
         >
           <ArrowLeft size={16} />
-          Back to task
+          {t('branchTasks.issue.backToTask')}
         </button>
       </div>
 
@@ -270,8 +274,8 @@ export default function TaskIssueDetail() {
               autoFocus
             />
             <div className="IssueDetail__TitleEditActions">
-              <button className="IssueDetail__TitleSaveBtn" onClick={saveTitle}>Save</button>
-              <button className="IssueDetail__TitleCancelBtn" onClick={() => setEditingTitle(false)}>Cancel</button>
+              <button className="IssueDetail__TitleSaveBtn" onClick={saveTitle}>{t('common.actions.save')}</button>
+              <button className="IssueDetail__TitleCancelBtn" onClick={() => setEditingTitle(false)}>{t('common.actions.cancel')}</button>
             </div>
           </div>
         ) : (
@@ -285,7 +289,7 @@ export default function TaskIssueDetail() {
                 className="IssueDetail__TitleEditBtn"
                 onClick={() => { setTitleValue(issue.title); setEditingTitle(true); }}
               >
-                Edit
+                {t('common.actions.edit')}
               </button>
             )}
           </div>
@@ -295,11 +299,12 @@ export default function TaskIssueDetail() {
         <div className="IssueDetail__Meta">
           <span className={`IssueDetail__StatusBadge IssueDetail__StatusBadge--${issue.status}`}>
             {issue.status === 'open' ? <CircleDot size={14} /> : <CheckCircle2 size={14} />}
-            {issue.status === 'open' ? 'Open' : 'Closed'}
+            {issue.status === 'open' ? t('branchTasks.issue.open') : t('branchTasks.issue.closed')}
           </span>
           <span className="IssueDetail__MetaText">
-            <strong>{issue.author_name}</strong> opened this issue {formatDate(issue.created_at)}
-            {' '}&middot; {comments.length} comment{comments.length !== 1 ? 's' : ''}
+            <strong>{issue.author_name}</strong>{' '}
+            {t('branchTasks.issue.openedThisIssue', { when: formatDate(issue.created_at) })}
+            {' '}&middot; {t('branchTasks.issue.commentCount', { count: comments.length })}
           </span>
         </div>
       </div>
@@ -323,9 +328,9 @@ export default function TaskIssueDetail() {
               <span className="IssueDetail__CardAuthor">{issue.author_name}</span>
               <span className="IssueDetail__CardTime">
                 {formatDate(issue.created_at)}
-                {isEdited(issue) && <span className="IssueDetail__Edited"> &middot; edited</span>}
+                {isEdited(issue) && <span className="IssueDetail__Edited"> &middot; {t('branchTasks.issue.edited')}</span>}
               </span>
-              <span className="IssueDetail__OpBadge">Author</span>
+              <span className="IssueDetail__OpBadge">{t('branchTasks.issue.authorBadge')}</span>
               {(isAuthor || issue.body) && (
                 <DropdownMenu
                   id="issue-body"
@@ -334,7 +339,7 @@ export default function TaskIssueDetail() {
                   onCopyMarkdown={issue.body ? () => handleCopyMarkdown(issue.body) : undefined}
                   onEdit={isAuthor ? () => setEditingBody(true) : undefined}
                   onDelete={isAuthor ? () => setShowDeleteConfirm(true) : undefined}
-                  deleteLabel="Delete issue"
+                  deleteLabel={t('branchTasks.issue.deleteIssue')}
                 />
               )}
             </div>
@@ -344,13 +349,13 @@ export default function TaskIssueDetail() {
                   ref={bodyEditorRef}
                   rawModeEnabled
                   content={issue.body || ''}
-                  placeholder="Describe the issue..."
+                  placeholder={t('branchTasks.issue.bodyPlaceholder')}
                   minHeight={150}
                   branchId={branchId}
                 />
                 <div className="IssueDetail__CardEditActions">
-                  <button className="IssueDetail__SaveBtn" onClick={saveBody}>Update</button>
-                  <button className="IssueDetail__CancelBtn" onClick={() => setEditingBody(false)}>Cancel</button>
+                  <button className="IssueDetail__SaveBtn" onClick={saveBody}>{t('branchTasks.issue.update')}</button>
+                  <button className="IssueDetail__CancelBtn" onClick={() => setEditingBody(false)}>{t('common.actions.cancel')}</button>
                 </div>
               </div>
             ) : (
@@ -358,7 +363,7 @@ export default function TaskIssueDetail() {
                 {issue.body ? (
                   <div className="TaskDescReadonly" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(issue.body)) }} />
                 ) : (
-                  isAuthor ? 'No description provided yet.' : 'No description provided.'
+                  isAuthor ? t('branchTasks.issue.noDescriptionAuthor') : t('branchTasks.issue.noDescription')
                 )}
               </div>
             )}
@@ -374,8 +379,8 @@ export default function TaskIssueDetail() {
                   ? <XCircle size={14} className="IssueDetail__EventIcon IssueDetail__EventIcon--closed" />
                   : <CircleDot size={14} className="IssueDetail__EventIcon IssueDetail__EventIcon--reopened" />}
                 <span className="IssueDetail__EventText">
-                  <strong>{item.actor_name}</strong>
-                  {item.event_type === 'closed' ? ' 님이 이슈를 닫음' : ' 님이 이슈를 다시 엶'}
+                  <strong>{item.actor_name}</strong>{' '}
+                  {item.event_type === 'closed' ? t('branchTasks.issue.eventClosed') : t('branchTasks.issue.eventReopened')}
                   {' '}&middot; {formatDate(item.created_at)}
                 </span>
               </div>
@@ -400,9 +405,9 @@ export default function TaskIssueDetail() {
                   <span className="IssueDetail__CardAuthor">{comment.author_name}</span>
                   <span className="IssueDetail__CardTime">
                     {formatDate(comment.created_at)}
-                    {isEdited(comment) && <span className="IssueDetail__Edited"> &middot; edited</span>}
+                    {isEdited(comment) && <span className="IssueDetail__Edited"> &middot; {t('branchTasks.issue.edited')}</span>}
                   </span>
-                  {isIssueAuthor && <span className="IssueDetail__OpBadge">Author</span>}
+                  {isIssueAuthor && <span className="IssueDetail__OpBadge">{t('branchTasks.issue.authorBadge')}</span>}
                   {!isEditingThis && (
                     <DropdownMenu
                       id={`comment-${comment.comment_id}`}
@@ -411,7 +416,7 @@ export default function TaskIssueDetail() {
                       onCopyMarkdown={() => handleCopyMarkdown(comment.content)}
                       onEdit={isCommentAuthor ? () => setEditingCommentId(comment.comment_id) : undefined}
                       onDelete={isCommentAuthor ? () => deleteComment(comment.comment_id) : undefined}
-                      deleteLabel="Delete"
+                      deleteLabel={t('common.actions.delete')}
                     />
                   )}
                 </div>
@@ -421,13 +426,13 @@ export default function TaskIssueDetail() {
                       ref={commentEditorRef}
                       rawModeEnabled
                       content={comment.content}
-                      placeholder="Edit comment..."
+                      placeholder={t('branchTasks.issue.editCommentPlaceholder')}
                       minHeight={100}
                       branchId={branchId}
                     />
                     <div className="IssueDetail__CardEditActions">
-                      <button className="IssueDetail__SaveBtn" onClick={() => saveComment(comment.comment_id)}>Update</button>
-                      <button className="IssueDetail__CancelBtn" onClick={() => setEditingCommentId(null)}>Cancel</button>
+                      <button className="IssueDetail__SaveBtn" onClick={() => saveComment(comment.comment_id)}>{t('branchTasks.issue.update')}</button>
+                      <button className="IssueDetail__CancelBtn" onClick={() => setEditingCommentId(null)}>{t('common.actions.cancel')}</button>
                     </div>
                   </div>
                 ) : (
@@ -452,7 +457,7 @@ export default function TaskIssueDetail() {
           <IssueEditor
             ref={newCommentRef}
             rawModeEnabled
-            placeholder="Leave a comment..."
+            placeholder={t('branchTasks.issue.commentPlaceholder')}
             minHeight={100}
             branchId={branchId}
             onChange={(empty) => setComposerEmpty(empty)}
@@ -466,8 +471,8 @@ export default function TaskIssueDetail() {
             >
               {issue.status === 'open' ? <XCircle size={14} /> : <CircleDot size={14} />}
               {issue.status === 'open'
-                ? (composerEmpty ? 'Close issue' : 'Close with comment')
-                : (composerEmpty ? 'Reopen issue' : 'Comment and reopen')}
+                ? (composerEmpty ? t('branchTasks.issue.closeIssue') : t('branchTasks.issue.closeWithComment'))
+                : (composerEmpty ? t('branchTasks.issue.reopenIssue') : t('branchTasks.issue.commentAndReopen'))}
             </button>
             <button
               type="button"
@@ -475,7 +480,7 @@ export default function TaskIssueDetail() {
               onClick={handleAddComment}
               disabled={submitting || composerEmpty}
             >
-              {submitting ? 'Commenting...' : 'Comment'}
+              {submitting ? t('branchTasks.issue.commenting') : t('branchTasks.issue.comment')}
             </button>
           </div>
         </div>
@@ -485,9 +490,9 @@ export default function TaskIssueDetail() {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={deleteIssue}
-        title="Delete Issue"
-        message={`"${issue.title}" 을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-        confirmLabel="Delete"
+        title={t('branchTasks.issue.deleteTitle')}
+        message={t('branchTasks.issue.deleteConfirm', { title: issue.title })}
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
     </div>
@@ -496,6 +501,7 @@ export default function TaskIssueDetail() {
 
 // --- 드롭다운 메뉴 ---
 function DropdownMenu({ id, openMenuId, setOpenMenuId, onCopyMarkdown, onEdit, onDelete, deleteLabel }) {
+  const { t } = useTranslation();
   const ref = useRef(null);
   const isOpen = openMenuId === id;
 
@@ -524,7 +530,7 @@ function DropdownMenu({ id, openMenuId, setOpenMenuId, onCopyMarkdown, onEdit, o
               onClick={() => { setOpenMenuId(null); onCopyMarkdown(); }}
             >
               <Copy size={12} />
-              Copy as Markdown
+              {t('branchTasks.copyAsMarkdown')}
             </button>
           )}
           {onEdit && (
@@ -533,7 +539,7 @@ function DropdownMenu({ id, openMenuId, setOpenMenuId, onCopyMarkdown, onEdit, o
               onClick={() => { setOpenMenuId(null); onEdit(); }}
             >
               <Pencil size={12} />
-              Edit
+              {t('common.actions.edit')}
             </button>
           )}
           {onDelete && (

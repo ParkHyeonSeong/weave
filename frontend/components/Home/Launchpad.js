@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -14,17 +15,17 @@ import { useUiPrefs } from '@/library/UiPrefsContext';
 
 // key 기반 앱 레지스트리. 정렬 가능한 앱 타일만 여기에 둔다(browse 제외).
 const APP_REGISTRY = {
-  scrum:  { key: 'scrum',  label: 'Scrum',  sub: '데일리·회고',   Icon: CalendarCheck, color: DEFAULT_COLORS.scrum,  path: APP_HOME.scrum },
-  track:  { key: 'track',  label: 'Track',  sub: '워크플로우',     Icon: Workflow,      color: DEFAULT_COLORS.track,  path: APP_HOME.track },
-  branch: { key: 'branch', label: 'Branch', sub: '프로젝트·작업', Icon: GitBranch,     color: DEFAULT_COLORS.branch, path: APP_HOME.branch },
-  canvas: { key: 'canvas', label: 'Canvas', sub: '문서',          Icon: FileEdit,      color: DEFAULT_COLORS.canvas, path: APP_HOME.canvas },
+  scrum:  { key: 'scrum',  label: 'Scrum',  subKey: 'home.launchpad.scrumSub',  Icon: CalendarCheck, color: DEFAULT_COLORS.scrum,  path: APP_HOME.scrum },
+  track:  { key: 'track',  label: 'Track',  subKey: 'home.launchpad.trackSub',  Icon: Workflow,      color: DEFAULT_COLORS.track,  path: APP_HOME.track },
+  branch: { key: 'branch', label: 'Branch', subKey: 'home.launchpad.branchSub', Icon: GitBranch,     color: DEFAULT_COLORS.branch, path: APP_HOME.branch },
+  canvas: { key: 'canvas', label: 'Canvas', subKey: 'home.launchpad.canvasSub', Icon: FileEdit,      color: DEFAULT_COLORS.canvas, path: APP_HOME.canvas },
 };
 
 // 기본 순서: daily(scrum) → track → branch → canvas
 const DEFAULT_ORDER = ['scrum', 'track', 'branch', 'canvas'];
 
 // browse는 앱이 아닌 부가 진입점 → 정렬 대상에서 제외하고 항상 마지막 고정.
-const BROWSE_TILE = { key: 'browse', label: '둘러보기', sub: '채널 탐색', Icon: Compass, color: '#F59E0B', path: '/browse' };
+const BROWSE_TILE = { key: 'browse', labelKey: 'home.launchpad.browseLabel', subKey: 'home.launchpad.browseSub', Icon: Compass, color: '#F59E0B', path: '/browse' };
 
 // 저장본을 기본 순서와 머지: 알 수 없는 key는 버리고, 기본 순서에 있는데 저장본에 없는 key는
 // 뒤에 자동 추가(향후 새 앱 추가 시 자동 노출). 값 없으면 기본 순서.
@@ -38,6 +39,7 @@ function normalizeOrder(saved) {
 }
 
 function TileBody({ app }) {
+  const { t } = useTranslation();
   const Icon = app.Icon;
   return (
     <>
@@ -45,8 +47,8 @@ function TileBody({ app }) {
         {/* 배지 슬롯(향후): <span className="Launchpad__Badge" /> */}
         <Icon size={30} color="#fff" strokeWidth={2} />
       </span>
-      <span className="Launchpad__Name">{app.label}</span>
-      <span className="Launchpad__Sub">{app.sub}</span>
+      <span className="Launchpad__Name">{app.labelKey ? t(app.labelKey) : app.label}</span>
+      <span className="Launchpad__Sub">{t(app.subKey)}</span>
     </>
   );
 }

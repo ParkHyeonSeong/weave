@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, GitPullRequest, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
-const STATE_LABEL = {
-  open: 'Open',
-  merged: 'Merged',
-  closed: 'Closed',
-  draft: 'Draft',
+// PR state → 표시 라벨 키. 문구는 렌더 시 t()로 해석한다.
+const STATE_LABEL_KEY = {
+  open: 'branchTasks.github.state.open',
+  merged: 'branchTasks.github.state.merged',
+  closed: 'branchTasks.github.state.closed',
+  draft: 'branchTasks.github.state.draft',
 };
 
 export default function TaskGithubRefSection({ branchId, taskId }) {
+  const { t } = useTranslation();
   const [refs, setRefs] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [url, setUrl] = useState('');
@@ -52,10 +55,10 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
         await fetchRefs();
       } else {
         const code = getErrorCode(res.data);
-        setErr(errorText(code, res.data.category) || '연결에 실패했어요.');
+        setErr(errorText(code, res.data.category) || t('branchTasks.github.linkFailed'));
       }
     } catch {
-      setErr('연결에 실패했어요.');
+      setErr(t('branchTasks.github.linkFailed'));
     }
     setLinking(false);
   };
@@ -74,7 +77,7 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
   return (
     <div className="TaskGithubRefSection">
       <div className="TaskGithubRefSection__Header">
-        <span className="TaskGithubRefSection__Label">Pull Requests</span>
+        <span className="TaskGithubRefSection__Label">{t('branchTasks.github.pullRequests')}</span>
         <button
           className="TaskGithubRefSection__AddBtn"
           onClick={() => { setShowAdd((v) => !v); setErr(''); }}
@@ -101,20 +104,20 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
               onClick={handleLink}
               disabled={!url.trim() || linking}
             >
-              {linking ? 'Linking…' : 'Link'}
+              {linking ? t('branchTasks.github.linking') : t('branchTasks.github.link')}
             </button>
             <button
               className="TaskGithubRefSection__CancelBtn"
               onClick={() => { setShowAdd(false); setErr(''); }}
             >
-              Cancel
+              {t('common.actions.cancel')}
             </button>
           </div>
         </div>
       )}
 
       {refs.length === 0 && !showAdd ? (
-        <div className="TaskGithubRefSection__Empty">No linked pull requests</div>
+        <div className="TaskGithubRefSection__Empty">{t('branchTasks.github.empty')}</div>
       ) : (
         <div className="TaskGithubRefSection__List">
           {refs.map((r) => (
@@ -124,7 +127,7 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
                 href={typeof r.html_url === 'string' && r.html_url.startsWith('https://') ? r.html_url : undefined}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={r.title || `PR #${r.ref_number}`}
+                aria-label={r.title || t('branchTasks.github.prAria', { number: r.ref_number })}
               />
               <GitPullRequest size={14} className="TaskGithubRefSection__Icon" />
               <span className="TaskGithubRefSection__PrTitle">
@@ -137,13 +140,13 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
                 <span
                   className={`TaskGithubRefSection__State TaskGithubRefSection__State--${r.state}`}
                 >
-                  {STATE_LABEL[r.state] || r.state}
+                  {STATE_LABEL_KEY[r.state] ? t(STATE_LABEL_KEY[r.state]) : r.state}
                 </span>
               )}
               <button
                 className="TaskGithubRefSection__UnlinkBtn"
                 onClick={(e) => handleUnlink(e, r.ref_id)}
-                title="Unlink"
+                title={t('branchTasks.github.unlink')}
               >
                 <X size={12} />
               </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Users, Settings } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode } from '@/library/errorCode';
@@ -11,7 +12,9 @@ import ScrumMembersModal from './ScrumMembersModal';
 import Avatar from '@/components/common/Avatar';
 import DatePicker from '@/components/common/DatePicker';
 import RefPanelHost, { useRefPreview } from '@/components/shared/RefPanelHost';
-import { currentISOWeek, weekDates, getISOWeek } from '@/library/isoWeek';
+import { isoWeekOfDateOnly, weekDates, getISOWeek } from '@/library/isoWeek';
+import { useWorkspaceDateFormat } from '@/hooks/useDateFormat';
+import { useWorkspaceSettings } from '@/library/workspaceSettings';
 import NavLink from '@/components/common/NavLink';
 
 const getProfile = () => {
@@ -21,11 +24,11 @@ const getProfile = () => {
 // 'YYYY-MM-DD' ↔ 로컬 Date (getISOWeek/jumpWeek과 같은 로컬 기준 — UTC off-by-one 방지)
 const ymdToDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const dateToYmd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const todayYmd = () => dateToYmd(new Date());
 const shiftYmd = (s, days) => { const d = ymdToDate(s); d.setDate(d.getDate() + days); return dateToYmd(d); };
 
 export default function ScrumBoardView() {
   const router = useRouter();
+  const { t } = useTranslation();
   const boardId = router.isReady ? Number(router.query.boardId) : null;
   const [board, setBoard] = useState(null);
   const [members, setMembers] = useState([]);
@@ -34,11 +37,22 @@ export default function ScrumBoardView() {
     && new URLSearchParams(window.location.search).get('tab') === 'retro') ? 'retro' : 'board');
   const [err, setErr] = useState('');
   const [showMembers, setShowMembers] = useState(false);
-  // 주간보드·회고 공용 기준 날짜: null = 현재(오늘 KST). 한 상태로 두 뷰를 동기화한다 —
+  // 공용 기간이므로 workspace timezone을 쓴다 — 개인 시간대가 아니다.
+  const { today: workspaceToday } = useWorkspaceDateFormat();
+  // fail-closed: workspace 설정이 확정(status 'success')되기 전에는 주차/회고 get_or_create를
+  // 보내지 않는다. 조회 실패('error')는 로딩이 아니라 오류로 보여주고 사용자가 재시도한다 —
+  // 호환 tz로 조용히 진행하면 서울이 아닌 워크스페이스에서 잘못된 공유 주차 행이 생긴다.
+  const { status: workspaceStatus, refresh: refreshWorkspace } = useWorkspaceSettings();
+  const workspaceReady = workspaceStatus === 'success';
+  // 주간보드·회고 공용 기준 날짜: null = 현재(workspace timezone의 오늘). 한 상태로 두 뷰를 동기화한다 —
   // 주간보드는 이 날짜의 ISO 주를, 회고는 이 날짜가 속한 기간을 파생한다.
   // 회고 이동 앵커(prev_date/next_date)는 백엔드가 기간과 함께 내려준다.
   const [anchorDate, setAnchorDate] = useState(null);
-  const wk = useMemo(() => (anchorDate ? getISOWeek(ymdToDate(anchorDate)) : currentISOWeek()), [anchorDate]);
+  // workspace 오늘을 모르면(null) wk도 null — 아래 효과들이 전부 보류된다.
+  const wk = useMemo(
+    () => (anchorDate ? getISOWeek(ymdToDate(anchorDate)) : isoWeekOfDateOnly(workspaceToday())),
+    [anchorDate, workspaceToday],
+  );
   const [retroData, setRetroData] = useState(null);   // { retro, prev_date, next_date, is_current }
   const [retroManual, setRetroManual] = useState(false);
   // 인라인 ref 칩(task/doc) 클릭 → 타입별 패널 오픈 (데일리·회고 탭 공통)
@@ -47,7 +61,7 @@ export default function ScrumBoardView() {
   // 탭·주·회고기간 전환은 다른 문서로 가는 것 — 열려 있던 참조 패널은 닫는다
   useEffect(() => {
     setPreviewRef(null);
-  }, [tab, wk.isoYear, wk.isoWeek, retroData?.retro?.retro_id, setPreviewRef]);
+  }, [tab, wk?.isoYear, wk?.isoWeek, retroData?.retro?.retro_id, setPreviewRef]);
 
   // 보드를 바꾸면 기준 날짜를 현재로 초기화
   useEffect(() => { setAnchorDate(null); }, [boardId]);
@@ -67,15 +81,15 @@ export default function ScrumBoardView() {
           ? [...ms].sort((a, b) => (b.user_id === myId) - (a.user_id === myId))
           : ms;
         setMembers(ordered);
-      } else setErr(errorText(getErrorCode(res.data)) ?? '접근 불가');
-    } catch { setErr('불러오기 실패'); }
-  }, [boardId, user?.user_id]);
+      } else setErr(errorText(getErrorCode(res.data)) ?? t('scrum.board.accessDenied'));
+    } catch { setErr(t('scrum.board.loadFailed')); }
+  }, [boardId, user?.user_id, t]);
 
   useEffect(() => { refetchBoard(); }, [refetchBoard]);
 
   // 주 get_or_create → week_id
   useEffect(() => {
-    if (!boardId) return;
+    if (!boardId || !workspaceReady || !wk) return;
     setWeekId(null);
     (async () => {
       try {
@@ -83,11 +97,12 @@ export default function ScrumBoardView() {
         if (res.data.status) setWeekId(res.data.week.week_id);
       } catch {}
     })();
-  }, [boardId, wk.isoYear, wk.isoWeek]);
+  // wk 객체 자체는 deps에 넣지 않는다 — 같은 주 안의 앵커/언어 변경으로 주 요청·Yjs 세션이 다시 열리지 않게.
+  }, [boardId, wk?.isoYear, wk?.isoWeek, workspaceReady]);
 
   // 회고 탭: 기준 날짜가 속한 기간을 get_or_create + 이전/다음 이동 앵커 조회
   useEffect(() => {
-    if (!boardId || tab !== 'retro') return;
+    if (!boardId || !workspaceReady || tab !== 'retro') return;
     let alive = true;
     setRetroData(null);
     setRetroManual(false);
@@ -103,16 +118,31 @@ export default function ScrumBoardView() {
       } catch {}
     })();
     return () => { alive = false; };
-  }, [boardId, tab, anchorDate]);
+  }, [boardId, tab, anchorDate, workspaceReady]);
 
   const { ydoc, connectedUsers, status } = useScrumWeekCollab(boardId, weekId, user);
 
   if (err) return <div className="ScrumBoard__Error">{err}</div>;
-  if (!board) return <div className="ScrumBoard__Loading">불러오는 중…</div>;
+  if (!board) return <div className="ScrumBoard__Loading">{t('common.state.loading')}</div>;
+  // workspace 설정 실패 → 공유 주차를 정할 수 없다. 재시도만 열어 둔다(fail-closed).
+  if (workspaceStatus === 'error') {
+    return (
+      <div className="ScrumBoard__Error" role="alert">
+        <p>{t('scrum.workspaceSettingsFailed')}</p>
+        <button type="button" className="ScrumBoard__RetryBtn" onClick={refreshWorkspace}>
+          {t('common.actions.retry')}
+        </button>
+      </div>
+    );
+  }
+  if (!workspaceReady || !wk) return <div className="ScrumBoard__Loading">{t('common.state.loading')}</div>;
 
   const dates = weekDates(wk.isoYear, wk.isoWeek);
   const range = `${dates[0].month}/${dates[0].day} – ${dates[4].month}/${dates[4].day}`;
-  const isThisWeek = (() => { const c = currentISOWeek(); return c.isoYear === wk.isoYear && c.isoWeek === wk.isoWeek; })();
+  const isThisWeek = (() => {
+    const c = isoWeekOfDateOnly(workspaceToday());
+    return c.isoYear === wk.isoYear && c.isoWeek === wk.isoWeek;
+  })();
   // 'YYYY-MM-DD' → 'M/D' (앞자리 0 제거)
   const fmtPeriod = (s) => (s ? `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}` : '');
   const retroRange = retroData
@@ -124,36 +154,36 @@ export default function ScrumBoardView() {
   return (
     <div className="ScrumBoard">
       <header className="ScrumBoard__Head">
-        <div className="ScrumBoard__Title" style={{ '--accent': board.color }}>{board.name} 스크럼</div>
+        <div className="ScrumBoard__Title" style={{ '--accent': board.color }}>{t('scrum.board.title', { name: board.name })}</div>
         <div className="ScrumBoard__Tabs">
-          <button className={tab === 'board' ? 'is-on' : ''} onClick={() => setTab('board')}>주간보드</button>
-          <button className={tab === 'retro' ? 'is-on' : ''} onClick={() => setTab('retro')}>회고</button>
+          <button className={tab === 'board' ? 'is-on' : ''} onClick={() => setTab('board')}>{t('scrum.board.tabWeek')}</button>
+          <button className={tab === 'retro' ? 'is-on' : ''} onClick={() => setTab('retro')}>{t('scrum.board.tabRetro')}</button>
         </div>
         {tab === 'board' && (
           <div className="ScrumBoard__WeekNav">
-            <button onClick={() => setAnchorDate((a) => shiftYmd(a ?? todayYmd(), -7))} aria-label="이전 주"><ChevronLeft size={16} /></button>
+            <button onClick={() => setAnchorDate((a) => shiftYmd(a ?? workspaceToday(), -7))} aria-label={t('scrum.board.prevWeek')}><ChevronLeft size={16} /></button>
             <DatePicker
               value={null}
               onChange={jumpWeek}
-              trigger={<span className="ScrumBoard__WeekLabel">{range}{isThisWeek ? ' · 이번 주' : ''}</span>}
+              trigger={<span className="ScrumBoard__WeekLabel">{range}{isThisWeek ? ` · ${t('scrum.board.thisWeek')}` : ''}</span>}
             />
-            <button onClick={() => setAnchorDate((a) => shiftYmd(a ?? todayYmd(), 7))} aria-label="다음 주"><ChevronRight size={16} /></button>
+            <button onClick={() => setAnchorDate((a) => shiftYmd(a ?? workspaceToday(), 7))} aria-label={t('scrum.board.nextWeek')}><ChevronRight size={16} /></button>
             {!isThisWeek && (
-              <button className="ScrumBoard__TodayBtn" onClick={() => setAnchorDate(null)}>오늘로</button>
+              <button className="ScrumBoard__TodayBtn" onClick={() => setAnchorDate(null)}>{t('scrum.board.goToday')}</button>
             )}
           </div>
         )}
         {tab === 'retro' && retroData && (
           <div className="ScrumBoard__WeekNav">
-            <button onClick={() => setAnchorDate(retroData.prev_date)} aria-label="이전 회고"><ChevronLeft size={16} /></button>
+            <button onClick={() => setAnchorDate(retroData.prev_date)} aria-label={t('scrum.board.prevRetro')}><ChevronLeft size={16} /></button>
             <DatePicker
               value={retroData.retro.period_start}
               onChange={(d) => { if (d) setAnchorDate(d); }}
-              trigger={<span className="ScrumBoard__WeekLabel">{retroRange}{retroData.is_current ? ' · 이번 회고' : ''}</span>}
+              trigger={<span className="ScrumBoard__WeekLabel">{retroRange}{retroData.is_current ? ` · ${t('scrum.board.currentRetro')}` : ''}</span>}
             />
-            <button onClick={() => setAnchorDate(retroData.next_date)} aria-label="다음 회고"><ChevronRight size={16} /></button>
+            <button onClick={() => setAnchorDate(retroData.next_date)} aria-label={t('scrum.board.nextRetro')}><ChevronRight size={16} /></button>
             {!retroData.is_current && (
-              <button className="ScrumBoard__TodayBtn" onClick={() => setAnchorDate(null)}>이번 회고로</button>
+              <button className="ScrumBoard__TodayBtn" onClick={() => setAnchorDate(null)}>{t('scrum.board.goCurrentRetro')}</button>
             )}
           </div>
         )}
@@ -170,7 +200,7 @@ export default function ScrumBoardView() {
                   size="xs"
                 />
               ))}
-              <span className="ScrumBoard__LiveText">편집 중 {connectedUsers.length}</span>
+              <span className="ScrumBoard__LiveText">{t('scrum.board.editingCount', { count: connectedUsers.length })}</span>
             </span>
           )}
           <button
@@ -179,13 +209,13 @@ export default function ScrumBoardView() {
             onClick={() => setShowMembers(true)}
           >
             <Users size={14} />
-            멤버 {members.length}
+            {t('scrum.board.memberCount', { count: members.length })}
           </button>
           <NavLink
             href={`/scrum/${boardId}/settings`}
             className="ScrumBoard__SettingsBtn"
-            title="보드 설정"
-            aria-label="보드 설정"
+            title={t('scrum.board.settings')}
+            aria-label={t('scrum.board.settings')}
           >
             <Settings size={15} />
           </NavLink>
@@ -195,9 +225,9 @@ export default function ScrumBoardView() {
         <div className="ScrumBoard__BodyMain">
           {tab === 'board' ? (
             !weekId || !ydoc ? (
-              <div className="ScrumBoard__Loading">주간 보드 연결 중…</div>
+              <div className="ScrumBoard__Loading">{t('scrum.board.connecting')}</div>
             ) : members.length === 0 ? (
-              <div className="ScrumBoard__Empty">아직 멤버가 없어요. 설정에서 팀원을 초대하세요.</div>
+              <div className="ScrumBoard__Empty">{t('scrum.board.noMembers')}</div>
             ) : (
               <ScrumWeekGrid ydoc={ydoc} members={members} isoYear={wk.isoYear} isoWeek={wk.isoWeek} />
             )

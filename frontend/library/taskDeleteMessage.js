@@ -1,3 +1,5 @@
+import i18next from '@/library/i18n';
+
 /**
  * 태스크 삭제 cascade 경고 메시지 공용 헬퍼.
  *
@@ -11,13 +13,18 @@ export function subtaskCount(task) {
 
 /**
  * @param {object} task - subtasks 전체 배열을 가진 태스크
- * @param {{ prefix: string }} opts - 호출부별 기존 확인 문구(그대로 유지)
+ * @param {{ prefix: string, t?: Function }} opts - 호출부별 확인 문구 + 번역 함수(useTranslation의 t)
  * @returns {string} prefix + (하위가 있으면) cascade 경고
+ *
+ * t를 넘기면 그 t로, 없으면 i18next 인스턴스로 현재 언어의 cascade 경고(branchTasks.deleteCascade)를
+ * 붙인다 — 어느 경로든 하드코딩 언어가 새지 않는다(errorText.js와 같은 규약).
  */
-export function taskDeleteMessage(task, { prefix }) {
+export function taskDeleteMessage(task, { prefix, t }) {
   const n = subtaskCount(task);
   if (n > 0) {
-    return `${prefix} 하위태스크 ${n}개도 함께 삭제됩니다.`;
+    const translate = t || ((key, opts) => i18next.t(key, opts));
+    const cascade = translate('branchTasks.deleteCascade', { count: n });
+    return `${prefix} ${cascade}`;
   }
   return prefix;
 }

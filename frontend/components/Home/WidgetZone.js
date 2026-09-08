@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
 } from '@dnd-kit/core';
@@ -17,6 +18,7 @@ function normalizeEnabled(saved) {
 }
 
 function SortableWidget({ id, editing, onRemove }) {
+  const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id, disabled: !editing });
   const entry = WIDGET_REGISTRY[id];
@@ -33,8 +35,8 @@ function SortableWidget({ id, editing, onRemove }) {
           <span className="WidgetZone__Grip" {...attributes} {...listeners}>
             <GripVertical size={14} />
           </span>
-          <span className="WidgetZone__CellLabel">{entry.label}</span>
-          <button className="WidgetZone__Remove" onClick={() => onRemove(id)} title="숨기기">
+          <span className="WidgetZone__CellLabel">{t(entry.labelKey)}</span>
+          <button className="WidgetZone__Remove" onClick={() => onRemove(id)} title={t('spaceMenu.hide')}>
             <X size={14} />
           </button>
         </div>
@@ -45,6 +47,7 @@ function SortableWidget({ id, editing, onRemove }) {
 }
 
 export default function WidgetZone() {
+  const { t } = useTranslation();
   const { prefs, setNamespace } = useUiPrefs();
   const enabled = useMemo(() => normalizeEnabled(prefs.widget_layout), [prefs.widget_layout]);
   const [editing, setEditing] = useState(false);
@@ -70,9 +73,9 @@ export default function WidgetZone() {
   return (
     <div className="WidgetZone">
       <div className="WidgetZone__Header">
-        <span className="WidgetZone__Title">내 워크스페이스</span>
+        <span className="WidgetZone__Title">{t('home.widgetZone.title')}</span>
         <button className="WidgetZone__EditBtn" onClick={() => setEditing((p) => !p)}>
-          {editing ? <><Check size={14} /> 완료</> : <><Pencil size={14} /> 편집</>}
+          {editing ? <><Check size={14} /> {t('home.widgetZone.done')}</> : <><Pencil size={14} /> {t('common.actions.edit')}</>}
         </button>
       </div>
 
@@ -86,7 +89,7 @@ export default function WidgetZone() {
                 className={`WidgetZone__Chip ${on ? 'WidgetZone__Chip--on' : ''}`}
                 onClick={() => (on ? removeWidget(key) : addWidget(key))}
               >
-                {on ? <Check size={12} /> : <Plus size={12} />} {WIDGET_REGISTRY[key].label}
+                {on ? <Check size={12} /> : <Plus size={12} />} {t(WIDGET_REGISTRY[key].labelKey)}
               </button>
             );
           })}
@@ -94,7 +97,7 @@ export default function WidgetZone() {
       )}
 
       {enabled.length === 0 ? (
-        <div className="WidgetZone__Empty">표시할 위젯이 없어요. 편집에서 위젯을 추가하세요.</div>
+        <div className="WidgetZone__Empty">{t('home.widgetZone.empty')}</div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={enabled} strategy={rectSortingStrategy}>

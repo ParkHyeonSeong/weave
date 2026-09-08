@@ -5,28 +5,30 @@ import { X, Zap, Calendar, Filter } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { resolveBranchChange } from '@/library/bulkAddBranch';
 import CustomSelect from '@/components/common/CustomSelect';
+import { useTranslation } from 'react-i18next';
 
 // mode: 'epic' | 'sprint' | 'filter'
+// value는 API가 쓰는 enum이라 그대로 두고, 라벨만 카탈로그 키로 해석한다.
 const MODE_META = {
-  epic: { label: 'Add by Epic', icon: Zap, hint: '한 epic의 모든 task' },
-  sprint: { label: 'Add by Sprint', icon: Calendar, hint: 'sprint의 task 일괄' },
-  filter: { label: 'Add by Filter', icon: Filter, hint: '조건에 맞는 task' },
+  epic: { labelKey: 'track.bulkAdd.modeEpic', icon: Zap },
+  sprint: { labelKey: 'track.bulkAdd.modeSprint', icon: Calendar },
+  filter: { labelKey: 'track.bulkAdd.modeFilter', icon: Filter },
 };
 
 const STATUS_CATEGORIES = [
-  { value: '', label: 'Any status' },
-  { value: 'todo', label: 'To Do' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: '', labelKey: 'track.statusCategory.any' },
+  { value: 'todo', labelKey: 'track.statusCategory.todo' },
+  { value: 'in_progress', labelKey: 'track.statusCategory.inProgress' },
+  { value: 'done', labelKey: 'track.statusCategory.done' },
+  { value: 'cancelled', labelKey: 'track.statusCategory.cancelled' },
 ];
 
 const PRIORITIES = [
-  { value: '', label: 'Any priority' },
-  { value: 'urgent', label: 'Urgent' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
+  { value: '', labelKey: 'track.priority.any' },
+  { value: 'urgent', labelKey: 'track.priority.urgent' },
+  { value: 'high', labelKey: 'track.priority.high' },
+  { value: 'medium', labelKey: 'track.priority.medium' },
+  { value: 'low', labelKey: 'track.priority.low' },
 ];
 
 const toIntOrNull = (v) => (v == null ? null : Number(v));
@@ -34,7 +36,16 @@ const toIntOrNull = (v) => (v == null ? null : Number(v));
 export default function BulkAddModal({
   mode, trackId, allBranches = [], onClose, onAdded,
 }) {
+  const { t } = useTranslation();
   const meta = MODE_META[mode];
+  const statusOptions = useMemo(
+    () => STATUS_CATEGORIES.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t]
+  );
+  const priorityOptions = useMemo(
+    () => PRIORITIES.map((o) => ({ value: o.value, label: t(o.labelKey) })),
+    [t]
+  );
 
   // CustomSelect용 {value, label, color?} 형태로 변환.
   // 사용자가 가입한 모든 branch가 선택지 — bulk add 시 backend가 track에 자동 합류.
@@ -203,14 +214,14 @@ export default function BulkAddModal({
         onAdded(res.data.added);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '추가 실패';
+        const msg = errorText(err.code, err.category) ?? t('track.bulkAdd.addFailed');
         window.dispatchEvent(new CustomEvent('toast', {
           detail: { message: msg, type: 'error' },
         }));
       }
     } catch {
       window.dispatchEvent(new CustomEvent('toast', {
-        detail: { message: '추가 실패', type: 'error' },
+        detail: { message: t('track.bulkAdd.addFailed'), type: 'error' },
       }));
     } finally {
       setSubmitting(false);
@@ -225,7 +236,7 @@ export default function BulkAddModal({
         <header className="BulkAdd__Head">
           <div className="BulkAdd__Title">
             <Icon size={16} />
-            <span>{meta.label}</span>
+            <span>{t(meta.labelKey)}</span>
           </div>
           <button className="BulkAdd__Close" onClick={onClose}>
             <X size={16} />
@@ -235,11 +246,11 @@ export default function BulkAddModal({
         {/* 조건 영역 */}
         <div className="BulkAdd__Filters">
           <div className="BulkAdd__Field">
-            <span className="BulkAdd__FieldLabel">Branch</span>
+            <span className="BulkAdd__FieldLabel">{t('track.fields.branch')}</span>
             <CustomSelect
               value={branchId}
               options={branchOptions}
-              placeholder="Branch 선택"
+              placeholder={t('track.bulkAdd.selectBranch')}
               className="BulkAdd__SelectControl"
               onChange={(v) => {
                 // 같은 branch 재선택은 no-op — 초기화를 그대로 태우면 epics/sprints를 비우는데
@@ -258,11 +269,11 @@ export default function BulkAddModal({
 
           {mode === 'epic' && branchId && (
             <div className="BulkAdd__Field">
-              <span className="BulkAdd__FieldLabel">Epic</span>
+              <span className="BulkAdd__FieldLabel">{t('track.fields.epic')}</span>
               <CustomSelect
                 value={epicId}
                 options={epicOptions}
-                placeholder="Epic 선택"
+                placeholder={t('track.bulkAdd.selectEpic')}
                 className="BulkAdd__SelectControl"
                 onChange={(v) => setEpicId(toIntOrNull(v))}
               />
@@ -271,11 +282,11 @@ export default function BulkAddModal({
 
           {mode === 'sprint' && branchId && (
             <div className="BulkAdd__Field">
-              <span className="BulkAdd__FieldLabel">Sprint</span>
+              <span className="BulkAdd__FieldLabel">{t('track.fields.sprint')}</span>
               <CustomSelect
                 value={sprintId}
                 options={sprintOptions}
-                placeholder="Sprint 선택"
+                placeholder={t('track.bulkAdd.selectSprint')}
                 className="BulkAdd__SelectControl"
                 onChange={(v) => setSprintId(toIntOrNull(v))}
               />
@@ -285,19 +296,19 @@ export default function BulkAddModal({
           {mode === 'filter' && (
             <>
               <div className="BulkAdd__Field">
-                <span className="BulkAdd__FieldLabel">Status</span>
+                <span className="BulkAdd__FieldLabel">{t('track.fields.status')}</span>
                 <CustomSelect
                   value={filterStatusCat}
-                  options={STATUS_CATEGORIES}
+                  options={statusOptions}
                   className="BulkAdd__SelectControl"
                   onChange={setFilterStatusCat}
                 />
               </div>
               <div className="BulkAdd__Field">
-                <span className="BulkAdd__FieldLabel">Priority</span>
+                <span className="BulkAdd__FieldLabel">{t('track.fields.priority')}</span>
                 <CustomSelect
                   value={filterPriority}
-                  options={PRIORITIES}
+                  options={priorityOptions}
                   className="BulkAdd__SelectControl"
                   onChange={setFilterPriority}
                 />
@@ -308,15 +319,15 @@ export default function BulkAddModal({
 
         {/* 결과 영역 */}
         <div className="BulkAdd__Results">
-          {loading && <div className="BulkAdd__Empty">Loading…</div>}
+          {loading && <div className="BulkAdd__Empty">{t('common.state.loading')}</div>}
           {!loading && tasks.length === 0 && (
             <div className="BulkAdd__Empty">
-              {mode === 'epic' && !epicId && <>Epic을 선택하세요</>}
-              {mode === 'sprint' && !sprintId && <>Sprint를 선택하세요</>}
-              {mode === 'filter' && !branchId && <>Branch와 조건을 선택하세요</>}
+              {mode === 'epic' && !epicId && <>{t('track.bulkAdd.pickEpic')}</>}
+              {mode === 'sprint' && !sprintId && <>{t('track.bulkAdd.pickSprint')}</>}
+              {mode === 'filter' && !branchId && <>{t('track.bulkAdd.pickBranchAndFilters')}</>}
               {((mode === 'epic' && epicId) ||
                 (mode === 'sprint' && sprintId) ||
-                (mode === 'filter' && branchId)) && <>조건에 맞는 task 없음</>}
+                (mode === 'filter' && branchId)) && <>{t('track.bulkAdd.noMatchingTasks')}</>}
             </div>
           )}
           {!loading && tasks.length > 0 && (
@@ -329,9 +340,14 @@ export default function BulkAddModal({
                     onChange={toggleAll}
                   />
                   <span>
-                    {selectedIds.size} of {addableTasks.length} selected
+                    {t('track.bulkAdd.selectedCount', {
+                      selected: selectedIds.size,
+                      total: addableTasks.length,
+                    })}
                     {flatTasks.length - addableTasks.length > 0 && (
-                      <em> · {flatTasks.length - addableTasks.length} already on canvas</em>
+                      <em> · {t('track.bulkAdd.alreadyOnCanvas', {
+                        count: flatTasks.length - addableTasks.length,
+                      })}</em>
                     )}
                   </span>
                 </label>
@@ -366,7 +382,9 @@ export default function BulkAddModal({
                               └ {row.parent_display_id}
                             </span>
                           )}
-                          {row.in_track && <span className="BulkAdd__TaskBadge">on canvas</span>}
+                          {row.in_track && (
+                            <span className="BulkAdd__TaskBadge">{t('track.bulkAdd.onCanvas')}</span>
+                          )}
                         </label>
                       </li>
                     );
@@ -383,14 +401,18 @@ export default function BulkAddModal({
 
         <footer className="BulkAdd__Foot">
           <button className="BulkAdd__Btn BulkAdd__Btn--ghost" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             className="BulkAdd__Btn BulkAdd__Btn--primary"
             onClick={handleSubmit}
             disabled={selectedIds.size === 0 || submitting}
           >
-            {submitting ? 'Adding…' : `Add ${selectedIds.size > 0 ? `(${selectedIds.size})` : ''}`}
+            {submitting
+              ? t('track.bulkAdd.adding')
+              : (selectedIds.size > 0
+                ? t('track.bulkAdd.addWithCount', { n: selectedIds.size })
+                : t('common.actions.add'))}
           </button>
         </footer>
       </div>

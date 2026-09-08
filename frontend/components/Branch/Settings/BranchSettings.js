@@ -5,16 +5,18 @@ import SettingsMembers from './SettingsMembers';
 import SettingsTaskTypes from './SettingsTaskTypes';
 import SettingsWorkflow from './SettingsWorkflow';
 import SettingsGithubIntegration from './SettingsGithubIntegration';
+import { useTranslation } from 'react-i18next';
 
 const SUB_TABS = [
-  { key: 'general', label: 'General', icon: Settings },
-  { key: 'members', label: 'Members', icon: Users },
-  { key: 'task_types', label: 'Task Types', icon: Layers },
-  { key: 'workflow', label: 'Workflow', icon: GitBranch },
-  { key: 'github', label: 'GitHub', icon: Github, adminOnly: true },  // GitHub 설정은 admin만
+  { key: 'general', labelKey: 'branch.settings.tabGeneral', icon: Settings },
+  { key: 'members', labelKey: 'branch.settings.tabMembers', icon: Users },
+  { key: 'task_types', labelKey: 'branch.settings.tabTaskTypes', icon: Layers },
+  { key: 'workflow', labelKey: 'branch.settings.tabWorkflow', icon: GitBranch },
+  { key: 'github', label: 'GitHub', icon: Github, adminOnly: true },  // GitHub 설정은 admin만 (고유명사라 번역 안 함)
 ];
 
 export default function BranchSettings({ branchId, branch, myRole, onBranchUpdated }) {
+  const { t } = useTranslation();
   const [activeSubTab, setActiveSubTab] = useState('general');
   const isAdmin = myRole === 'admin';
 
@@ -22,14 +24,14 @@ export default function BranchSettings({ branchId, branch, myRole, onBranchUpdat
     <div className="BranchSettings">
       {/* 서브탭 */}
       <div className="BranchSettings__SubTabs">
-        {SUB_TABS.filter((tab) => !tab.adminOnly || isAdmin).map(({ key, label, icon: Icon }) => (
+        {SUB_TABS.filter((tab) => !tab.adminOnly || isAdmin).map(({ key, label, labelKey, icon: Icon }) => (
           <button
             key={key}
             className={`BranchSettings__SubTab ${activeSubTab === key ? 'BranchSettings__SubTab--active' : ''}`}
             onClick={() => setActiveSubTab(key)}
           >
             <Icon size={14} />
-            {label}
+            {labelKey ? t(labelKey) : label}
           </button>
         ))}
       </div>

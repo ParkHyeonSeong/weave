@@ -8,25 +8,29 @@ import { axios } from '@/library/_axios';
 import NavLink from '@/components/common/NavLink';
 import { LOGIN_PATH } from '@/library/authRedirect';
 import { clearClientSession } from '@/library/sessionCleanup';
+import { clearWorkspaceSettingsCache } from '@/library/workspaceSettings';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import Avatar from '@/components/common/Avatar';
+import { useTranslation } from 'react-i18next';
 
 // --- Command 모드 액션 ---
+// label/group은 키만 들고 있고 렌더 시 t()로 푼다 — 모듈 상수는 언어 변경에 반응하지 않는다.
 const ACTIONS = [
-  { id: 'nav-dashboard', label: 'Go to Dashboard', icon: Home, group: 'Navigation', route: '/' },
-  { id: 'nav-my-tasks', label: 'Go to My Tasks', icon: ListTodo, group: 'Navigation', route: '/my-tasks' },
-  { id: 'nav-browse', label: 'Go to Browse', icon: Compass, group: 'Navigation', route: '/browse' },
-  { id: 'nav-profile', label: 'Go to Profile', icon: User, group: 'Navigation', route: '/profile' },
-  { id: 'nav-admin', label: 'Go to Admin', icon: Settings, group: 'Navigation', route: '/admin' },
-  { id: 'create-branch', label: 'Create Branch', icon: Plus, group: 'Actions' },
-  { id: 'create-canvas', label: 'Create Canvas', icon: Plus, group: 'Actions' },
-  { id: 'logout', label: 'Logout', icon: LogOut, group: 'Account' },
+  { id: 'nav-dashboard', labelKey: 'modal.palette.actions.dashboard', icon: Home, groupKey: 'modal.palette.groups.navigation', route: '/' },
+  { id: 'nav-my-tasks', labelKey: 'modal.palette.actions.myTasks', icon: ListTodo, groupKey: 'modal.palette.groups.navigation', route: '/my-tasks' },
+  { id: 'nav-browse', labelKey: 'modal.palette.actions.browse', icon: Compass, groupKey: 'modal.palette.groups.navigation', route: '/browse' },
+  { id: 'nav-profile', labelKey: 'modal.palette.actions.profile', icon: User, groupKey: 'modal.palette.groups.navigation', route: '/profile' },
+  { id: 'nav-admin', labelKey: 'modal.palette.actions.admin', icon: Settings, groupKey: 'modal.palette.groups.navigation', route: '/admin' },
+  { id: 'create-branch', labelKey: 'modal.palette.actions.createBranch', icon: Plus, groupKey: 'modal.palette.groups.actions' },
+  { id: 'create-canvas', labelKey: 'modal.palette.actions.createCanvas', icon: Plus, groupKey: 'modal.palette.groups.actions' },
+  { id: 'logout', labelKey: 'auth.signOut', icon: LogOut, groupKey: 'modal.palette.groups.account' },
 ];
 
 const formatStatusKey = (key) => key?.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || '';
 
 export default function CommandPalette({ onClose }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const { isHidden } = useUiPrefs();
   const inputRef = useRef(null);
   const timerRef = useRef(null);
@@ -100,13 +104,13 @@ export default function CommandPalette({ onClose }) {
         tasks: searchResults.tasks.filter(taskVisible),
         docs: searchResults.docs.filter(docVisible),
         issues: searchResults.issues.filter(taskVisible),
-      });
+      }, t);
     }
     const visibleRecent = recentItems.filter((r) =>
       r.type === 'task' ? taskVisible(r) : docVisible(r)
     );
-    return buildCommandGroups(visibleRecent, query);
-  }, [isSearchMode, searchResults, recentItems, query, isHidden]);
+    return buildCommandGroups(visibleRecent, query, t);
+  }, [isSearchMode, searchResults, recentItems, query, isHidden, t]);
 
   // 키보드 네비게이션
   const handleKeyDown = (e) => {
@@ -170,7 +174,7 @@ export default function CommandPalette({ onClose }) {
       case 'logout':
         axios.post('/auth/logout').catch(() => {});
         clearClientSession();
-        sessionStorage.removeItem('app_initialized');
+        clearWorkspaceSettingsCache();
         // returnTo 미전달: 로그아웃 후 다시 보호 페이지로 복귀시키지 않는다
         router.replace(LOGIN_PATH);
         onClose();
@@ -193,7 +197,7 @@ export default function CommandPalette({ onClose }) {
             ref={inputRef}
             className="CommandPalette__Input"
             type="text"
-            placeholder="Search or type a command..."
+            placeholder={t('modal.palette.placeholder')}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -205,9 +209,9 @@ export default function CommandPalette({ onClose }) {
 
         <div className="CommandPalette__List" ref={listRef}>
           {searching ? (
-            <div className="CommandPalette__Loading">Searching...</div>
+            <div className="CommandPalette__Loading">{t('modal.palette.searching')}</div>
           ) : flatItems.length === 0 ? (
-            <div className="CommandPalette__Empty">No results found.</div>
+            <div className="CommandPalette__Empty">{t('modal.palette.noResults')}</div>
           ) : (
             groups.map((group) => (
               <div key={group.label} className="CommandPalette__Group">
@@ -227,7 +231,7 @@ export default function CommandPalette({ onClose }) {
                         onClick={() => executeItem(item)}
                         onMouseEnter={() => setActiveIndex(item.flatIndex)}
                       >
-                        {renderItem(item)}
+                        {renderItem(item, t)}
                       </button>
                     );
                   }
@@ -240,7 +244,7 @@ export default function CommandPalette({ onClose }) {
                       onClick={onClose}
                       onMouseEnter={() => setActiveIndex(item.flatIndex)}
                     >
-                      {renderItem(item)}
+                      {renderItem(item, t)}
                     </NavLink>
                   );
                 })}
@@ -254,7 +258,8 @@ export default function CommandPalette({ onClose }) {
 }
 
 // --- 아이템 렌더링 ---
-function renderItem(item) {
+// t는 호출부가 넘긴다 — 컴포넌트가 아니라 순수 렌더 헬퍼라 훅을 쓸 수 없다.
+function renderItem(item, t) {
   switch (item.type) {
     case 'action': {
       const Icon = item.data.icon;
@@ -317,7 +322,7 @@ function renderItem(item) {
           <CircleDot size={14} className="CommandPalette__ItemIcon" />
           <span className="CommandPalette__ItemLabel">{item.data.title}</span>
           <span className={`CommandPalette__StatusBadge CommandPalette__StatusBadge--${item.data.status}`}>
-            {item.data.status === 'open' ? 'Open' : 'Closed'}
+            {item.data.status === 'open' ? t('modal.palette.issueOpen') : t('modal.palette.issueClosed')}
           </span>
           <span className="CommandPalette__ItemId">{item.data.display_id}</span>
         </>
@@ -336,7 +341,7 @@ function renderItem(item) {
 }
 
 // --- Command 모드 그룹 빌드 ---
-function buildCommandGroups(recentItems, query) {
+function buildCommandGroups(recentItems, query, t) {
   const groups = [];
   const flatItems = [];
   let flatIndex = 0;
@@ -350,14 +355,15 @@ function buildCommandGroups(recentItems, query) {
       flatItems.push(item);
       return item;
     });
-    groups.push({ label: 'Recent', items });
+    groups.push({ label: t('modal.palette.groups.recent'), items });
   }
 
-  // 액션 필터링
+  // 액션 필터링 (번역된 label로 매칭한다 — 사용자가 보는 문구가 곧 검색 대상)
   const q = query.toLowerCase();
+  const localized = ACTIONS.map((a) => ({ ...a, label: t(a.labelKey), group: t(a.groupKey) }));
   const filtered = q
-    ? ACTIONS.filter((a) => a.label.toLowerCase().includes(q))
-    : ACTIONS;
+    ? localized.filter((a) => a.label.toLowerCase().includes(q))
+    : localized;
 
   // 그룹별 분류
   const actionGroups = {};
@@ -376,7 +382,7 @@ function buildCommandGroups(recentItems, query) {
 }
 
 // --- Search 모드 그룹 빌드 ---
-function buildSearchGroups(results) {
+function buildSearchGroups(results, t) {
   const groups = [];
   const flatItems = [];
   let flatIndex = 0;
@@ -387,7 +393,7 @@ function buildSearchGroups(results) {
       flatItems.push(item);
       return item;
     });
-    groups.push({ label: 'Tasks', items });
+    groups.push({ label: t('modal.palette.groups.tasks'), items });
   }
 
   if (results.docs.length > 0) {
@@ -396,7 +402,7 @@ function buildSearchGroups(results) {
       flatItems.push(item);
       return item;
     });
-    groups.push({ label: 'Documents', items });
+    groups.push({ label: t('modal.palette.groups.documents'), items });
   }
 
   if (results.issues.length > 0) {
@@ -405,7 +411,7 @@ function buildSearchGroups(results) {
       flatItems.push(item);
       return item;
     });
-    groups.push({ label: 'Issues', items });
+    groups.push({ label: t('modal.palette.groups.issues'), items });
   }
 
   if (results.members.length > 0) {
@@ -414,7 +420,7 @@ function buildSearchGroups(results) {
       flatItems.push(item);
       return item;
     });
-    groups.push({ label: 'Members', items });
+    groups.push({ label: t('modal.palette.groups.members'), items });
   }
 
   return { groups, flatItems };

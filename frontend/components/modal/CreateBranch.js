@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { X, Globe, Lock } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getErrorCode } from '@/library/errorCode';
+import { useTranslation } from 'react-i18next';
 
 export default function CreateBranch({ onClose }) {
+  const { t } = useTranslation();
   const [branchName, setBranchName] = useState('');
   const [key, setKey] = useState('');
   const [description, setDescription] = useState('');
@@ -35,10 +37,10 @@ export default function CreateBranch({ onClose }) {
         window.dispatchEvent(new Event('branch:created'));
         onClose();
       } else if (getErrorCode(res.data) === 'KEY_ALREADY_EXISTS') {
-        setError('This key is already in use.');
+        setError(t('errors.KEY_ALREADY_EXISTS'));
       }
     } catch {
-      setError('Failed to create branch.');
+      setError(t('modal.createBranch.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -48,7 +50,7 @@ export default function CreateBranch({ onClose }) {
     <div className="CreateBranch__Backdrop" onClick={onClose}>
       <form className="CreateBranch" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="CreateBranch__Header">
-          <h2 className="CreateBranch__Title">Create Branch</h2>
+          <h2 className="CreateBranch__Title">{t('modal.createBranch.title')}</h2>
           <button type="button" className="CreateBranch__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -56,11 +58,11 @@ export default function CreateBranch({ onClose }) {
 
         <div className="CreateBranch__Body">
           <div className="CreateBranch__Field">
-            <label className="CreateBranch__Label">Branch name</label>
+            <label className="CreateBranch__Label">{t('modal.createBranch.nameLabel')}</label>
             <input
               className="CreateBranch__Input"
               type="text"
-              placeholder="e.g. Engineering, Marketing"
+              placeholder={t('modal.createBranch.namePlaceholder')}
               value={branchName}
               onChange={(e) => setBranchName(e.target.value)}
               autoFocus
@@ -68,24 +70,24 @@ export default function CreateBranch({ onClose }) {
           </div>
 
           <div className="CreateBranch__Field">
-            <label className="CreateBranch__Label">Key</label>
+            <label className="CreateBranch__Label">{t('modal.fields.key')}</label>
             <input
               className="CreateBranch__Input CreateBranch__Input--key"
               type="text"
-              placeholder="e.g. ENG, MKT"
+              placeholder={t('modal.createBranch.keyPlaceholder')}
               value={key}
               onChange={handleKeyChange}
             />
             <span className="CreateBranch__Hint">
-              Issues will be labeled as {key || '___'}-1, {key || '___'}-2, ...
+              {t('modal.createBranch.keyHint', { key: key || '___' })}
             </span>
           </div>
 
           <div className="CreateBranch__Field">
-            <label className="CreateBranch__Label">Description</label>
+            <label className="CreateBranch__Label">{t('modal.fields.description')}</label>
             <textarea
               className="CreateBranch__Textarea"
-              placeholder="What is this branch about?"
+              placeholder={t('modal.createBranch.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -93,7 +95,7 @@ export default function CreateBranch({ onClose }) {
           </div>
 
           <div className="CreateBranch__Field">
-            <label className="CreateBranch__Label">Visibility</label>
+            <label className="CreateBranch__Label">{t('modal.visibility.label')}</label>
             <div className="CreateBranch__VisibilityGroup">
               <button
                 type="button"
@@ -101,7 +103,7 @@ export default function CreateBranch({ onClose }) {
                 onClick={() => setVisibility('private')}
               >
                 <Lock size={14} />
-                Private
+                {t('modal.visibility.private')}
               </button>
               <button
                 type="button"
@@ -109,13 +111,13 @@ export default function CreateBranch({ onClose }) {
                 onClick={() => setVisibility('public')}
               >
                 <Globe size={14} />
-                Public
+                {t('modal.visibility.public')}
               </button>
             </div>
             <span className="CreateBranch__Hint">
               {visibility === 'private'
-                ? 'Only invited members can access this branch.'
-                : 'Anyone in the workspace can view this branch.'}
+                ? t('modal.createBranch.privateHint')
+                : t('modal.createBranch.publicHint')}
             </span>
           </div>
 
@@ -124,14 +126,14 @@ export default function CreateBranch({ onClose }) {
 
         <div className="CreateBranch__Footer">
           <button type="button" className="CreateBranch__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="submit"
             className="CreateBranch__SubmitBtn"
             disabled={!branchName.trim() || key.length < 2 || loading}
           >
-            {loading ? 'Creating...' : 'Create'}
+            {loading ? t('modal.creating') : t('common.actions.create')}
           </button>
         </div>
       </form>

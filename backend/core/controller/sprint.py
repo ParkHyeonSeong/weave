@@ -1,5 +1,3 @@
-from datetime import date
-
 from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +7,7 @@ from core.model import sprint as sprint_model
 from core.model import branch_member as member_model
 from core.model import task as task_model
 from library.date_validator import is_valid_date_order
+from library.time_context import workspace_today
 
 
 async def create(body, branch_id: int, request: Request, db: AsyncSession):
@@ -100,7 +99,9 @@ async def start(sprint_id: int, branch_id: int, request: Request, db: AsyncSessi
 
     fields = {'status': 'active'}
     if not sprint['start_date']:
-        fields['start_date'] = date.today()
+        # 스프린트 날짜는 구성원이 공유하는 저장 값 → workspace timezone의 오늘.
+        # 서버/컨테이너 로컬 날짜(date.today())를 쓰면 UTC 컨테이너에서 하루 어긋난다.
+        fields['start_date'] = await workspace_today(db)
 
     await sprint_model.update(sprint_id, fields, db)
     return {'status': True}
@@ -136,7 +137,8 @@ async def complete(sprint_id: int, body, branch_id: int, request: Request, db: A
     # sprint 상태 변경
     fields = {'status': 'closed'}
     if not sprint['end_date']:
-        fields['end_date'] = date.today()
+        # 시작일과 같은 정책 — 공유 날짜는 workspace timezone 기준이다.
+        fields['end_date'] = await workspace_today(db)
 
     await sprint_model.update(sprint_id, fields, db)
     return {'status': True, 'moved_count': moved}

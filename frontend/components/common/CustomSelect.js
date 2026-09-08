@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import DropdownPortal from './DropdownPortal';
 
 /**
@@ -11,16 +12,17 @@ import DropdownPortal from './DropdownPortal';
  * @param {string|number|null} value - 현재 선택된 값
  * @param {Array<{value: string|number, label: string, icon?: React.Element, color?: string}>} options
  * @param {(value: string|number|null) => void} onChange
- * @param {string} [placeholder='Select...']
+ * @param {string} [placeholder] - 미지정 시 공용 'Select…' 문구
  * @param {string} [size='md'] - 'sm' | 'md'
  * @param {string} [className='']
  * @param {string} [ariaLabel] - 화면에 보이는 라벨이 없는 셀렉트(목록 행 안 등)의 접근 가능한 이름
  * @param {boolean} [disabled=false] - 저장 중 등 일시적으로 조작을 막을 때
  */
 export default function CustomSelect({
-  value, options, onChange, placeholder = 'Select...', size = 'md', className = '',
+  value, options, onChange, placeholder, size = 'md', className = '',
   hideArrow = false, ariaLabel, disabled = false,
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null); // 트리거
   const dropdownRef = useRef(null); // 포털된 드롭다운
@@ -47,6 +49,7 @@ export default function CustomSelect({
     return () => document.removeEventListener('keydown', handleKey);
   }, [open]);
 
+  const placeholderText = placeholder ?? t('common.select.placeholder');
   const selected = options.find((o) => String(o.value) === String(value));
 
   const handleSelect = (opt) => {
@@ -89,7 +92,7 @@ export default function CustomSelect({
               <span>{selected.label}</span>
             </>
           ) : (
-            <span className="CustomSelect__Placeholder">{placeholder}</span>
+            <span className="CustomSelect__Placeholder">{placeholderText}</span>
           )}
         </span>
         {!hideArrow && <ChevronDown size={size === 'sm' ? 12 : 14} className="CustomSelect__Arrow" />}

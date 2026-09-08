@@ -1,14 +1,17 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
-const STATUS_LABELS = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  done: 'Done',
+// epic 상태 → 카탈로그 키 (branch 공용 상태 분류 라벨과 같은 문구)
+const STATUS_KEYS = {
+  todo: 'branch.statusCategory.todo',
+  in_progress: 'branch.statusCategory.inProgress',
+  done: 'branch.statusCategory.done',
 };
 
 export default function EpicBar({ epic, getPosition, timelineWidth, nameColWidth, onClick, isOverlay }) {
+  const { t } = useTranslation();
   const {
     attributes,
     listeners,
@@ -50,7 +53,7 @@ export default function EpicBar({ epic, getPosition, timelineWidth, nameColWidth
         <span className="EpicBar__Color" style={{ backgroundColor: epic.color || '#5E6AD2' }} />
         <span className="EpicBar__Name">{epic.epic_name}</span>
         <span className={`EpicBar__Status EpicBar__Status--${epic.status}`}>
-          {STATUS_LABELS[epic.status] || epic.status}
+          {STATUS_KEYS[epic.status] ? t(STATUS_KEYS[epic.status]) : epic.status}
         </span>
       </div>
 
@@ -68,7 +71,7 @@ export default function EpicBar({ epic, getPosition, timelineWidth, nameColWidth
           </div>
         ) : (
           <div className="EpicBar__NoDate">
-            {hasRange ? 'Out of range' : 'No dates set'}
+            {hasRange ? t('branch.epics.outOfRange') : t('branch.epics.noDatesSet')}
           </div>
         )}
       </div>

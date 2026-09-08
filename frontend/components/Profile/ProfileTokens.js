@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Key, Copy, Check, Trash2, Plus } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
+// 라벨은 카탈로그 키로만 두고 렌더 시점에 t()로 푼다.
 const EXPIRY_OPTIONS = [
-  { label: '30 days', value: 30 },
-  { label: '90 days', value: 90 },
-  { label: '365 days', value: 365 },
-  { label: 'Never', value: '' },
+  { labelKey: 'account.tokens.expiry.days30', value: 30 },
+  { labelKey: 'account.tokens.expiry.days90', value: 90 },
+  { labelKey: 'account.tokens.expiry.days365', value: 365 },
+  { labelKey: 'account.tokens.expiry.never', value: '' },
 ];
 
-function formatDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString();
-}
-
 export default function ProfileTokens({ showAlert }) {
+  const { t } = useTranslation();
+  // 토큰 생성/만료 시각은 timestamp — 개인 timezone의 달력 날짜로 표시한다.
+  const { formatTimestampYMD } = useDateFormat();
+  const formatDate = (iso) => formatTimestampYMD(iso) || '—';
   const [tokens, setTokens] = useState([]);
 
   const [name, setName] = useState('');
@@ -38,7 +40,7 @@ export default function ProfileTokens({ showAlert }) {
       const res = await axios.get('/profile/tokens');
       if (res.data.status) setTokens(res.data.tokens);
     } catch {
-      showAlert('Error', 'Failed to load tokens.');
+      showAlert(t('account.alerts.error'), t('account.tokens.loadFailed'));
     }
   };
 
@@ -46,7 +48,7 @@ export default function ProfileTokens({ showAlert }) {
     e.preventDefault();
     if (creating) return;
     if (!name.trim()) {
-      showAlert('Error', 'Token name must not be empty.');
+      showAlert(t('account.alerts.error'), t('account.tokens.nameRequired'));
       return;
     }
     setCreating(true);
@@ -61,11 +63,11 @@ export default function ProfileTokens({ showAlert }) {
         fetchTokens();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to create token.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('account.tokens.createFailed');
+        showAlert(t('account.alerts.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to create token.');
+      showAlert(t('account.alerts.error'), t('account.tokens.createFailed'));
     } finally {
       setCreating(false);
     }
@@ -76,7 +78,7 @@ export default function ProfileTokens({ showAlert }) {
       await navigator.clipboard.writeText(newToken);
       setCopied(true);
     } catch {
-      showAlert('Error', 'Copy failed — select the token and copy manually.');
+      showAlert(t('account.alerts.error'), t('account.tokens.copyFailed'));
     }
   };
 
@@ -87,60 +89,59 @@ export default function ProfileTokens({ showAlert }) {
     try {
       const res = await axios.delete(`/profile/tokens/${target.pat_id}`);
       if (res.data.status) {
-        setTokens((prev) => prev.filter((t) => t.pat_id !== target.pat_id));
+        setTokens((prev) => prev.filter((token) => token.pat_id !== target.pat_id));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to revoke token.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('account.tokens.revokeFailed');
+        showAlert(t('account.alerts.error'), msg);
         fetchTokens();
       }
     } catch {
-      showAlert('Error', 'Failed to revoke token.');
+      showAlert(t('account.alerts.error'), t('account.tokens.revokeFailed'));
     }
   };
 
   return (
     <div className="Profile__Section">
-      <h2 className="Profile__SectionTitle">Personal Access Tokens</h2>
+      <h2 className="Profile__SectionTitle">{t('account.tokens.title')}</h2>
       <p className="Profile__TokenIntro">
-        Authenticate API clients (e.g. the Weave MCP server) without your password. Treat tokens
-        like passwords.
+        {t('account.tokens.intro')}
       </p>
 
       {newToken && (
         <div className="Profile__TokenReveal">
           <p className="Profile__TokenRevealWarn">
-            Copy this token now — you won&apos;t be able to see it again.
+            {t('account.tokens.revealWarning')}
           </p>
           <div className="Profile__TokenRevealRow">
             <code className="Profile__TokenValue">{newToken}</code>
             <button type="button" className="Profile__TokenCopyBtn" onClick={handleCopy}>
               {copied ? <Check size={16} /> : <Copy size={16} />}
-              {copied ? 'Copied' : 'Copy'}
+              {copied ? t('account.tokens.copied') : t('account.tokens.copy')}
             </button>
           </div>
           <button type="button" className="Profile__TokenDismiss" onClick={() => setNewToken('')}>
-            Done
+            {t('account.tokens.done')}
           </button>
         </div>
       )}
 
       <form className="Profile__Form" onSubmit={handleCreate}>
         <div className="Profile__Field">
-          <label className="Profile__Label">Token name</label>
+          <label className="Profile__Label">{t('account.tokens.nameLabel')}</label>
           <div className="Profile__InputWrap">
             <Key size={16} className="Profile__InputIcon" />
             <input
               className="Profile__Input"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. MCP server"
+              placeholder={t('account.tokens.namePlaceholder')}
               maxLength={100}
             />
           </div>
         </div>
         <div className="Profile__Field">
-          <label className="Profile__Label">Expires</label>
+          <label className="Profile__Label">{t('account.tokens.expiresLabel')}</label>
           <select
             className="Profile__Input"
             value={expiresInDays}
@@ -150,36 +151,40 @@ export default function ProfileTokens({ showAlert }) {
             }}
           >
             {EXPIRY_OPTIONS.map((o) => (
-              <option key={o.label} value={o.value}>{o.label}</option>
+              <option key={o.labelKey} value={o.value}>{t(o.labelKey)}</option>
             ))}
           </select>
         </div>
         <button type="submit" className="Profile__SaveBtn" disabled={creating || !name.trim()}>
           <Plus size={16} />
-          {creating ? 'Creating...' : 'Create Token'}
+          {creating ? t('account.tokens.creating') : t('account.tokens.create')}
         </button>
       </form>
 
       {tokens.length > 0 && (
         <div className="Profile__TokenList">
-          {tokens.map((t) => (
-            <div key={t.pat_id} className="Profile__TokenItem">
+          {tokens.map((token) => (
+            <div key={token.pat_id} className="Profile__TokenItem">
               <div className="Profile__TokenItemMain">
-                <span className="Profile__TokenName">{t.name}</span>
-                <code className="Profile__TokenPrefix">{t.token_prefix}…</code>
+                <span className="Profile__TokenName">{token.name}</span>
+                <code className="Profile__TokenPrefix">{token.token_prefix}…</code>
               </div>
               <div className="Profile__TokenMeta">
-                <span>Created {formatDate(t.created_at)}</span>
-                <span>Last used {formatDate(t.last_used_at)}</span>
-                <span>{t.expires_at ? `Expires ${formatDate(t.expires_at)}` : 'No expiry'}</span>
+                <span>{t('account.tokens.created', { date: formatDate(token.created_at) })}</span>
+                <span>{t('account.tokens.lastUsed', { date: formatDate(token.last_used_at) })}</span>
+                <span>
+                  {token.expires_at
+                    ? t('account.tokens.expiresAt', { date: formatDate(token.expires_at) })
+                    : t('account.tokens.noExpiry')}
+                </span>
               </div>
               <button
                 type="button"
                 className="Profile__TokenRevokeBtn"
-                onClick={() => setRevokeTarget(t)}
+                onClick={() => setRevokeTarget(token)}
               >
                 <Trash2 size={16} />
-                Revoke
+                {t('account.tokens.revoke')}
               </button>
             </div>
           ))}
@@ -188,9 +193,9 @@ export default function ProfileTokens({ showAlert }) {
 
       <ConfirmModal
         isOpen={!!revokeTarget}
-        title="Revoke token"
-        message={revokeTarget ? `Revoke "${revokeTarget.name}"? Any client using it stops working immediately.` : ''}
-        confirmLabel="Revoke"
+        title={t('account.tokens.revokeTitle')}
+        message={revokeTarget ? t('account.tokens.revokeConfirm', { name: revokeTarget.name }) : ''}
+        confirmLabel={t('account.tokens.revoke')}
         variant="danger"
         onConfirm={handleRevoke}
         onClose={() => setRevokeTarget(null)}

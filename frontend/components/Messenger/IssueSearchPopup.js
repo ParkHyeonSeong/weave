@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, CircleDot } from 'lucide-react';
 import { axios } from '@/library/_axios';
 
-const STATUS_LABELS = {
-  open: 'Open',
-  closed: 'Closed',
+const STATUS_KEYS = {
+  open: 'messenger.issueStatus.open',
+  closed: 'messenger.issueStatus.closed',
 };
 
 export default function IssueSearchPopup({ keyword, onSelect, onClose }) {
+  const { t } = useTranslation();
   const [issues, setIssues] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -55,12 +57,12 @@ export default function IssueSearchPopup({ keyword, onSelect, onClose }) {
     <div className="IssueSearchPopup">
       <div className="IssueSearchPopup__Header">
         <Search size={12} />
-        /i - Search Issues
+        {t('messenger.search.issueHeader')}
       </div>
       <ul className="IssueSearchPopup__List">
-        {loading && <li className="IssueSearchPopup__Empty">Searching...</li>}
+        {loading && <li className="IssueSearchPopup__Empty">{t('messenger.search.searching')}</li>}
         {!loading && issues.length === 0 && (
-          <li className="IssueSearchPopup__Empty">No issues found</li>
+          <li className="IssueSearchPopup__Empty">{t('messenger.search.noIssues')}</li>
         )}
         {!loading && issues.map((issue, idx) => (
           <li
@@ -73,7 +75,7 @@ export default function IssueSearchPopup({ keyword, onSelect, onClose }) {
             <span className="IssueSearchPopup__ItemTitle">{issue.title}</span>
             <span className="IssueSearchPopup__ItemTask">{issue.display_id}</span>
             <span className={`IssueSearchPopup__ItemStatus IssueSearchPopup__ItemStatus--${issue.status}`}>
-              {STATUS_LABELS[issue.status] || issue.status}
+              {STATUS_KEYS[issue.status] ? t(STATUS_KEYS[issue.status]) : issue.status}
             </span>
           </li>
         ))}

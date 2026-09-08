@@ -1,10 +1,12 @@
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath } from '@xyflow/react';
 import { X, Anchor } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function TrackEdge({
   id, sourceX, sourceY, targetX, targetY,
   sourcePosition, targetPosition, data, selected,
 }) {
+  const { t } = useTranslation();
   // sourceX < targetX: 정방향. 두 노드 가로 거리가 충분하면 표준 smoothstep,
   // 가깝거나 역방향이면 offset 크게 줘서 우회.
   const dx = targetX - sourceX;
@@ -70,19 +72,19 @@ export default function TrackEdge({
           }}
         >
           {isMaterialized && !isRelates && (
-            <span className="TrackEdgeLabel__Badge" title="Materialized as real dependency">
+            <span className="TrackEdgeLabel__Badge" title={t('track.edge.materializedTitle')}>
               <Anchor size={9} />
-              <span>dep</span>
+              <span>{t('track.edge.dep')}</span>
             </span>
           )}
           {isRelates && (
             <span className="TrackEdgeLabel__Badge TrackEdgeLabel__Badge--rel">
-              relates
+              {t('track.edge.relates')}
             </span>
           )}
           {!isMaterialized && !isRelates && (
             <span className="TrackEdgeLabel__Badge TrackEdgeLabel__Badge--draft">
-              draft
+              {t('track.edge.draft')}
             </span>
           )}
           <button
@@ -91,7 +93,7 @@ export default function TrackEdge({
               e.stopPropagation();
               data?.onDelete?.(data?.linkId);
             }}
-            title="Delete link"
+            title={t('track.edge.deleteLink')}
           >
             <X size={10} />
           </button>

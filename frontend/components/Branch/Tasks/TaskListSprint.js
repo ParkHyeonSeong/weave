@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronDown, Plus, Settings, Play, CheckCircle } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { useSortable } from '@dnd-kit/sortable';
@@ -21,6 +22,7 @@ export default function TaskListSprint({
   collapsed, onToggleCollapse,
   expandedParents, onToggleSubtasks,
 }) {
+  const { t } = useTranslation();
   const [inlineTitle, setInlineTitle] = useState('');
   const [inlineType, setInlineType] = useState('');
   const [inlineError, setInlineError] = useState('');
@@ -81,16 +83,16 @@ export default function TaskListSprint({
   // (기본 타입을 직접 교체한 브랜치에서 없는 키로 생성 시도해 조용히 실패하는 것 방지)
   useEffect(() => {
     if (!taskTypes || taskTypes.length === 0) return;
-    if (!taskTypes.some((t) => t.type_key === inlineType)) {
+    if (!taskTypes.some((tt) => tt.type_key === inlineType)) {
       setInlineType(taskTypes[0].type_key);
     }
   }, [taskTypes, inlineType]);
 
   const getStatusLabel = (status) => {
     switch (status) {
-      case 'active': return 'Active';
-      case 'closed': return 'Closed';
-      case 'future': return 'Future';
+      case 'active': return t('branchTasks.sprint.status.active');
+      case 'closed': return t('branchTasks.sprint.status.closed');
+      case 'future': return t('branchTasks.sprint.status.future');
       default: return '';
     }
   };
@@ -120,16 +122,17 @@ export default function TaskListSprint({
         window.dispatchEvent(new Event('task:updated'));
       } else {
         const err = getError(res.data);
+        // 폴백 문구도 errors.* catalog 한 출처를 본다(errorText가 코드를 못 찾을 때만 도달).
         const msg = errorText(err.code, err.category) ?? {
-          INVALID_TASK_TYPE: '이 브랜치에 없는 작업 유형이에요. 유형을 다시 선택해 주세요.',
-          INVALID_STATUS: '이 브랜치에 없는 상태예요.',
-          INVALID_ASSIGNEE: '담당자가 이 브랜치의 멤버가 아니에요.',
-          NOT_BRANCH_MEMBER: '이 브랜치의 멤버가 아니에요.',
-        }[err.code] ?? '작업을 만들지 못했어요.';
+          INVALID_TASK_TYPE: t('errors.INVALID_TASK_TYPE'),
+          INVALID_STATUS: t('errors.INVALID_STATUS'),
+          INVALID_ASSIGNEE: t('errors.INVALID_ASSIGNEE'),
+          NOT_BRANCH_MEMBER: t('errors.NOT_BRANCH_MEMBER'),
+        }[err.code] ?? t('branchTasks.sprint.createTaskFailed');
         setInlineError(msg);
       }
     } catch {
-      setInlineError('작업을 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+      setInlineError(t('branchTasks.sprint.createTaskFailedRetry'));
     } finally {
       setCreating(false);
     }
@@ -157,11 +160,11 @@ export default function TaskListSprint({
       } else {
         // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약). 호출부에서 확인.
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '하위태스크를 만들지 못했어요.';
+        const msg = errorText(err.code, err.category) ?? t('branchTasks.subtasks.createFailed');
         setSubtaskError(msg);
       }
     } catch {
-      setSubtaskError('하위태스크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+      setSubtaskError(t('branchTasks.subtasks.createFailedRetry'));
     } finally {
       setSubtaskCreating(false);
     }
@@ -176,15 +179,16 @@ export default function TaskListSprint({
         window.dispatchEvent(new Event('task:updated'));
       } else {
         const err = getError(res.data);
+        // 폴백 문구도 errors.* catalog 한 출처를 본다(errorText가 코드를 못 찾을 때만 도달).
         const msg = errorText(err.code, err.category) ?? {
-          SPRINT_NOT_FUTURE: 'Only future sprints can be started.',
-          SPRINT_EMPTY: 'Cannot start a sprint with no tasks.',
-        }[err.code] ?? '스프린트를 시작하지 못했습니다.';
+          SPRINT_NOT_FUTURE: t('errors.SPRINT_NOT_FUTURE'),
+          SPRINT_EMPTY: t('errors.SPRINT_EMPTY'),
+        }[err.code] ?? t('branchTasks.sprint.startFailed');
         setStartError(msg);
         setTimeout(() => setStartError(''), 3000);
       }
     } catch {
-      setStartError('Failed to start sprint.');
+      setStartError(t('branchTasks.sprint.startFailedRetry'));
       setTimeout(() => setStartError(''), 3000);
     }
   };
@@ -197,7 +201,7 @@ export default function TaskListSprint({
     }
   };
 
-  const currentTypeConfig = (taskTypes || []).find((t) => t.type_key === inlineType);
+  const currentTypeConfig = (taskTypes || []).find((tt) => tt.type_key === inlineType);
   const taskIds = tasks.map((t) => String(t.task_id));
 
   return (
@@ -244,17 +248,17 @@ export default function TaskListSprint({
           {!isBacklog && sprint.status === 'future' && (
             <button className="TaskList__SprintStartBtn" onClick={() => setShowStartConfirm(true)}>
               <Play size={12} />
-              Start Sprint
+              {t('branchTasks.sprint.start')}
             </button>
           )}
           {!isBacklog && sprint.status === 'active' && onCompleteSprint && (
             <button className="TaskList__SprintCompleteBtn" onClick={() => onCompleteSprint(sprint)}>
               <CheckCircle size={12} />
-              Complete Sprint
+              {t('branchTasks.sprint.complete')}
             </button>
           )}
           {!isBacklog && onEditSprint && (
-            <button className="TaskList__SprintAction" onClick={onEditSprint} title="Sprint 설정">
+            <button className="TaskList__SprintAction" onClick={onEditSprint} title={t('branchTasks.sprint.settings')}>
               <Settings size={14} />
             </button>
           )}
@@ -266,7 +270,7 @@ export default function TaskListSprint({
         <div className="TaskList__SprintBody" ref={setDroppableRef}>
           <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
             {tasks.length === 0 && !showInline && (
-              <div className="TaskList__Empty">No tasks</div>
+              <div className="TaskList__Empty">{t('branchTasks.noTasks')}</div>
             )}
             {tasks.map((task) => {
               const subtasks = task.subtasks || [];
@@ -316,7 +320,7 @@ export default function TaskListSprint({
                         <input
                           className="TaskList__SubtaskAddInput"
                           type="text"
-                          placeholder="＋ 하위태스크 추가"
+                          placeholder={t('branchTasks.subtasks.addPlaceholder')}
                           value={subtaskParentId === task.task_id ? subtaskTitle : ''}
                           onFocus={() => { setSubtaskParentId(task.task_id); setSubtaskError(''); }}
                           onChange={(e) => { setSubtaskParentId(task.task_id); setSubtaskTitle(e.target.value); }}
@@ -343,7 +347,7 @@ export default function TaskListSprint({
                   type="button"
                   className="TaskList__InlineTypeBtn"
                   onClick={() => setShowTypeDropdown((prev) => !prev)}
-                  title={currentTypeConfig?.type_name || 'Task'}
+                  title={currentTypeConfig?.type_name || t('branchTasks.taskTypeFallback')}
                 >
                   <TaskTypeIcon
                     name={currentTypeConfig?.icon || 'CheckSquare'}
@@ -370,7 +374,7 @@ export default function TaskListSprint({
               <input
                 className="TaskList__InlineInput"
                 type="text"
-                placeholder="What needs to be done?"
+                placeholder={t('branchTasks.sprint.inlinePlaceholder')}
                 value={inlineTitle}
                 onChange={(e) => setInlineTitle(e.target.value)}
                 onKeyDown={handleInlineKeyDown}
@@ -397,7 +401,7 @@ export default function TaskListSprint({
               onClick={() => { setShowInline(true); setInlineError(''); }}
             >
               <Plus size={14} />
-              Create
+              {t('common.actions.create')}
             </button>
           )}
         </div>
@@ -406,9 +410,9 @@ export default function TaskListSprint({
         isOpen={showStartConfirm}
         onClose={() => setShowStartConfirm(false)}
         onConfirm={handleStartSprint}
-        title="Start Sprint"
-        message={`"${sprint.sprint_name}" 을(를) 시작하시겠습니까? 현재 ${tasks.length}개의 태스크가 있습니다.`}
-        confirmLabel="Start"
+        title={t('branchTasks.sprint.start')}
+        message={t('branchTasks.sprint.startConfirm', { name: sprint.sprint_name, count: tasks.length })}
+        confirmLabel={t('branchTasks.sprint.startAction')}
       />
     </div>
   );

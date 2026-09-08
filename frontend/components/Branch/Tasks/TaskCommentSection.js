@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import useTaskComments from '@/hooks/useTaskComments';
 import { useUiPrefs } from '@/library/UiPrefsContext';
@@ -9,10 +10,10 @@ import CommentEditor from './CommentEditor';
 // sortOrder('newest'|'oldest') → 서버 order 파라미터('desc'|'asc')
 const API_ORDER_BY_SORT = { newest: 'desc', oldest: 'asc' };
 
-// sortOrder → 정렬 토글 버튼 표시(아이콘/라벨/aria-label)
+// sortOrder → 정렬 토글 버튼 표시(아이콘/라벨/aria-label). 문구는 렌더 시 t()로 해석한다.
 const SORT_BUTTON_META = {
-  newest: { Icon: ArrowDown, label: '최신순', ariaLabel: '최신순 — 클릭하면 오래된순' },
-  oldest: { Icon: ArrowUp, label: '오래된순', ariaLabel: '오래된순 — 클릭하면 최신순' },
+  newest: { Icon: ArrowDown, labelKey: 'branchTasks.comments.sortNewest', ariaKey: 'branchTasks.comments.sortNewestAria' },
+  oldest: { Icon: ArrowUp, labelKey: 'branchTasks.comments.sortOldest', ariaKey: 'branchTasks.comments.sortOldestAria' },
 };
 
 /**
@@ -32,6 +33,7 @@ const SORT_BUTTON_META = {
 export default function TaskCommentSection({
   branchId, taskId, members, currentUserId, highlightCommentId = null,
 }) {
+  const { t } = useTranslation();
   const { prefs, loaded, setNamespace } = useUiPrefs();
   // 토글로 바꾼 값(세션 내 우선) — 초기 prefs 로드가 늦게 resolve해도 사용자 조작을 덮어쓰지 않는다
   const [override, setOverride] = useState(null);
@@ -68,8 +70,8 @@ export default function TaskCommentSection({
     if (!el) return;
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     setHighlightActive(true);
-    const t = setTimeout(() => setHighlightActive(false), 2000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setHighlightActive(false), 2000);
+    return () => clearTimeout(timer);
   }, [highlightCommentId, comments]);
 
   // 최상위 composer는 submit 후 unmount/remount로 비워진다 (답글/edit composer는 cancel로 닫히므로 영향 없음)
@@ -95,22 +97,22 @@ export default function TaskCommentSection({
   return (
     <div className="TaskCommentSection">
       <div className="TaskCommentSection__Header">
-        <span>Comments</span>
+        <span>{t('branchTasks.comments.heading')}</span>
         <button
           type="button"
           className="TaskCommentSection__SortBtn"
           onClick={toggleSort}
-          aria-label={sortButtonMeta.ariaLabel}
+          aria-label={t(sortButtonMeta.ariaKey)}
         >
           <SortIcon size={12} />
-          {sortButtonMeta.label}
+          {t(sortButtonMeta.labelKey)}
         </button>
       </div>
 
       <div className="TaskCommentSection__Composer">
         <CommentEditor
           key={composerKey}
-          placeholder="댓글을 작성하세요..."
+          placeholder={t('branchTasks.comments.composerPlaceholder')}
           branchId={branchId}
           onSubmit={handleCreateTop}
         />
@@ -118,10 +120,10 @@ export default function TaskCommentSection({
 
       <div className="TaskCommentSection__List">
         {pending && comments.length === 0 && (
-          <div className="TaskCommentSection__Empty">Loading...</div>
+          <div className="TaskCommentSection__Empty">{t('common.state.loading')}</div>
         )}
         {!pending && comments.length === 0 && (
-          <div className="TaskCommentSection__Empty">아직 댓글이 없습니다.</div>
+          <div className="TaskCommentSection__Empty">{t('branchTasks.comments.empty')}</div>
         )}
         {roots.map((root) => (
           <CommentItem

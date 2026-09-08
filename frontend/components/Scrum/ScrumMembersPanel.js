@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { UserPlus, X, Search, LogOut } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
@@ -8,9 +9,9 @@ import { showToast } from '@/components/Layout/Toast';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
-const ROLE_OPTIONS = [
-  { value: 'member', label: 'Member' },
-  { value: 'admin', label: 'Admin' },
+const roleOptions = (t) => [
+  { value: 'member', label: t('scrum.members.roleMember') },
+  { value: 'admin', label: t('scrum.members.roleAdmin') },
 ];
 
 function readMyUserId() {
@@ -31,6 +32,7 @@ function readMyUserId() {
  *  - onLeave: (선택) 보드 나간 뒤 처리. 미지정 시 router.push('/scrum')
  */
 export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,11 +108,11 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
         await afterMutation();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '초대 실패';
+        const msg = errorText(err.code, err.category) ?? t('scrum.members.inviteFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('초대 실패', 'error');
+      showToast(t('scrum.members.inviteFailed'), 'error');
     }
   };
 
@@ -122,12 +124,14 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
       if (res.data.status) await afterMutation();
       else {
         const err = getError(res.data);
-        const fallback = err.code === 'LAST_ADMIN' ? '마지막 admin은 변경할 수 없습니다' : '변경 실패';
+        const fallback = err.code === 'LAST_ADMIN'
+          ? t('scrum.members.lastAdminRoleFailed')
+          : t('scrum.members.roleChangeFailed');
         const msg = errorText(err.code, err.category) ?? fallback;
         showToast(msg, 'error');
       }
     } catch {
-      showToast('변경 실패', 'error');
+      showToast(t('scrum.members.roleChangeFailed'), 'error');
     }
   };
 
@@ -138,19 +142,21 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
         await afterMutation();
       } else {
         const err = getError(res.data);
-        const fallback = err.code === 'LAST_ADMIN' ? '마지막 admin은 제거할 수 없습니다' : '제거 실패';
+        const fallback = err.code === 'LAST_ADMIN'
+          ? t('scrum.members.lastAdminRemoveFailed')
+          : t('scrum.members.removeFailed');
         const msg = errorText(err.code, err.category) ?? fallback;
         showToast(msg, 'error');
       }
     } catch {
-      showToast('제거 실패', 'error');
+      showToast(t('scrum.members.removeFailed'), 'error');
     }
     setConfirmRemove(null);
   };
 
   const handleLeave = async () => {
     if (!myUserId) return;
-    if (!window.confirm('이 보드에서 나가시겠어요?')) return;
+    if (!window.confirm(t('scrum.members.leaveConfirm'))) return;
     try {
       const res = await axios.delete(`/scrum/${boardId}/members/${myUserId}`);
       if (res.data.status) {
@@ -159,14 +165,14 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
       } else {
         const err = getError(res.data);
         if (err.code === 'LAST_ADMIN') {
-          alert(errorText(err.code, err.category) ?? '다른 admin을 먼저 지정하세요');
+          alert(errorText(err.code, err.category) ?? t('scrum.members.assignAnotherAdmin'));
         } else {
-          const msg = errorText(err.code, err.category) ?? '나가기 실패';
+          const msg = errorText(err.code, err.category) ?? t('sidebar.leaveFailed');
           showToast(msg, 'error');
         }
       }
     } catch {
-      showToast('나가기 실패', 'error');
+      showToast(t('sidebar.leaveFailed'), 'error');
     }
   };
 
@@ -184,7 +190,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
               onClick={() => setShowInvite((v) => !v)}
             >
               <UserPlus size={14} />
-              멤버 초대
+              {t('scrum.members.invite')}
             </button>
 
             {showInvite && (
@@ -193,7 +199,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                   <Search size={14} className="ScrumMembers__SearchIcon" />
                   <input
                     className="ScrumMembers__SearchInput"
-                    placeholder="이름 또는 이메일로 검색…"
+                    placeholder={t('scrum.members.searchPlaceholder')}
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
                     autoFocus
@@ -201,10 +207,10 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                 </div>
                 <div className="ScrumMembers__SearchResults">
                   {searching && (
-                    <div className="ScrumMembers__SearchEmpty">검색 중…</div>
+                    <div className="ScrumMembers__SearchEmpty">{t('scrum.members.searching')}</div>
                   )}
                   {!searching && searchQuery && searchResults.length === 0 && (
-                    <div className="ScrumMembers__SearchEmpty">결과 없음</div>
+                    <div className="ScrumMembers__SearchEmpty">{t('scrum.members.noResults')}</div>
                   )}
                   {searchResults.map((u) => (
                     <button
@@ -228,7 +234,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
         )}
 
         {loading ? (
-          <div className="ScrumMembers__Loading">불러오는 중…</div>
+          <div className="ScrumMembers__Loading">{t('common.state.loading')}</div>
         ) : (
           <div className="ScrumMembers__List">
             {members.map((member) => {
@@ -242,7 +248,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                   <div className="ScrumMembers__Info">
                     <span className="ScrumMembers__Name">
                       <span className="ScrumMembers__NameText">{member.username}</span>
-                      {isSelf && <em className="ScrumMembers__You">나</em>}
+                      {isSelf && <em className="ScrumMembers__You">{t('scrum.you')}</em>}
                     </span>
                     <span className="ScrumMembers__Email">{member.email}</span>
                   </div>
@@ -250,14 +256,14 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                     {canManage ? (
                       <CustomSelect
                         value={member.role}
-                        options={ROLE_OPTIONS}
+                        options={roleOptions(t)}
                         onChange={(val) => handleRoleChange(member.user_id, val)}
                         size="sm"
                       />
                     ) : (
                       <span
                         className="ScrumMembers__RoleBadge"
-                        title={isLastAdminRow ? '마지막 admin은 변경 불가' : ''}
+                        title={isLastAdminRow ? t('scrum.members.lastAdminRoleLocked') : ''}
                       >
                         {member.role}
                       </span>
@@ -273,14 +279,14 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                               className="ScrumMembers__ConfirmYes"
                               onClick={() => handleRemove(member.user_id)}
                             >
-                              제거
+                              {t('common.actions.remove')}
                             </button>
                             <button
                               type="button"
                               className="ScrumMembers__ConfirmNo"
                               onClick={() => setConfirmRemove(null)}
                             >
-                              취소
+                              {t('common.actions.cancel')}
                             </button>
                           </span>
                         ) : (
@@ -291,7 +297,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                               user_id: member.user_id,
                               username: member.username,
                             })}
-                            title="멤버 제거"
+                            title={t('scrum.members.removeTitle')}
                           >
                             <X size={14} />
                           </button>
@@ -314,7 +320,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
             onClick={handleLeave}
           >
             <LogOut size={14} />
-            보드 나가기
+            {t('scrum.members.leaveBoard')}
           </button>
         </footer>
       )}

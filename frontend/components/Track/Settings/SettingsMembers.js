@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { UserPlus, X, Search, LogOut } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
@@ -9,11 +10,7 @@ import { showToast } from '@/components/Layout/Toast';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
-const ROLE_OPTIONS = [
-  { value: 'viewer', label: 'Viewer' },
-  { value: 'editor', label: 'Editor' },
-  { value: 'owner', label: 'Owner' },
-];
+const ROLE_VALUES = ['viewer', 'editor', 'owner'];
 
 function readMyUserId() {
   try {
@@ -24,6 +21,7 @@ function readMyUserId() {
 
 export default function SettingsMembers({ trackId, isOwner }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
@@ -37,6 +35,11 @@ export default function SettingsMembers({ trackId, isOwner }) {
   const inviteRef = useRef(null);
 
   const myUserId = readMyUserId();
+
+  const roleOptions = useMemo(
+    () => ROLE_VALUES.map((value) => ({ value, label: t(`trackSettings.members.roles.${value}`) })),
+    [t],
+  );
 
   const fetchMembers = useCallback(async () => {
     if (!trackId) return;
@@ -92,11 +95,11 @@ export default function SettingsMembers({ trackId, isOwner }) {
         setSearchResults((prev) => prev.filter((u) => u.user_id !== userId));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '초대 실패';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.members.inviteFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('초대 실패', 'error');
+      showToast(t('trackSettings.members.inviteFailed'), 'error');
     }
   };
 
@@ -108,11 +111,11 @@ export default function SettingsMembers({ trackId, isOwner }) {
       if (res.data.status) fetchMembers();
       else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '마지막 owner는 강등할 수 없습니다';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.members.lastOwnerDemoteFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('변경 실패', 'error');
+      showToast(t('trackSettings.members.roleChangeFailed'), 'error');
     }
   };
 
@@ -123,11 +126,11 @@ export default function SettingsMembers({ trackId, isOwner }) {
         fetchMembers();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '마지막 owner는 제거할 수 없습니다';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.members.lastOwnerRemoveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('제거 실패', 'error');
+      showToast(t('trackSettings.members.removeFailed'), 'error');
     }
     setConfirmRemove(null);
   };
@@ -141,11 +144,11 @@ export default function SettingsMembers({ trackId, isOwner }) {
         router.replace('/tracks');
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '마지막 owner는 Track을 나갈 수 없습니다. 다른 owner를 먼저 지정하세요.';
+        const msg = errorText(err.code, err.category) ?? t('trackSettings.members.lastOwnerLeaveFailed');
         showToast(msg, 'error');
       }
     } catch {
-      showToast('나가기 실패', 'error');
+      showToast(t('sidebar.leaveFailed'), 'error');
     }
   };
 
@@ -164,7 +167,7 @@ export default function SettingsMembers({ trackId, isOwner }) {
             onClick={() => setShowInvite((v) => !v)}
           >
             <UserPlus size={14} />
-            Invite Member
+            {t('trackSettings.members.inviteMember')}
           </button>
 
           {showInvite && (
@@ -173,7 +176,7 @@ export default function SettingsMembers({ trackId, isOwner }) {
                 <Search size={14} className="SettingsMembers__SearchIcon" />
                 <input
                   className="SettingsMembers__SearchInput"
-                  placeholder="Search by name or email..."
+                  placeholder={t('trackSettings.members.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   autoFocus
@@ -181,10 +184,10 @@ export default function SettingsMembers({ trackId, isOwner }) {
               </div>
               <div className="SettingsMembers__SearchResults">
                 {searching && (
-                  <div className="SettingsMembers__SearchEmpty">Searching…</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('trackSettings.members.searching')}</div>
                 )}
                 {!searching && searchQuery && searchResults.length === 0 && (
-                  <div className="SettingsMembers__SearchEmpty">No users found</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('trackSettings.members.noUsersFound')}</div>
                 )}
                 {searchResults.map((user) => (
                   <button
@@ -207,9 +210,9 @@ export default function SettingsMembers({ trackId, isOwner }) {
 
       <div className="SettingsMembers__Table">
         <div className="SettingsMembers__TableHeader">
-          <span className="SettingsMembers__Col SettingsMembers__Col--name">Name</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--email">Email</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--role">Role</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--name">{t('trackSettings.members.colName')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--email">{t('trackSettings.members.colEmail')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--role">{t('trackSettings.members.colRole')}</span>
           {isOwner && <span className="SettingsMembers__Col SettingsMembers__Col--action" />}
         </div>
         {members.map((member) => {
@@ -222,7 +225,7 @@ export default function SettingsMembers({ trackId, isOwner }) {
               <span className="SettingsMembers__Col SettingsMembers__Col--name">
                 <Avatar user={member} size={28} />
                 {member.username}
-                {isSelf && <em className="SettingsMembers__YouBadge">you</em>}
+                {isSelf && <em className="SettingsMembers__YouBadge">{t('trackSettings.members.you')}</em>}
               </span>
               <span className="SettingsMembers__Col SettingsMembers__Col--email">
                 {member.email}
@@ -231,14 +234,14 @@ export default function SettingsMembers({ trackId, isOwner }) {
                 {canManage ? (
                   <CustomSelect
                     value={member.role}
-                    options={ROLE_OPTIONS}
+                    options={roleOptions}
                     onChange={(val) => handleRoleChange(member.user_id, val)}
                     size="sm"
                   />
                 ) : (
                   <span
                     className="SettingsMembers__RoleBadge"
-                    title={isLastOwnerRow ? '마지막 owner는 변경 불가' : ''}
+                    title={isLastOwnerRow ? t('trackSettings.members.lastOwnerLocked') : ''}
                   >
                     {member.role}
                   </span>
@@ -253,7 +256,7 @@ export default function SettingsMembers({ trackId, isOwner }) {
                         user_id: member.user_id,
                         username: member.username,
                       })}
-                      title="Remove member"
+                      title={t('trackSettings.members.removeMember')}
                     >
                       <X size={14} />
                     </button>
@@ -273,10 +276,10 @@ export default function SettingsMembers({ trackId, isOwner }) {
             className="SettingsMembers__LeaveBtn"
             onClick={() => setShowLeaveConfirm(true)}
             disabled={isLastOwnerSelf}
-            title={isLastOwnerSelf ? '다른 owner를 먼저 지정하세요' : ''}
+            title={isLastOwnerSelf ? t('trackSettings.members.assignAnotherOwnerFirst') : ''}
           >
             <LogOut size={14} />
-            Leave Track
+            {t('sidebar.leaveTrackTitle')}
           </button>
         </div>
       )}
@@ -285,9 +288,9 @@ export default function SettingsMembers({ trackId, isOwner }) {
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
         onConfirm={handleLeave}
-        title="Leave Track"
-        message="이 Track에서 나가시겠어요? 다시 추가되려면 owner에게 초대를 받아야 합니다."
-        confirmLabel="Leave"
+        title={t('sidebar.leaveTrackTitle')}
+        message={t('trackSettings.members.leaveConfirm')}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
 
@@ -295,9 +298,9 @@ export default function SettingsMembers({ trackId, isOwner }) {
         isOpen={!!confirmRemove}
         onClose={() => setConfirmRemove(null)}
         onConfirm={() => confirmRemove && handleRemove(confirmRemove.user_id)}
-        title="Remove member"
-        message={confirmRemove ? `${confirmRemove.username}을(를) Track에서 제거할까요?` : ''}
-        confirmLabel="Remove"
+        title={t('trackSettings.members.removeMember')}
+        message={confirmRemove ? t('trackSettings.members.removeConfirm', { name: confirmRemove.username }) : ''}
+        confirmLabel={t('common.actions.remove')}
         variant="danger"
       />
     </div>

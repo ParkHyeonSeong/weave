@@ -1,5 +1,6 @@
 // TaskDescriptionEditor 확장 배열의 단일 진실원 (headless 소비: md 코덱·스키마 스윕)
 import { Extension } from '@tiptap/core';
+import i18next from '@/library/i18n';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
@@ -26,7 +27,8 @@ const baseExtensions = [
     link: false, // WeaveLink로 별도 등록(WEAVE-37 inclusive 분리) — StarterKit 번들 Link와 중복 방지
   }),
   WeaveLink.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' } }),
-  Placeholder.configure({ placeholder: 'Add description...' }),
+  // 함수형 placeholder: 렌더 시점에 현재 언어로 푼다(모듈 상수 배열이라 import 시점 t()는 안 된다)
+  Placeholder.configure({ placeholder: () => i18next.t('branchTasks.detail.addDescription') }),
   CodeBlockLowlight.configure({ lowlight }),
   Highlight.configure({ multicolor: true }),
   ...checklistExtensions({ nested: true }),

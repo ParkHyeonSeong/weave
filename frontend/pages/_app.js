@@ -15,6 +15,13 @@ import ErrorBoundary from '@/components/Layout/ErrorBoundary';
 import Toast from '@/components/Layout/Toast';
 import { UiPrefsProvider } from '@/library/UiPrefsContext';
 import { ThemeProvider, ThemeServerSync } from '@/library/theme';
+import { LocaleProvider, LocaleServerSync } from '@/library/locale';
+import LocaleGate from '@/components/common/LocaleGate';
+import {
+  WorkspaceSettingsProvider,
+  fetchWorkspaceSettings,
+  readWorkspaceSettings,
+} from '@/library/workspaceSettings';
 import LightboxProvider from '@/components/common/LightboxProvider';
 import "@/styles/_themes.scss";
 import "@/styles/globals.scss";
@@ -63,6 +70,7 @@ import "@/styles/components/common/labelTagInput.scss";
 import "@/styles/components/common/multiSelect.scss";
 import "@/styles/components/common/entityAppearance.scss";
 import "@/styles/components/common/avatar.scss";
+import "@/styles/components/common/languageRegion.scss";
 import "@/styles/components/common/context-menu.scss";
 import "@/styles/components/common/rawMarkdownEditor.scss";
 import "@/styles/components/branch/branchSettings.scss";
@@ -129,15 +137,12 @@ export default function App({ Component, pageProps }) {
   const checkAppState = async () => {
     setAppReady(false);
 
-    // 초기화 여부: sessionStorage 캐시 우선, 없을 때만 API 호출
-    let initialized = sessionStorage.getItem('app_initialized') === 'true';
+    // 초기화 여부: 워크스페이스 설정 공유 캐시 우선, 없을 때만 API 호출.
+    // (workspaceSettings가 응답 전체를 캐시하므로 Header·Scrum이 같은 값을 재조회하지 않는다.)
+    let initialized = !!readWorkspaceSettings()?.initialized;
     if (!initialized) {
       try {
-        const res = await axios.get('/setup/status');
-        initialized = res.data.initialized;
-        if (initialized) {
-          sessionStorage.setItem('app_initialized', 'true');
-        }
+        initialized = (await fetchWorkspaceSettings()).initialized;
       } catch {
         // API 실패 시: 프로필 캐시 없으면 로그인으로
         if (!sessionStorage.getItem('profile') && router.pathname !== '/auth/login') {
@@ -222,23 +227,33 @@ export default function App({ Component, pageProps }) {
   // 레이아웃·prefs 조회 판정 단일 소스 — fetch는 인증 상태 단독 기준 (경로 항 금지 — 위 (b)).
   const { needsLayout, prefsFetchEnabled } = appShellFlags(router.pathname, hasSession);
 
-  // ThemeProvider는 appReady 게이트 밖 — 게이트가 라우트마다 트리를 리셋해도 테마 상태·리스너는 상주.
+  // ThemeProvider·LocaleProvider는 appReady 게이트 "밖" — 게이트가 라우트마다 트리를
+  // 리셋해도 테마·언어 상태와 리스너는 상주한다. LocaleProvider가 밖에 있어야 로그인/설치
+  // 화면에도 선택한 언어가 적용된다.
   return (
     <ThemeProvider>
-      {appReady && (
-        <ErrorBoundary>
-          <LightboxProvider>
-            {/* key: fetch 가능성 경계에서 Provider 리마운트 → 로그인/계정 전환 시 prefs 재조회 */}
-            <UiPrefsProvider key={prefsFetchEnabled ? 'auth' : 'anon'} fetchEnabled={prefsFetchEnabled}>
-              <ThemeServerSync />
-              {needsLayout
-                ? <Layout><Component {...pageProps} /></Layout>
-                : <Component {...pageProps} />}
-            </UiPrefsProvider>
-            <Toast />
-          </LightboxProvider>
-        </ErrorBoundary>
-      )}
+      <LocaleProvider>
+        <WorkspaceSettingsProvider>
+          {appReady && (
+            <ErrorBoundary>
+              <LightboxProvider>
+                {/* key: fetch 가능성 경계에서 Provider 리마운트 → 로그인/계정 전환 시 prefs 재조회 */}
+                <UiPrefsProvider key={prefsFetchEnabled ? 'auth' : 'anon'} fetchEnabled={prefsFetchEnabled}>
+                  <ThemeServerSync />
+                  {/* 서버 스냅샷 → LocaleProvider 브리지. 첫 선택 화면은 loadStatus가 필요해
+                      UiPrefsProvider 안에 있어야 한다(Provider 경계를 위해 인증 구조를 바꾸지 않는다). */}
+                  <LocaleServerSync />
+                  <LocaleGate />
+                  {needsLayout
+                    ? <Layout><Component {...pageProps} /></Layout>
+                    : <Component {...pageProps} />}
+                </UiPrefsProvider>
+                <Toast />
+              </LightboxProvider>
+            </ErrorBoundary>
+          )}
+        </WorkspaceSettingsProvider>
+      </LocaleProvider>
     </ThemeProvider>
   );
 }

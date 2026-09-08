@@ -1,4 +1,5 @@
 import { Search, ArrowUpDown, SlidersHorizontal, LayoutGrid, List, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import HomeMenu from './HomeMenu';
 import { countActiveFilters, resetFilters } from '@/library/homeListControls';
 
@@ -7,7 +8,7 @@ export default function HomeToolbar({
   count,
   query,
   onQuery = () => {},
-  placeholder = '검색…',
+  placeholder,
   sortOptions = null,
   sortKey = null,
   onSortKey = () => {},
@@ -17,6 +18,8 @@ export default function HomeToolbar({
   view = 'grid',
   onView = () => {},
 }) {
+  const { t } = useTranslation();
+  const searchPlaceholder = placeholder ?? t('home.toolbar.searchPlaceholder');
   const currentSort = sortOptions ? (sortOptions.find((o) => o.key === sortKey) || sortOptions[0]) : null;
   const activeCount = filterConfig ? countActiveFilters(filters, filterConfig) : 0;
 
@@ -28,8 +31,8 @@ export default function HomeToolbar({
         <input
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder={placeholder}
-          aria-label={placeholder}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
         />
       </div>
 
@@ -61,7 +64,7 @@ export default function HomeToolbar({
         <HomeMenu
           className="HPill"
           align="right"
-          label={<><SlidersHorizontal size={13} />필터</>}
+          label={<><SlidersHorizontal size={13} />{t('home.toolbar.filter')}</>}
           badge={activeCount || null}
         >
           {(close) => (
@@ -92,7 +95,7 @@ export default function HomeToolbar({
                     checked={!!filters.showHidden}
                     onChange={(e) => onFilters({ ...filters, showHidden: e.target.checked })}
                   />
-                  숨김 항목 표시
+                  {t('home.toolbar.showHidden')}
                 </label>
               )}
               <button
@@ -100,7 +103,7 @@ export default function HomeToolbar({
                 className="HomeMenu__Reset"
                 onClick={() => { onFilters(resetFilters(filterConfig)); close(); }}
               >
-                필터 초기화
+                {t('home.toolbar.resetFilters')}
               </button>
             </div>
           )}
@@ -111,14 +114,14 @@ export default function HomeToolbar({
         <button
           className={view === 'grid' ? 'is-on' : ''}
           onClick={() => onView('grid')}
-          aria-label="그리드 보기"
+          aria-label={t('home.toolbar.gridView')}
         >
           <LayoutGrid size={14} />
         </button>
         <button
           className={view === 'list' ? 'is-on' : ''}
           onClick={() => onView('list')}
-          aria-label="리스트 보기"
+          aria-label={t('home.toolbar.listView')}
         >
           <List size={14} />
         </button>

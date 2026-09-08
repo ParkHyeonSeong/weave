@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { Settings, Users } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import SettingsGeneral from './SettingsGeneral';
@@ -7,11 +8,12 @@ import SettingsMembers from './SettingsMembers';
 import EntityIcon from '@/components/common/EntityIcon';
 
 const SUB_TABS = [
-  { key: 'general', label: 'General', icon: Settings },
-  { key: 'members', label: 'Members', icon: Users },
+  { key: 'general', labelKey: 'canvasExt.settings.tabGeneral', icon: Settings },
+  { key: 'members', labelKey: 'canvasExt.settings.tabMembers', icon: Users },
 ];
 
 export default function CanvasSettings() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { canvasId } = router.query;
   const [canvas, setCanvas] = useState(null);
@@ -49,14 +51,14 @@ export default function CanvasSettings() {
       </div>
 
       <div className="CanvasSettings__SubTabs">
-        {SUB_TABS.map(({ key, label, icon: Icon }) => (
+        {SUB_TABS.map(({ key, labelKey, icon: Icon }) => (
           <button
             key={key}
             className={`CanvasSettings__SubTab ${activeSubTab === key ? 'CanvasSettings__SubTab--active' : ''}`}
             onClick={() => setActiveSubTab(key)}
           >
             <Icon size={14} />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </div>

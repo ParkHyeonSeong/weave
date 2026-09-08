@@ -1,17 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { UserPlus, X, Search, LogOut } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import Avatar from '@/components/common/Avatar';
 
-const roleOptions = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'member', label: 'Member' },
+const ROLE_OPTION_KEYS = [
+  { value: 'admin', labelKey: 'canvasExt.members.roleAdmin' },
+  { value: 'member', labelKey: 'canvasExt.members.roleMember' },
 ];
 
 export default function SettingsMembers({ canvasId, isAdmin }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,7 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
   };
 
   const isLastAdmin = isAdmin && members.filter((m) => m.role === 'admin').length <= 1;
+  const roleOptions = ROLE_OPTION_KEYS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }));
 
   if (loading) return null;
 
@@ -121,7 +124,7 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
             onClick={() => setShowInvite(!showInvite)}
           >
             <UserPlus size={14} />
-            Invite Member
+            {t('canvasExt.members.invite')}
           </button>
 
           {showInvite && (
@@ -130,7 +133,7 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
                 <Search size={14} className="SettingsMembers__SearchIcon" />
                 <input
                   className="SettingsMembers__SearchInput"
-                  placeholder="Search by name or email..."
+                  placeholder={t('canvasExt.members.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   autoFocus
@@ -138,10 +141,10 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
               </div>
               <div className="SettingsMembers__SearchResults">
                 {searching && (
-                  <div className="SettingsMembers__SearchEmpty">Searching...</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('canvasExt.searching')}</div>
                 )}
                 {!searching && searchQuery && searchResults.length === 0 && (
-                  <div className="SettingsMembers__SearchEmpty">No users found</div>
+                  <div className="SettingsMembers__SearchEmpty">{t('canvasExt.members.noUsers')}</div>
                 )}
                 {searchResults.map((user) => (
                   <button
@@ -165,9 +168,9 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
       {/* 멤버 테이블 */}
       <div className="SettingsMembers__Table">
         <div className="SettingsMembers__TableHeader">
-          <span className="SettingsMembers__Col SettingsMembers__Col--name">Name</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--email">Email</span>
-          <span className="SettingsMembers__Col SettingsMembers__Col--role">Role</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--name">{t('canvasExt.members.colName')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--email">{t('canvasExt.members.colEmail')}</span>
+          <span className="SettingsMembers__Col SettingsMembers__Col--role">{t('canvasExt.members.colRole')}</span>
           {isAdmin && <span className="SettingsMembers__Col SettingsMembers__Col--action" />}
         </div>
         {members.map((member) => (
@@ -196,7 +199,7 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
                 <button
                   className="SettingsMembers__RemoveBtn"
                   onClick={() => handleRemove(member.user_id)}
-                  title="Remove member"
+                  title={t('canvasExt.members.removeMember')}
                 >
                   <X size={14} />
                 </button>
@@ -212,10 +215,10 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
           className="SettingsMembers__LeaveBtn"
           onClick={() => setShowLeaveConfirm(true)}
           disabled={isLastAdmin}
-          title={isLastAdmin ? '마지막 관리자는 나갈 수 없습니다' : ''}
+          title={isLastAdmin ? t('canvasExt.members.lastAdminTooltip') : ''}
         >
           <LogOut size={14} />
-          Leave Canvas
+          {t('sidebar.leaveCanvasTitle')}
         </button>
       </div>
 
@@ -223,9 +226,9 @@ export default function SettingsMembers({ canvasId, isAdmin }) {
         isOpen={showLeaveConfirm}
         onClose={() => setShowLeaveConfirm(false)}
         onConfirm={handleLeave}
-        title="Leave Canvas"
-        message="이 캔버스에서 나가시겠습니까?"
-        confirmLabel="Leave"
+        title={t('sidebar.leaveCanvasTitle')}
+        message={t('canvasExt.members.leaveConfirm')}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </div>

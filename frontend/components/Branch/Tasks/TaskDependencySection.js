@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 
 const STATUS_COLORS = {
@@ -8,6 +9,7 @@ const STATUS_COLORS = {
 };
 
 export default function TaskDependencySection({ branchId, taskId, onSelectTask }) {
+  const { t } = useTranslation();
   const [deps, setDeps] = useState([]);
 
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function TaskDependencySection({ branchId, taskId, onSelectTask }
 
   return (
     <div className="TaskDependencySection">
-      <div className="TaskDependencySection__Title">Dependencies</div>
+      <div className="TaskDependencySection__Title">{t('branchTasks.dependencies.title')}</div>
       <div className="TaskDependencySection__List">
         {deps.map((dep) => (
           <button

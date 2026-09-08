@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Paperclip, File as FileIcon, Send, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { showToast } from '@/components/Layout/Toast';
@@ -23,19 +24,19 @@ const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
 const MAX_FILES = 10;
 
 // 백엔드 업로드 실패 코드 → 사용자 안내 메시지 (채팅은 이미지+문서 첨부)
-function uploadErrorMessage(code) {
+function uploadErrorMessage(t, code) {
   switch (code) {
     case 'FILE_TOO_LARGE':
-      return `파일이 ${MAX_FILE_SIZE_MB}MB를 초과해 첨부할 수 없습니다.`;
+      return t('messenger.composer.fileTooLarge', { size: MAX_FILE_SIZE_MB });
     case 'INVALID_FILE_TYPE':
     case 'INVALID_FILE_CONTENT':
-      return '지원하지 않는 파일 형식입니다.';
+      return t('messenger.composer.unsupportedFileType');
     case 'NOT_A_MEMBER':
-      return '파일을 업로드할 권한이 없습니다.';
+      return t('messenger.composer.uploadForbidden');
     case 'NO_FILE':
-      return '첨부할 파일을 찾을 수 없습니다.';
+      return t('messenger.composer.noFile');
     default:
-      return '파일 업로드에 실패했습니다.';
+      return t('messenger.composer.uploadFailed');
   }
 }
 
@@ -48,6 +49,7 @@ const MessengerComposer = forwardRef(function MessengerComposer(
   { roomId = null, members, disabled = false, onSubmit, selfDrop = false },
   ref
 ) {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [attachedTask, setAttachedTask] = useState(null);
   const [attachedDoc, setAttachedDoc] = useState(null);
@@ -88,11 +90,11 @@ const MessengerComposer = forwardRef(function MessengerComposer(
   const uploadFile = async (file) => {
     const ext = getFileExtension(file.name);
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      showToast(uploadErrorMessage('INVALID_FILE_TYPE'), 'error');
+      showToast(uploadErrorMessage(t, 'INVALID_FILE_TYPE'), 'error');
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      showToast(uploadErrorMessage('FILE_TOO_LARGE'), 'error');
+      showToast(uploadErrorMessage(t, 'FILE_TOO_LARGE'), 'error');
       return;
     }
 
@@ -144,12 +146,12 @@ const MessengerComposer = forwardRef(function MessengerComposer(
         } : f));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '파일 업로드에 실패했습니다.';
+        const msg = errorText(err.code, err.category) ?? t('messenger.composer.uploadFailed');
         showToast(msg, 'error');
         setPendingFiles((prev) => prev.filter((f) => f.id !== tempId));
       }
     } catch {
-      showToast(uploadErrorMessage(), 'error');
+      showToast(uploadErrorMessage(t), 'error');
       setPendingFiles((prev) => prev.filter((f) => f.id !== tempId));
     }
   };
@@ -422,7 +424,7 @@ const MessengerComposer = forwardRef(function MessengerComposer(
       {/* 드래그 오버레이 */}
       {selfDrop && isDragOver && (
         <div className="MessengerChatRoom__DragOverlay">
-          <span>Drop files to attach</span>
+          <span>{t('messenger.dropFiles')}</span>
         </div>
       )}
       {showSlashMenu && filteredSlashCommands.length > 0 && (
@@ -525,13 +527,13 @@ const MessengerComposer = forwardRef(function MessengerComposer(
         className="MessengerChatRoom__AttachBtn"
         onClick={() => fileInputRef.current?.click()}
         disabled={disabled || sending}
-        title="Attach files"
+        title={t('messenger.composer.attachFiles')}
       >
         <Paperclip size={16} />
       </button>
       <div className={`MessengerChatRoom__InputWrap ${codeMode ? 'MessengerChatRoom__InputWrap--code' : ''}`}>
         {codeMode && (
-          <div className="MessengerChatRoom__CodeLabel">Code</div>
+          <div className="MessengerChatRoom__CodeLabel">{t('messenger.composer.codeLabel')}</div>
         )}
         <textarea
           ref={textareaRef}
@@ -540,7 +542,7 @@ const MessengerComposer = forwardRef(function MessengerComposer(
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           disabled={disabled}
-          placeholder={codeMode ? 'Enter code... (close with ``` to send)' : 'Type a message... (/ for commands)'}
+          placeholder={codeMode ? t('messenger.composer.codePlaceholder') : t('messenger.composer.messagePlaceholder')}
           className={`MessengerChatRoom__InputField ${codeMode ? 'MessengerChatRoom__InputField--code' : ''}`}
           rows={1}
         />

@@ -1,3 +1,4 @@
+import i18next from '@/library/i18n';
 import { useEffect } from 'react';
 import { axios } from '@/library/_axios';
 import { attachRefChipAuxNav } from '@/library/refUrl';
@@ -168,21 +169,30 @@ function setBadge(el, { category, label, color }) {
   el.appendChild(badge);
 }
 
-const ISSUE_LABELS = { open: 'Open', closed: 'Closed' };
+// 이슈 상태 라벨은 에디터 노드뷰(extensions/IssueRefExtension.js)와 같은 catalog 키를 쓴다 —
+// 읽기 경로와 편집 경로가 같은 언어로 보여야 한다. React 밖이라 i18next 인스턴스를 직접 읽는다.
+const issueLabel = (status) => {
+  const key = `canvasExt.issueStatus.${status}`;
+  return i18next.exists(key) ? i18next.t(key) : status;
+};
 
-const DELETED_ITEM_TITLE = '삭제된 항목';
-const DELETED_DOC_TITLE = '삭제되었거나 보관된 문서';
-const GONE_USER_TITLE = '탈퇴했거나 비활성화된 사용자';
-const UNRESOLVED_TITLES = new Set([DELETED_ITEM_TITLE, DELETED_DOC_TITLE, GONE_USER_TITLE]);
+// 미해석 칩 툴팁 카탈로그 키 — 문구는 현재 언어로 풀고, 우리가 쓴 title임은 data 속성으로 표시한다
+// (언어가 바뀌어도 '우리 것만 제거' 판정이 문자열 비교에 묶이지 않게).
+const DELETED_ITEM_TITLE = 'canvasExt.refChip.deletedItem';
+const DELETED_DOC_TITLE = 'canvasExt.refChip.deletedDoc';
+const GONE_USER_TITLE = 'canvasExt.refChip.goneUser';
+const UNRESOLVED_TITLE_ATTR = 'data-ref-unresolved-title';
 
 // 삭제 확정 칩 표기 토글. 캐시 만료 후 재해석에서 다시 살아나면 표기를 걷는다
 // (title은 우리가 쓴 것만 제거 — doc 칩의 경로 툴팁 등은 보존).
-function setUnresolved(el, unresolved, tooltip) {
+function setUnresolved(el, unresolved, tooltipKey) {
   el.classList.toggle('ref-chip--unresolved', unresolved);
   if (unresolved) {
-    el.title = tooltip;
-  } else if (UNRESOLVED_TITLES.has(el.title)) {
+    el.title = i18next.t(tooltipKey);
+    el.setAttribute(UNRESOLVED_TITLE_ATTR, 'true');
+  } else if (el.hasAttribute(UNRESOLVED_TITLE_ATTR)) {
     el.removeAttribute('title');
+    el.removeAttribute(UNRESOLVED_TITLE_ATTR);
   }
 }
 
@@ -224,7 +234,7 @@ async function applyToDom(root, { tasks, issues, pages, users }) {
     setChipText(el, `${displayId} ${info.title}`);
     el.setAttribute('data-title', info.title);
     el.setAttribute('data-status', info.status);
-    setBadge(el, { category: info.status, label: ISSUE_LABELS[info.status] || info.status, color: null });
+    setBadge(el, { category: info.status, label: issueLabel(info.status), color: null });
   });
   root.querySelectorAll('[data-doc-ref]').forEach((el) => {
     const info = pages[el.getAttribute('data-page-id')];
@@ -359,6 +369,6 @@ export function applyFallbackBadges(root) {
   });
   root.querySelectorAll('[data-issue-ref]').forEach((el) => {
     const status = el.getAttribute('data-status') || 'open';
-    setBadge(el, { category: status, label: ISSUE_LABELS[status] || status, color: null });
+    setBadge(el, { category: status, label: issueLabel(status), color: null });
   });
 }

@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import { errorText } from '@/library/errorText';
+import i18next from '@/library/i18n';
 
 // 다크모드 테마 결정 로직 단일 소스 — 부트스트랩(public/theme-boot.js)·런타임(ThemeProvider)이 공유.
 //
@@ -191,10 +192,12 @@ export function ThemeServerSync() {
 // S10 — 사용자 설정 진입점. Profile 라디오·Header 토글은 전부 이 훅을 쓴다.
 // ---------------------------------------------------------------------------
 
+// label/hint는 catalog 키다 — 렌더 시점에 현재 locale로 푼다(AppearanceSection).
+// value('light'|'dark'|'system')는 저장 값이므로 절대 번역하지 않는다.
 export const THEME_OPTIONS = Object.freeze([
-  Object.freeze({ value: 'light',  label: 'Light',  hint: '항상 밝은 테마' }),
-  Object.freeze({ value: 'dark',   label: 'Dark',   hint: '항상 어두운 테마' }),
-  Object.freeze({ value: 'system', label: 'System', hint: '기기 설정을 따름' }),
+  Object.freeze({ value: 'light',  labelKey: 'theme.light',  hintKey: 'theme.lightHint' }),
+  Object.freeze({ value: 'dark',   labelKey: 'theme.dark',   hintKey: 'theme.darkHint' }),
+  Object.freeze({ value: 'system', labelKey: 'theme.system', hintKey: 'theme.systemHint' }),
 ]);
 
 const CYCLE = { light: 'dark', dark: 'system', system: 'light' };
@@ -217,7 +220,7 @@ export function nextCycleMode(current) {
 //
 // enabled: UI는 공개 플래그 뒤에서만 렌더한다. 킬스위치가 켜지면 화면이 light로 강제되므로
 // 설정 UI도 함께 감춘다 — 고른 값과 보이는 값이 다르면 사용자는 앱이 고장났다고 읽는다.
-const SAVE_FAILED_TEXT = '테마 설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+
 
 export function useThemePreference() {
   const { mode, resolved, setMode, systemEnabled, killSwitch } = useTheme();
@@ -236,7 +239,7 @@ export function useThemePreference() {
     try {
       await setNamespaceChecked('theme', want);
     } catch (e) {
-      setError(errorText(e?.code, e?.category) || SAVE_FAILED_TEXT);
+      setError(errorText(e?.code, e?.category) || i18next.t('theme.saveFailed'));
     } finally {
       setPending(false);
     }

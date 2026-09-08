@@ -135,7 +135,7 @@ async def test_home_stats_excludes_subtasks(db_session):
     await _make_task(db_session, bid, owner, status="todo", due_date=this_week,
                      parent_task_id=parent)
 
-    stats = await branch_model.home_stats(owner, db_session)
+    stats = await branch_model.home_stats(owner, date.today(), db_session)
     assert stats["open_count"] == 1             # only the top-level todo parent
     assert stats["in_progress_count"] == 0      # subtask in_progress excluded
     assert stats["due_this_week_count"] == 1    # only the parent's due date counts

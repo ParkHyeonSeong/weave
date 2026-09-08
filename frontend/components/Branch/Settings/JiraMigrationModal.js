@@ -3,10 +3,12 @@ import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import { X, Upload, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const STEPS = ['upload', 'mapping', 'result'];
 
 export default function JiraMigrationModal({ branchId, onClose }) {
+  const { t } = useTranslation();
   const [step, setStep] = useState('upload');
   const fileRef = useRef(null);
 
@@ -43,7 +45,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
     if (!file) return;
 
     if (!file.name.toLowerCase().endsWith('.csv')) {
-      setUploadError('CSV 파일만 업로드할 수 있습니다.');
+      setUploadError(t('branch.jira.csvOnly'));
       return;
     }
 
@@ -67,11 +69,11 @@ export default function JiraMigrationModal({ branchId, onClose }) {
         setStep('mapping');
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? (err.code === 'CSV_PARSE_ERROR' ? 'CSV 파일을 파싱할 수 없습니다. Jira에서 내보낸 CSV인지 확인해주세요.' : 'CSV 업로드에 실패했습니다.');
+        const msg = errorText(err.code, err.category) ?? (err.code === 'CSV_PARSE_ERROR' ? t('branch.jira.csvParseFailed') : t('branch.jira.uploadFailed'));
         setUploadError(msg);
       }
     } catch {
-      setUploadError('업로드 중 오류가 발생했습니다.');
+      setUploadError(t('branch.jira.uploadError'));
     }
     setUploading(false);
   };
@@ -105,11 +107,11 @@ export default function JiraMigrationModal({ branchId, onClose }) {
         setStep('result');
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? (err.code === 'MIGRATION_EXPIRED' ? '세션이 만료되었습니다. CSV를 다시 업로드해주세요.' : res.data.detail || '마이그레이션에 실패했습니다.');
+        const msg = errorText(err.code, err.category) ?? (err.code === 'MIGRATION_EXPIRED' ? t('branch.jira.sessionExpired') : res.data.detail || t('branch.jira.migrationFailed'));
         setExecuteError(msg);
       }
     } catch {
-      setExecuteError('마이그레이션 중 오류가 발생했습니다.');
+      setExecuteError(t('branch.jira.migrationError'));
     }
     setExecuting(false);
   };
@@ -127,7 +129,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
       <div className="JiraMigrationModal" onClick={(e) => e.stopPropagation()}>
         {/* 헤더 */}
         <div className="JiraMigrationModal__Header">
-          <h3 className="JiraMigrationModal__Title">Import from Jira</h3>
+          <h3 className="JiraMigrationModal__Title">{t('branch.jira.title')}</h3>
           <button className="JiraMigrationModal__CloseBtn" onClick={handleClose}>
             <X size={16} />
           </button>
@@ -144,7 +146,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
             >
               <span className="JiraMigrationModal__StepNum">{i + 1}</span>
               <span className="JiraMigrationModal__StepLabel">
-                {s === 'upload' ? 'Upload CSV' : s === 'mapping' ? 'Map Assignees' : 'Result'}
+                {s === 'upload' ? t('branch.jira.step.upload') : s === 'mapping' ? t('branch.jira.step.mapping') : t('branch.jira.step.result')}
               </span>
             </div>
           ))}
@@ -161,7 +163,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
               >
                 <Upload size={32} />
                 <p className="JiraMigrationModal__DropText">
-                  Click to select a Jira CSV file
+                  {t('branch.jira.dropText')}
                 </p>
                 <p className="JiraMigrationModal__DropHint">
                   {'Jira > Filters > Export > CSV (all fields)'}
@@ -175,7 +177,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
                 style={{ display: 'none' }}
               />
               {uploading && (
-                <p className="JiraMigrationModal__Status">CSV 파싱 중...</p>
+                <p className="JiraMigrationModal__Status">{t('branch.jira.parsing')}</p>
               )}
               {uploadError && (
                 <p className="JiraMigrationModal__Error">
@@ -192,23 +194,23 @@ export default function JiraMigrationModal({ branchId, onClose }) {
               <div className="JiraMigrationModal__Stats">
                 <div className="JiraMigrationModal__StatItem">
                   <span className="JiraMigrationModal__StatValue">{stats.epics}</span>
-                  <span className="JiraMigrationModal__StatLabel">Epics</span>
+                  <span className="JiraMigrationModal__StatLabel">{t('branch.jira.stats.epics')}</span>
                 </div>
                 <div className="JiraMigrationModal__StatItem">
                   <span className="JiraMigrationModal__StatValue">{stats.tasks}</span>
-                  <span className="JiraMigrationModal__StatLabel">Tasks</span>
+                  <span className="JiraMigrationModal__StatLabel">{t('branch.jira.stats.tasks')}</span>
                 </div>
                 <div className="JiraMigrationModal__StatItem">
                   <span className="JiraMigrationModal__StatValue">{stats.subtasks}</span>
-                  <span className="JiraMigrationModal__StatLabel">Subtasks</span>
+                  <span className="JiraMigrationModal__StatLabel">{t('branch.jira.stats.subtasks')}</span>
                 </div>
                 <div className="JiraMigrationModal__StatItem">
                   <span className="JiraMigrationModal__StatValue">{stats.sprints}</span>
-                  <span className="JiraMigrationModal__StatLabel">Sprints</span>
+                  <span className="JiraMigrationModal__StatLabel">{t('branch.jira.stats.sprints')}</span>
                 </div>
                 <div className="JiraMigrationModal__StatItem">
                   <span className="JiraMigrationModal__StatValue">{stats.labels}</span>
-                  <span className="JiraMigrationModal__StatLabel">Labels</span>
+                  <span className="JiraMigrationModal__StatLabel">{t('branch.jira.stats.labels')}</span>
                 </div>
               </div>
 
@@ -216,7 +218,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
               {assignees.length > 0 && (
                 <>
                   <h4 className="JiraMigrationModal__SectionTitle">
-                    Assignee Mapping ({assignees.length})
+                    {t('branch.jira.assigneeMapping', { count: assignees.length })}
                   </h4>
                   <div className="JiraMigrationModal__MappingList">
                     {assignees.map((name) => (
@@ -228,7 +230,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
                           value={userMapping[name] || ''}
                           onChange={(e) => handleMappingChange(name, e.target.value)}
                         >
-                          <option value="">-- Skip --</option>
+                          <option value="">{t('branch.jira.skip')}</option>
                           {members.map((m) => (
                             <option key={m.user_id} value={m.user_id}>
                               {m.username} ({m.email})
@@ -239,7 +241,7 @@ export default function JiraMigrationModal({ branchId, onClose }) {
                     ))}
                   </div>
                   <p className="JiraMigrationModal__MappingHint">
-                    Skip한 담당자의 태스크는 담당자 없이 생성됩니다.
+                    {t('branch.jira.skipHint')}
                   </p>
                 </>
               )}
@@ -258,31 +260,31 @@ export default function JiraMigrationModal({ branchId, onClose }) {
               <div className="JiraMigrationModal__ResultIcon">
                 <Check size={32} />
               </div>
-              <h4 className="JiraMigrationModal__ResultTitle">Migration Complete</h4>
+              <h4 className="JiraMigrationModal__ResultTitle">{t('branch.jira.complete')}</h4>
               <div className="JiraMigrationModal__ResultStats">
                 <div className="JiraMigrationModal__ResultRow">
-                  <span>Task Types</span>
-                  <span>{result.task_types} created</span>
+                  <span>{t('branch.jira.result.taskTypes')}</span>
+                  <span>{t('branch.jira.createdCount', { count: result.task_types })}</span>
                 </div>
                 <div className="JiraMigrationModal__ResultRow">
-                  <span>Labels</span>
-                  <span>{result.labels} created</span>
+                  <span>{t('branch.jira.result.labels')}</span>
+                  <span>{t('branch.jira.createdCount', { count: result.labels })}</span>
                 </div>
                 <div className="JiraMigrationModal__ResultRow">
-                  <span>Sprints</span>
-                  <span>{result.sprints} created</span>
+                  <span>{t('branch.jira.result.sprints')}</span>
+                  <span>{t('branch.jira.createdCount', { count: result.sprints })}</span>
                 </div>
                 <div className="JiraMigrationModal__ResultRow">
-                  <span>Epics</span>
-                  <span>{result.epics} created</span>
+                  <span>{t('branch.jira.result.epics')}</span>
+                  <span>{t('branch.jira.createdCount', { count: result.epics })}</span>
                 </div>
                 <div className="JiraMigrationModal__ResultRow">
-                  <span>Tasks</span>
-                  <span>{result.tasks} created</span>
+                  <span>{t('branch.jira.result.tasks')}</span>
+                  <span>{t('branch.jira.createdCount', { count: result.tasks })}</span>
                 </div>
                 {result.tasks_failed > 0 && (
                   <div className="JiraMigrationModal__ResultRow JiraMigrationModal__ResultRow--error">
-                    <span>Failed</span>
+                    <span>{t('branch.jira.result.failed')}</span>
                     <span>{result.tasks_failed}</span>
                   </div>
                 )}
@@ -301,20 +303,20 @@ export default function JiraMigrationModal({ branchId, onClose }) {
                   onClick={handleClose}
                   disabled={executing}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
                 <button
                   className="JiraMigrationModal__SubmitBtn"
                   onClick={handleExecute}
                   disabled={executing}
                 >
-                  {executing ? 'Migrating...' : 'Start Migration'}
+                  {executing ? t('branch.jira.migrating') : t('branch.jira.startMigration')}
                 </button>
               </>
             )}
             {step === 'result' && (
               <button className="JiraMigrationModal__SubmitBtn" onClick={handleClose}>
-                Close
+                {t('common.actions.close')}
               </button>
             )}
           </div>

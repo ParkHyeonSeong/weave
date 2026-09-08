@@ -1,12 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import Head from 'next/head';
 import Login from '@/components/Auth/Login';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   return (
     <>
       <Head>
-        <title>Weave - Sign In</title>
-        <meta name="description" content="Sign in to Weave" />
+        <title>{t('auth.signInTitle')}</title>
+        <meta name="description" content={t('auth.signInDescription')} />
       </Head>
       <Login />
     </>

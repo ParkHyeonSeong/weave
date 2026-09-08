@@ -91,10 +91,25 @@ describe('formatUnsupportedWarning', () => {
     expect(formatUnsupportedWarning([])).toBeNull();
     expect(formatUnsupportedWarning(undefined)).toBeNull();
   });
-  it('알려진 키는 한국어 라벨로', () => {
-    expect(formatUnsupportedWarning(['textAlign', 'color'])).toBe(
-      '일부 서식(정렬, 글자색)은 markdown으로 표현되지 않아 단순화됩니다'
-    );
+  it('알려진 키는 현재 locale의 라벨로 (ko)', async () => {
+    // 문구는 이제 catalog에서 온다 — ko로 전환해 기존 한국어 기대값을 그대로 검증한다.
+    const { default: i18next } = await import('@/library/i18n');
+    const prev = i18next.language;
+    await i18next.changeLanguage('ko');
+    try {
+      expect(formatUnsupportedWarning(['textAlign', 'color'])).toBe(
+        '일부 서식(정렬, 글자색)은 markdown으로 표현되지 않아 단순화됩니다'
+      );
+    } finally {
+      await i18next.changeLanguage(prev);
+    }
+  });
+  it('en에서는 영어 라벨로', async () => {
+    const { default: i18next } = await import('@/library/i18n');
+    await i18next.changeLanguage('en');
+    const text = formatUnsupportedWarning(['textAlign', 'color']);
+    expect(text).toMatch(/markdown/i);
+    expect(text).not.toMatch(/[가-힣]/);
   });
   it('모르는 키는 그대로 노출', () => {
     expect(formatUnsupportedWarning(['weirdMark'])).toContain('weirdMark');

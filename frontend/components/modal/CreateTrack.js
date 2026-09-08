@@ -5,6 +5,7 @@ import { useUiPrefs } from '@/library/UiPrefsContext';
 import EntityIcon from '@/components/common/EntityIcon';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 const COLOR_PRESETS = [
   '#5E6AD2', '#10B981', '#F59E0B', '#9333EA',
@@ -12,6 +13,7 @@ const COLOR_PRESETS = [
 ];
 
 export default function CreateTrack({ onClose, onCreated }) {
+  const { t } = useTranslation();
   const [trackName, setTrackName] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('#5E6AD2');
@@ -70,11 +72,11 @@ export default function CreateTrack({ onClose, onCreated }) {
         onCreated(res.data.track_id);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to create track';
+        const msg = errorText(err.code, err.category) ?? t('modal.createTrack.createFailed');
         setError(msg);
       }
     } catch (err) {
-      setError(err?.response?.data?.detail?.[0]?.msg || 'Failed to create track');
+      setError(err?.response?.data?.detail?.[0]?.msg || t('modal.createTrack.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -92,9 +94,9 @@ export default function CreateTrack({ onClose, onCreated }) {
         <header className="CreateTrack__Head">
           <div className="CreateTrack__Title">
             <Workflow size={16} />
-            <span>New Track</span>
+            <span>{t('modal.createTrack.title')}</span>
           </div>
-          <button type="button" className="CreateTrack__Close" onClick={onClose} aria-label="Close">
+          <button type="button" className="CreateTrack__Close" onClick={onClose} aria-label={t('common.actions.close')}>
             <X size={16} />
           </button>
         </header>
@@ -102,13 +104,13 @@ export default function CreateTrack({ onClose, onCreated }) {
         <div className="CreateTrack__Body">
           {/* 이름 */}
           <label className="CreateTrack__Field">
-            <span className="CreateTrack__Label">Name</span>
+            <span className="CreateTrack__Label">{t('modal.fields.name')}</span>
             <input
               type="text"
               className="CreateTrack__Input"
               value={trackName}
               onChange={(e) => setTrackName(e.target.value)}
-              placeholder="예: Q3 결제 출시 준비"
+              placeholder={t('modal.createTrack.namePlaceholder')}
               maxLength={300}
               autoFocus
             />
@@ -116,19 +118,19 @@ export default function CreateTrack({ onClose, onCreated }) {
 
           {/* 설명 */}
           <label className="CreateTrack__Field">
-            <span className="CreateTrack__Label">Description <span className="CreateTrack__LabelOpt">(optional)</span></span>
+            <span className="CreateTrack__Label">{t('modal.fields.description')} <span className="CreateTrack__LabelOpt">{t('modal.optional')}</span></span>
             <textarea
               className="CreateTrack__Textarea"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="이 Track에서 추적할 작업의 맥락"
+              placeholder={t('modal.createTrack.descriptionPlaceholder')}
               rows={2}
             />
           </label>
 
           {/* 색상 */}
           <div className="CreateTrack__Field">
-            <span className="CreateTrack__Label">Color</span>
+            <span className="CreateTrack__Label">{t('modal.fields.color')}</span>
             <div className="CreateTrack__Colors">
               {COLOR_PRESETS.map((c) => (
                 <button
@@ -137,7 +139,7 @@ export default function CreateTrack({ onClose, onCreated }) {
                   className={`CreateTrack__Color ${color === c ? 'CreateTrack__Color--active' : ''}`}
                   style={{ background: c }}
                   onClick={() => setColor(c)}
-                  aria-label={`color ${c}`}
+                  aria-label={t('modal.colorOption', { color: c })}
                 >
                   {color === c && <Check size={12} />}
                 </button>
@@ -147,7 +149,7 @@ export default function CreateTrack({ onClose, onCreated }) {
 
           {/* 가시성 */}
           <div className="CreateTrack__Field">
-            <span className="CreateTrack__Label">Visibility</span>
+            <span className="CreateTrack__Label">{t('modal.visibility.label')}</span>
             <div className="CreateTrack__VisGroup">
               <button
                 type="button"
@@ -156,8 +158,8 @@ export default function CreateTrack({ onClose, onCreated }) {
               >
                 <Lock size={13} />
                 <div className="CreateTrack__VisText">
-                  <span className="CreateTrack__VisName">Private</span>
-                  <span className="CreateTrack__VisHint">Track 멤버만 접근</span>
+                  <span className="CreateTrack__VisName">{t('modal.visibility.private')}</span>
+                  <span className="CreateTrack__VisHint">{t('modal.createTrack.privateHint')}</span>
                 </div>
               </button>
               <button
@@ -167,8 +169,8 @@ export default function CreateTrack({ onClose, onCreated }) {
               >
                 <Globe size={13} />
                 <div className="CreateTrack__VisText">
-                  <span className="CreateTrack__VisName">Public</span>
-                  <span className="CreateTrack__VisHint">조직 전체 조회 가능</span>
+                  <span className="CreateTrack__VisName">{t('modal.visibility.public')}</span>
+                  <span className="CreateTrack__VisHint">{t('modal.createTrack.publicHint')}</span>
                 </div>
               </button>
             </div>
@@ -177,12 +179,12 @@ export default function CreateTrack({ onClose, onCreated }) {
           {/* 참여 branch */}
           <div className="CreateTrack__Field">
             <span className="CreateTrack__Label">
-              Participating branches <span className="CreateTrack__LabelOpt">(optional)</span>
+              {t('modal.createTrack.participatingBranches')} <span className="CreateTrack__LabelOpt">{t('modal.optional')}</span>
             </span>
             {loadingBranches ? (
-              <div className="CreateTrack__BranchesLoading">Loading branches…</div>
+              <div className="CreateTrack__BranchesLoading">{t('modal.createTrack.loadingBranches')}</div>
             ) : visibleBranches.length === 0 ? (
-              <div className="CreateTrack__BranchesEmpty">아직 가입된 branch가 없어요. 나중에 추가할 수 있어요.</div>
+              <div className="CreateTrack__BranchesEmpty">{t('modal.createTrack.noBranches')}</div>
             ) : (
               <div className="CreateTrack__Branches">
                 {visibleBranches.map((b) => {
@@ -222,14 +224,14 @@ export default function CreateTrack({ onClose, onCreated }) {
             className="CreateTrack__Btn CreateTrack__Btn--ghost"
             onClick={onClose}
           >
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="submit"
             className="CreateTrack__Btn CreateTrack__Btn--primary"
             disabled={!trackName.trim() || loading}
           >
-            {loading ? 'Creating…' : 'Create Track'}
+            {loading ? t('modal.creating') : t('modal.createTrack.submit')}
           </button>
         </footer>
       </form>

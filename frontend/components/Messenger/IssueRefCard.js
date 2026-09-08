@@ -1,12 +1,14 @@
+import { useTranslation } from 'react-i18next';
 import { X, CircleDot } from 'lucide-react';
 import NavLink from '@/components/common/NavLink';
 
-const STATUS_LABELS = {
-  open: 'Open',
-  closed: 'Closed',
+const STATUS_KEYS = {
+  open: 'messenger.issueStatus.open',
+  closed: 'messenger.issueStatus.closed',
 };
 
 export default function IssueRefCard({ issueRef, removable, onRemove }) {
+  const { t } = useTranslation();
   if (!issueRef) return null;
 
   // 클릭 가능(전송된 메시지)일 때만 링크. compose 프리뷰(removable)는 이동 안 함.
@@ -20,7 +22,7 @@ export default function IssueRefCard({ issueRef, removable, onRemove }) {
         <CircleDot size={12} className="IssueRefCard__Icon" />
         <span className="IssueRefCard__DisplayId">{issueRef.display_id}</span>
         <span className={`IssueRefCard__Status IssueRefCard__Status--${issueRef.status}`}>
-          {STATUS_LABELS[issueRef.status] || issueRef.status}
+          {STATUS_KEYS[issueRef.status] ? t(STATUS_KEYS[issueRef.status]) : issueRef.status}
         </span>
         {removable && (
           <button className="IssueRefCard__Remove" onClick={(e) => { e.stopPropagation(); onRemove(); }}>

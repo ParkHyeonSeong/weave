@@ -1,10 +1,11 @@
 import { useState, useMemo, useRef, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Reply, Pencil, Copy, Trash2 } from 'lucide-react';
 import { sanitizeHtml } from '@/library/sanitize';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
-import { formatRelative } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import Avatar from '@/components/common/Avatar';
 import { buildMentionHtml } from '@/components/Canvas/extensions/MentionExtension';
 import ConfirmModal from '@/components/modal/ConfirmModal';
@@ -50,6 +51,8 @@ function CommentItem({
   highlightCommentId = null,
   highlightActive = false,
 }) {
+  const { t } = useTranslation();
+  const { formatRelative } = useDateFormat();
   const [editing, setEditing] = useState(false);
   const [replyOpen, setReplyOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -57,7 +60,7 @@ function CommentItem({
   const isMine = !comment.is_deleted && comment.author?.user_id === currentUserId;
   const isHighlighted = highlightActive && highlightCommentId === comment.comment_id;
 
-  const displayName = comment.author?.username ?? 'unknown';
+  const displayName = comment.author?.username ?? t('branchTasks.comment.unknownAuthor');
 
   // 답글 prefill: Reply 클릭 시 대상 댓글 작성자를 자동 멘션 (본인 댓글엔 안 넣음)
   const replyPrefill = useMemo(() => {
@@ -111,7 +114,7 @@ function CommentItem({
           <span className="CommentItem__Author">{displayName}</span>
           <span className="CommentItem__Time">{formatRelative(comment.created_at)}</span>
           {comment.is_edited && !comment.is_deleted && (
-            <span className="CommentItem__Edited">(edited)</span>
+            <span className="CommentItem__Edited">{t('branchTasks.comment.edited')}</span>
           )}
           {!comment.is_deleted && (
             <div className="CommentItem__Actions">
@@ -119,7 +122,7 @@ function CommentItem({
                 type="button"
                 className="CommentItem__ActionBtn"
                 onClick={() => setReplyOpen((v) => !v)}
-                title="Reply"
+                title={t('branchTasks.comment.replyTooltip')}
               >
                 <Reply size={12} />
               </button>
@@ -127,7 +130,7 @@ function CommentItem({
                 type="button"
                 className="CommentItem__ActionBtn"
                 onClick={handleCopyMarkdown}
-                title="Copy as Markdown"
+                title={t('branchTasks.copyAsMarkdown')}
               >
                 <Copy size={12} />
               </button>
@@ -137,7 +140,7 @@ function CommentItem({
                     type="button"
                     className="CommentItem__ActionBtn"
                     onClick={() => setEditing(true)}
-                    title="Edit"
+                    title={t('common.actions.edit')}
                   >
                     <Pencil size={12} />
                   </button>
@@ -145,7 +148,7 @@ function CommentItem({
                     type="button"
                     className="CommentItem__ActionBtn"
                     onClick={() => setConfirmDelete(true)}
-                    title="Delete"
+                    title={t('common.actions.delete')}
                   >
                     <Trash2 size={12} />
                   </button>
@@ -156,7 +159,7 @@ function CommentItem({
         </div>
 
         {comment.is_deleted ? (
-          <div className="CommentItem__Tombstone">이 댓글은 삭제되었습니다</div>
+          <div className="CommentItem__Tombstone">{t('branchTasks.comment.deleted')}</div>
         ) : editing ? (
           <CommentEditor
             initialContent={comment.content}
@@ -177,7 +180,7 @@ function CommentItem({
           <div className="CommentItem__ReplyComposer">
             <CommentEditor
               initialContent={replyPrefill}
-              placeholder="Reply..."
+              placeholder={t('branchTasks.comment.replyPlaceholder')}
               branchId={branchId}
               autoFocus
               rawAutoEnter={!replyPrefill.includes('data-mention')}
@@ -214,9 +217,9 @@ function CommentItem({
         isOpen={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleConfirmDelete}
-        title="Delete Comment"
-        message="이 댓글을 삭제하시겠습니까? 답글이 있으면 빈 자리(tombstone)로 남습니다."
-        confirmLabel="Delete"
+        title={t('branchTasks.comment.deleteTitle')}
+        message={t('branchTasks.comment.deleteConfirm')}
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
     </div>

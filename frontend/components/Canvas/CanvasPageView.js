@@ -20,6 +20,8 @@ import { toHtml } from 'hast-util-to-html';
 import { compileToSvg, downloadPdf } from '@/library/typstCompiler';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
 import { buildCanvasEditorExtensions } from './canvasEditorExtensions';
+import { useTranslation } from 'react-i18next';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 const lowlight = createLowlight(common);
 
@@ -31,6 +33,8 @@ const TypstEditor = dynamic(() => import('./TypstEditor'), { ssr: false });
 // 편집 모드 칩은 NodeView가 window canvas:ref_click을 발행하므로
 // 호스트(라우트)의 useRefPreview가 직접 수신한다.
 export default function CanvasPageView({ onRefClick }) {
+  const { t } = useTranslation();
+  const { formatTimestampYMD } = useDateFormat();
   const router = useRouter();
   const { canvasId, pageId } = router.query;
   const [page, setPage] = useState(null);
@@ -427,7 +431,7 @@ export default function CanvasPageView({ onRefClick }) {
           const localTime = new Date(page.updated_at).getTime();
           if (remoteTime > localTime && remote.updated_by !== user?.user_id) {
             setUpdateToast({
-              name: remote.updated_by_name || remote.created_by_name || 'Someone',
+              name: remote.updated_by_name || remote.created_by_name || t('canvas.page.someone'),
               reload: () => {
                 setPage(remote);
                 setEditTitle(remote.title);
@@ -467,7 +471,7 @@ export default function CanvasPageView({ onRefClick }) {
       } else {
         setTypstSvg(null);
         // SourceDiagnostic 문자열에서 message 추출
-        const raw = errors?.[0] || 'Compile error';
+        const raw = errors?.[0] || t('canvas.typst.compileError');
         const match = raw.match(/message:\s*"([^"]+)"/);
         setTypstError(match ? match[1] : raw);
       }
@@ -532,7 +536,7 @@ export default function CanvasPageView({ onRefClick }) {
                  <WifiOff size={14} />}
               </span>
               <span className="CanvasPageView__SaveStatus">
-                {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Offline'}
+                {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.offline')}
               </span>
             </div>
             <div className="CanvasPageView__Actions">
@@ -540,14 +544,14 @@ export default function CanvasPageView({ onRefClick }) {
               <button
                 className={`CanvasPageView__ActionBtn ${starred ? 'CanvasPageView__ActionBtn--starred' : ''}`}
                 onClick={toggleStar}
-                title={starred ? 'Remove star' : 'Add star'}
+                title={starred ? t('canvas.page.removeStar') : t('canvas.page.addStar')}
               >
                 <Star size={15} fill={starred ? 'currentColor' : 'none'} />
               </button>
               <button
                 className="CanvasPageView__ActionBtn"
                 onClick={toggleWideMode}
-                title={page.wide_mode ? '기본 너비' : '넓게 보기'}
+                title={page.wide_mode ? t('canvas.page.defaultWidth') : t('canvas.page.wideView')}
               >
                 {page.wide_mode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               </button>
@@ -556,7 +560,7 @@ export default function CanvasPageView({ onRefClick }) {
                 onClick={handleCloseEdit}
               >
                 <X size={15} />
-                Close
+                {t('common.actions.close')}
                 <kbd className="CanvasPageView__Kbd">⌘S</kbd>
               </button>
             </div>
@@ -568,7 +572,7 @@ export default function CanvasPageView({ onRefClick }) {
               <button
                 className={`CanvasPageView__ActionBtn ${starred ? 'CanvasPageView__ActionBtn--starred' : ''}`}
                 onClick={toggleStar}
-                title={starred ? 'Remove star' : 'Add star'}
+                title={starred ? t('canvas.page.removeStar') : t('canvas.page.addStar')}
               >
                 <Star size={15} fill={starred ? 'currentColor' : 'none'} />
               </button>
@@ -577,34 +581,34 @@ export default function CanvasPageView({ onRefClick }) {
                   <button
                     className="CanvasPageView__ActionBtn"
                     onClick={() => setShowMoreMenu(!showMoreMenu)}
-                    title="More actions"
+                    title={t('canvas.page.moreActions')}
                   >
                     <MoreHorizontal size={15} />
                   </button>
                   {showMoreMenu && (
                     <div className="CanvasPageView__MoreMenu">
                       <button className="CanvasPageView__MoreMenuItem" onClick={() => { setShowMoreMenu(false); setIsEditing(true); }}>
-                        <Pencil size={13} /> Rename
+                        <Pencil size={13} /> {t('spaceMenu.rename')}
                       </button>
                       {page.type !== 'folder' && (
                         <button className="CanvasPageView__MoreMenuItem" onClick={handleDuplicate}>
-                          <Copy size={13} /> Duplicate
+                          <Copy size={13} /> {t('canvas.page.duplicate')}
                         </button>
                       )}
                       <button className="CanvasPageView__MoreMenuItem" onClick={handleCopyLink}>
-                        <Link size={13} /> Copy link
+                        <Link size={13} /> {t('canvas.page.copyLink')}
                       </button>
                       {page.type !== 'folder' && page.type !== 'typst' && (
                         <button className="CanvasPageView__MoreMenuItem" onClick={handleCopyMarkdown}>
-                          <Copy size={13} /> Copy as Markdown
+                          <Copy size={13} /> {t('canvas.copyAsMarkdown')}
                         </button>
                       )}
                       <button className="CanvasPageView__MoreMenuItem" onClick={handleOpenMove}>
-                        <FolderInput size={13} /> Move
+                        <FolderInput size={13} /> {t('canvas.page.move')}
                       </button>
                       <div className="CanvasPageView__MoreMenuDivider" />
                       <button className="CanvasPageView__MoreMenuItem CanvasPageView__MoreMenuItem--danger" onClick={() => { setShowMoreMenu(false); setShowDeleteConfirm(true); }}>
-                        <Trash2 size={13} /> Delete
+                        <Trash2 size={13} /> {t('common.actions.delete')}
                       </button>
                     </div>
                   )}
@@ -613,7 +617,7 @@ export default function CanvasPageView({ onRefClick }) {
               <button
                 className="CanvasPageView__ActionBtn"
                 onClick={toggleWideMode}
-                title={page.wide_mode ? '기본 너비' : '넓게 보기'}
+                title={page.wide_mode ? t('canvas.page.defaultWidth') : t('canvas.page.wideView')}
               >
                 {page.wide_mode ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
               </button>
@@ -622,7 +626,7 @@ export default function CanvasPageView({ onRefClick }) {
                   className="CanvasPageView__ActionBtn"
                   onClick={handleTypstExportPdf}
                   disabled={typstExporting}
-                  title="Download PDF"
+                  title={t('canvas.downloadPdf')}
                 >
                   {typstExporting ? <Loader size={15} className="CanvasPageView__StatusSpin" /> : <Download size={15} />}
                   PDF
@@ -632,7 +636,7 @@ export default function CanvasPageView({ onRefClick }) {
                 <button
                   className={`CanvasPageView__ActionBtn${sidebarOpen ? ' CanvasPageView__ActionBtn--active' : ''}`}
                   onClick={() => setSidebarOpen((v) => !v)}
-                  title="Comments"
+                  title={t('canvas.annotations.title')}
                 >
                   <MessageSquare size={15} />
                   {annotations.filter((a) => a.status === 'open').length > 0 && (
@@ -645,7 +649,7 @@ export default function CanvasPageView({ onRefClick }) {
               <button
                 className={`CanvasPageView__ActionBtn${historyOpen ? ' CanvasPageView__ActionBtn--active' : ''}`}
                 onClick={() => { setHistoryOpen((v) => !v); if (!historyOpen) setSidebarOpen(false); }}
-                title="History"
+                title={t('canvas.page.history')}
               >
                 <Clock size={15} />
               </button>
@@ -654,7 +658,7 @@ export default function CanvasPageView({ onRefClick }) {
                 onClick={() => setIsEditing(true)}
               >
                 <Pencil size={15} />
-                Edit
+                {t('common.actions.edit')}
                 <kbd className="CanvasPageView__Kbd">E</kbd>
               </button>
             </div>
@@ -669,15 +673,15 @@ export default function CanvasPageView({ onRefClick }) {
             className="CanvasPageView__TitleInput"
             value={editTitle}
             onChange={handleTitleChange}
-            placeholder="Page title..."
+            placeholder={t('canvas.page.titlePlaceholder')}
           />
         ) : (
           <h1 className="CanvasPageView__Title">{page.title}</h1>
         )}
         {!isEditing && page.updated_at && (
           <span className="CanvasPageView__Meta">
-            Last updated {new Date(page.updated_at).toLocaleDateString()}
-            {(page.updated_by_name || page.created_by_name) && ` by ${page.updated_by_name || page.created_by_name}`}
+            {t('canvas.lastUpdated', { date: formatTimestampYMD(page.updated_at) })}
+            {(page.updated_by_name || page.created_by_name) && ` ${t('canvas.page.updatedBy', { name: page.updated_by_name || page.created_by_name })}`}
           </span>
         )}
       </div>
@@ -707,7 +711,7 @@ export default function CanvasPageView({ onRefClick }) {
               />
             )
           ) : (
-            <div className="CanvasPageView__Loading">Connecting...</div>
+            <div className="CanvasPageView__Loading">{t('canvas.connecting')}</div>
           )
         ) : page.type === 'typst' ? (
           <div className="CanvasPageView__TypstPreview">
@@ -721,19 +725,25 @@ export default function CanvasPageView({ onRefClick }) {
             ) : page.content ? (
               <div className="CanvasPageView__Loading">
                 <Loader size={16} className="CanvasPageView__StatusSpin" />
-                Rendering...
+                {t('canvas.page.rendering')}
               </div>
             ) : (
-              <p className="CanvasPageView__Empty">No content yet. Click Edit to start writing.</p>
+              <p className="CanvasPageView__Empty">{t('canvas.emptyContent')}</p>
             )}
           </div>
         ) : (
           <>
+            {/* ⚠️ __html에는 sanitizeHtml 결과 또는 **리터럴**만 들어간다(storedHtmlInvariance.test.js).
+                번역 문구는 신뢰할 수 있어도 문자열을 raw HTML로 흘리는 패턴 자체를 금지하므로,
+                빈 콘텐츠 안내는 별도 JSX 요소로 그린다. */}
             <div
               ref={contentRef}
               className="CanvasPageView__Content ProseMirror"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) || '<p>No content yet. Click Edit to start writing.</p>' }}
+              dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) || '<p></p>' }}
             />
+            {!page.content?.trim() && (
+              <p className="CanvasPageView__EmptyHint">{t('canvas.emptyContent')}</p>
+            )}
             <AnnotationLayer
               contentRef={contentRef}
               annotations={annotations}
@@ -754,10 +764,10 @@ export default function CanvasPageView({ onRefClick }) {
       </div>
       {updateToast && (
         <div className="CanvasPageView__Toast">
-          <span>This page was updated by {updateToast.name}</span>
+          <span>{t('canvas.page.updatedToast', { name: updateToast.name })}</span>
           <button className="CanvasPageView__ToastBtn" onClick={updateToast.reload}>
             <RefreshCw size={13} />
-            Refresh
+            {t('canvas.page.refresh')}
           </button>
           <button className="CanvasPageView__ToastClose" onClick={() => setUpdateToast(null)}>
             <X size={14} />
@@ -768,11 +778,11 @@ export default function CanvasPageView({ onRefClick }) {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
-        title="Delete Page"
+        title={t('canvas.page.deleteTitle')}
         message={page.type === 'folder'
-          ? `"${page.title}" 폴더와 하위 문서가 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
-          : `"${page.title}" 문서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-        confirmLabel="Delete"
+          ? t('canvasSidebar.deleteFolderConfirm', { title: page.title })
+          : t('canvasSidebar.deletePageConfirm', { title: page.title })}
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
       <PageMoveModal
@@ -818,7 +828,7 @@ export default function CanvasPageView({ onRefClick }) {
       {historyOpen && (
         <div className="CanvasPageView__HistorySidebar">
           <div className="CanvasPageView__HistorySidebarHeader">
-            <span>History</span>
+            <span>{t('canvas.page.history')}</span>
             <button onClick={() => setHistoryOpen(false)}><X size={14} /></button>
           </div>
           <div className="CanvasPageView__HistorySidebarContent">

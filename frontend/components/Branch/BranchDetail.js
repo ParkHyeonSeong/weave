@@ -14,22 +14,24 @@ import BranchSchedule from './Schedule/BranchSchedule';
 import EntityIcon from '@/components/common/EntityIcon';
 import EntityAppearancePopover from '@/components/common/EntityAppearancePopover';
 import RefPanelHost, { useRefPreview } from '@/components/shared/RefPanelHost';
+import { useTranslation } from 'react-i18next';
 
 const TABS = [
-  { key: 'epics', label: 'Epics', icon: Zap },
-  { key: 'tasks', label: 'Tasks', icon: ListTodo },
-  { key: 'board', label: 'Board', icon: Columns3 },
-  { key: 'flow', label: 'Flow', icon: Workflow },
-  { key: 'schedule', label: 'Schedule', icon: CalendarDays },
-  { key: 'archive', label: 'Archive', icon: Archive },
-  { key: 'settings', label: 'Settings', icon: Settings },
+  { key: 'epics', labelKey: 'branch.tabs.epics', icon: Zap },
+  { key: 'tasks', labelKey: 'branch.tabs.tasks', icon: ListTodo },
+  { key: 'board', labelKey: 'branch.tabs.board', icon: Columns3 },
+  { key: 'flow', labelKey: 'branch.tabs.flow', icon: Workflow },
+  { key: 'schedule', labelKey: 'branch.tabs.schedule', icon: CalendarDays },
+  { key: 'archive', labelKey: 'branch.tabs.archive', icon: Archive },
+  { key: 'settings', labelKey: 'branch.tabs.settings', icon: Settings },
 ];
 
 export default function BranchDetail() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { id } = router.query;
   const [branch, setBranch] = useState(null);
-  const validTabs = TABS.map((t) => t.key);
+  const validTabs = TABS.map((tab) => tab.key);
   const queryTab = router.query.tab;
   const [activeTab, setActiveTab] = useState(
     validTabs.includes(queryTab) ? queryTab : 'tasks'
@@ -218,7 +220,7 @@ export default function BranchDetail() {
               size={24}
               entityType="branch"
               onClick={isAdmin ? () => setPopoverOpen(true) : undefined}
-              title={isAdmin ? 'Click to edit appearance' : undefined}
+              title={isAdmin ? t('branch.editAppearanceTooltip') : undefined}
             />
           </span>
           <EntityAppearancePopover
@@ -236,14 +238,14 @@ export default function BranchDetail() {
 
         {/* 탭 */}
         <div className="BranchDetail__Tabs">
-          {TABS.map(({ key, label, icon: Icon }) => (
+          {TABS.map(({ key, labelKey, icon: Icon }) => (
             <button
               key={key}
               className={`BranchDetail__Tab ${activeTab === key ? 'BranchDetail__Tab--active' : ''}`}
               onClick={() => handleTabChange(key)}
             >
               <Icon size={15} />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>

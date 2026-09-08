@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import BoardCard from './BoardCard';
+import { useTranslation } from 'react-i18next';
 
 export default function BoardColumn({ status, label, color, tasks, taskTypes, onCardClick, onCardContextMenu, onStatusChange }) {
+  const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
 
   const handleDragOver = (e) => {
@@ -47,7 +49,7 @@ export default function BoardColumn({ status, label, color, tasks, taskTypes, on
           />
         ))}
         {tasks.length === 0 && (
-          <div className="BoardColumn__Empty">No tasks</div>
+          <div className="BoardColumn__Empty">{t('branch.board.noTasks')}</div>
         )}
       </div>
     </div>

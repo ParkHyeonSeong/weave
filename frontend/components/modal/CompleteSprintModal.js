@@ -3,8 +3,10 @@ import { X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 export default function CompleteSprintModal({ branchId, sprint, sprints, onClose }) {
+  const { t } = useTranslation();
   const [moveTo, setMoveTo] = useState('backlog');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,11 +38,11 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
         onClose();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to complete sprint.';
+        const msg = errorText(err.code, err.category) ?? t('modal.completeSprint.failed');
         setError(msg);
       }
     } catch {
-      setError('Failed to complete sprint.');
+      setError(t('modal.completeSprint.failed'));
     } finally {
       setLoading(false);
     }
@@ -53,7 +55,7 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
     <div className="SprintModal__Backdrop" onClick={onClose}>
       <div className="CompleteSprintModal" onClick={(e) => e.stopPropagation()}>
         <div className="CompleteSprintModal__Header">
-          <h2 className="CompleteSprintModal__Title">Complete {sprint.sprint_name}</h2>
+          <h2 className="CompleteSprintModal__Title">{t('modal.completeSprint.title', { name: sprint.sprint_name })}</h2>
           <button type="button" className="SprintModal__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -67,13 +69,13 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
                 <span className="CompleteSprintModal__CountNum CompleteSprintModal__CountNum--done">
                   {counts.done}
                 </span>
-                <span className="CompleteSprintModal__CountLabel">completed</span>
+                <span className="CompleteSprintModal__CountLabel">{t('modal.completeSprint.completedCount')}</span>
               </div>
               <div className="CompleteSprintModal__CountItem">
                 <span className="CompleteSprintModal__CountNum CompleteSprintModal__CountNum--incomplete">
                   {counts.incomplete}
                 </span>
-                <span className="CompleteSprintModal__CountLabel">incomplete</span>
+                <span className="CompleteSprintModal__CountLabel">{t('modal.completeSprint.incompleteCount')}</span>
               </div>
             </div>
           )}
@@ -82,17 +84,17 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
           {counts && counts.incomplete > 0 && (
             <div className="CompleteSprintModal__MoveSection">
               <label className="SprintModal__Label">
-                Move {counts.incomplete} incomplete issue{counts.incomplete > 1 ? 's' : ''} to:
+                {t('modal.completeSprint.moveLabel', { count: counts.incomplete })}
               </label>
               <select
                 className="SprintModal__Select"
                 value={moveTo}
                 onChange={(e) => setMoveTo(e.target.value)}
               >
-                <option value="backlog">Backlog</option>
+                <option value="backlog">{t('modal.completeSprint.backlog')}</option>
                 {targetSprints.map((s) => (
                   <option key={s.sprint_id} value={String(s.sprint_id)}>
-                    {s.sprint_name}{s.status === 'active' ? ' (active)' : ''}
+                    {s.sprint_name}{s.status === 'active' ? t('modal.completeSprint.activeSuffix') : ''}
                   </option>
                 ))}
               </select>
@@ -104,7 +106,7 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
 
         <div className="CompleteSprintModal__Footer">
           <button type="button" className="SprintModal__CancelBtn" onClick={onClose}>
-            Cancel
+            {t('common.actions.cancel')}
           </button>
           <button
             type="button"
@@ -112,7 +114,7 @@ export default function CompleteSprintModal({ branchId, sprint, sprints, onClose
             onClick={handleComplete}
             disabled={loading}
           >
-            {loading ? 'Completing...' : 'Complete Sprint'}
+            {loading ? t('modal.completeSprint.completing') : t('modal.completeSprint.submit')}
           </button>
         </div>
       </div>

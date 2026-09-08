@@ -2,35 +2,45 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import EntityIcon from '@/components/common/EntityIcon';
 import Avatar from '@/components/common/Avatar';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { addDaysToDateOnly, diffDateOnlyDays, parseDateOnly, toDateOnly } from '@/library/formatDateTime';
+import { useTranslation } from 'react-i18next';
 
-// 캘린더 유틸
-const DAY_MS = 24 * 60 * 60 * 1000;
-function dateKey(d) {
-  return d.toISOString().slice(0, 10);
-}
-function parseDate(str) {
-  if (!str) return null;
-  return new Date(str + 'T00:00:00');
-}
-function addDays(d, n) {
-  const x = new Date(d); x.setDate(x.getDate() + n); return x;
-}
-function diffDays(a, b) {
-  return Math.round((b - a) / DAY_MS);
-}
-function monthLabel(d) {
-  return `${d.getMonth() + 1}월`;
-}
+// ── 캘린더 유틸 ─────────────────────────────────────────────────────────────
+// 이 타임라인의 축은 **달력 날짜**다. 내부 프레임을 전부 'YYYY-MM-DD' 문자열로 다룬다 —
+// 예전처럼 new Date(str + 'T00:00:00')로 로컬 Date를 만들면 (a) 렌더 timezone에 따라
+// 하루가 밀리고 (b) DST 경계에서 ms 나눗셈이 흔들린다.
+const pad2 = (n) => String(n).padStart(2, '0');
+const dateKey = (s) => s || '';                        // React key (이미 정규 문자열)
+const parseDate = (str) => toDateOnly(str) || null;    // date-only 정규화
+const addDays = addDaysToDateOnly;
+const diffDays = (a, b) => diffDateOnlyDays(a, b) ?? 0;
+const firstOfMonth = (s) => { const p = parseDateOnly(s); return p ? `${p.y}-${pad2(p.m)}-01` : ''; };
+const nextMonth = (s) => {
+  const p = parseDateOnly(s);
+  if (!p) return '';
+  return p.m === 12 ? `${p.y + 1}-01-01` : `${p.y}-${pad2(p.m + 1)}-01`;
+};
+// 요일도 UTC 컴포넌트로만 — 로컬 Date를 거치지 않는다.
+const dayOfWeek = (s) => {
+  const p = parseDateOnly(s);
+  return p ? new Date(Date.UTC(p.y, p.m - 1, p.d)).getUTCDay() : 0;
+};
 
 const DAY_WIDTH = 26;        // 1일 = 26px
 const LANE_HEIGHT = 50;      // 각 task row 높이
 const GROUP_HEAD_HEIGHT = 32;
-const TODAY = new Date('2026-05-22T00:00:00');
 
 export default function TrackTimeline({
   items, links, branchById, workflowStatuses,
   selectedItemId, onSelectItem,
 }) {
+  const { t } = useTranslation();
+  // "오늘"은 파생값이므로 **개인 timezone**의 오늘을 쓴다(브라우저 timezone 아님).
+  const { formatDateOnly, today: personalToday, timeZone } = useDateFormat();
+  const TODAY = useMemo(() => personalToday(), [personalToday, timeZone]);
+  const monthLabel = (s) => formatDateOnly(s, { month: 'short' });
+
   // 1) 날짜 범위 계산
   const { rangeStart, rangeEnd, totalDays } = useMemo(() => {
     const validItems = items.filter((it) => !it.restricted && (it.start_date || it.due_date));
@@ -50,7 +60,7 @@ export default function TrackTimeline({
     const start = addDays(min, -pad);
     const end = addDays(max, pad);
     return { rangeStart: start, rangeEnd: end, totalDays: diffDays(start, end) };
-  }, [items]);
+  }, [items, TODAY]);
 
   // 2) Branch별로 그룹핑
   const groupedItems = useMemo(() => {
@@ -65,9 +75,10 @@ export default function TrackTimeline({
     return Array.from(byBranch.entries()).map(([branchId, list]) => ({
       branch: branchById[branchId] || { name: '?', color: '#9CA3AF', key: '?' },
       items: list.sort((a, b) => {
-        const aDate = parseDate(a.start_date || a.due_date);
-        const bDate = parseDate(b.start_date || b.due_date);
-        return aDate - bDate;
+        // date-only는 0패딩 ISO라 문자열 비교가 곧 날짜순이다.
+        const aDate = parseDate(a.start_date || a.due_date) || '';
+        const bDate = parseDate(b.start_date || b.due_date) || '';
+        return aDate < bDate ? -1 : aDate > bDate ? 1 : 0;
       }),
     }));
   }, [items, branchById]);
@@ -142,12 +153,12 @@ export default function TrackTimeline({
   // 6) 날짜 헤더 (주 단위)
   const weekTicks = useMemo(() => {
     const ticks = [];
-    let d = new Date(rangeStart);
+    let d = rangeStart;
     // 가장 가까운 월요일로 정렬
-    const dow = d.getDay();
+    const dow = dayOfWeek(d);
     if (dow !== 1) d = addDays(d, (8 - dow) % 7);
-    while (d <= rangeEnd) {
-      ticks.push(new Date(d));
+    while (d && d <= rangeEnd) {
+      ticks.push(d);
       d = addDays(d, 7);
     }
     return ticks;
@@ -156,10 +167,10 @@ export default function TrackTimeline({
   // 7) 월 라벨
   const monthTicks = useMemo(() => {
     const ticks = [];
-    let d = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1);
-    while (d <= rangeEnd) {
-      ticks.push(new Date(d));
-      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    let d = firstOfMonth(rangeStart);
+    while (d && d <= rangeEnd) {
+      ticks.push(d);
+      d = nextMonth(d);
     }
     return ticks;
   }, [rangeStart, rangeEnd]);
@@ -215,7 +226,7 @@ export default function TrackTimeline({
                 className="TrackTimeline__WeekCell"
                 style={{ left: dayToX(w) }}
               >
-                <span className="TrackTimeline__WeekLabel">{w.getMonth() + 1}/{w.getDate()}</span>
+                <span className="TrackTimeline__WeekLabel">{formatDateOnly(w, { month: 'numeric', day: 'numeric' })}</span>
               </div>
             ))}
           </div>
@@ -318,7 +329,7 @@ export default function TrackTimeline({
             {/* Today 라인 */}
             {todayX >= 0 && todayX <= totalWidth && (
               <div className="TrackTimeline__Today" style={{ left: todayX }}>
-                <span className="TrackTimeline__TodayPin">today</span>
+                <span className="TrackTimeline__TodayPin">{t('common.time.today')}</span>
               </div>
             )}
 

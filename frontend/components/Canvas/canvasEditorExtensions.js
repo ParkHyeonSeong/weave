@@ -2,6 +2,7 @@
 // 컴포넌트는 여기에 Yjs 확장(런타임 ydoc/provider 필요)만 덧붙인다.
 // headless 소비자(md 코덱 S1 Copy-as-Markdown·스키마 스윕 테스트)도 이 배열을 쓴다.
 import { Extension } from '@tiptap/core';
+import i18next from '@/library/i18n';
 import StarterKit from '@tiptap/starter-kit';
 import WeaveLink from './extensions/WeaveLink';
 import YUndoRedo from './extensions/YUndoRedo';
@@ -46,7 +47,7 @@ export function buildCanvasEditorExtensions({ canvasId } = {}) {
     }),
     YUndoRedo, // undoRedo:false로 사라진 undo/redo 명령·Mod-z 키맵을 Yjs 인지 방식으로 복원
     ResizableImage,
-    Placeholder.configure({ placeholder: 'Start writing...' }),
+    Placeholder.configure({ placeholder: () => i18next.t('canvas.editor.placeholder') }),
     CodeBlockLowlight.configure({ lowlight }),
     Table.configure({ resizable: true }),
     TableRow,

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -35,6 +36,7 @@ const treeCollisionDetection = (args) => {
 };
 
 export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderChange, hidden = [], onHide, onUnhide }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [canvases, setCanvases] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -487,15 +489,14 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
             if (res.data.status) {
               window.dispatchEvent(new Event('canvas:created'));
               fetchCanvases();
-              showToast(`"${canvas.canvas_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: canvas.canvas_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id: canvas.canvas_id, name: canvas.canvas_name }),
-      },
-    ));
+      }, t));
   };
 
   const rootChildren = getChildren(null);
@@ -503,13 +504,13 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
   return (
     <>
       <div className="Sidebar__SectionHeader">
-        <span className="Sidebar__SectionLabel">Canvases</span>
+        <span className="Sidebar__SectionLabel">{t('layout.sections.canvases')}</span>
       </div>
 
       <div className="Sidebar__Branches">
         {sortedCanvases.length === 0 ? (
           <div className="Sidebar__Empty">
-            No canvases yet.<br />Create one to get started.
+            {t('layout.empty.canvases')}<br />{t('layout.empty.createHint')}
           </div>
         ) : (
           <>
@@ -611,7 +612,7 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
                         onChange={(e) => setInlineTitle(e.target.value)}
                         onKeyDown={handleInlineKeyDown}
                         onBlur={() => { if (!inlineTitle.trim()) { setInlineCreate(null); setInlineTitle(''); } }}
-                        placeholder={inlineCreate.type === 'folder' ? 'Folder name...' : inlineCreate.type === 'typst' ? 'Typst document title...' : 'Document title...'}
+                        placeholder={inlineCreate.type === 'folder' ? t('layout.canvasTree.folderNamePlaceholder') : inlineCreate.type === 'typst' ? t('layout.canvasTree.typstTitlePlaceholder') : t('layout.canvasTree.documentTitlePlaceholder')}
                       />
                     </div>
                   )}
@@ -640,7 +641,7 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
             <>
               <button className="Sidebar__HiddenToggle" onClick={() => setShowHidden((s) => !s)}>
                 {showHidden ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                숨긴 항목 {hiddenCanvases.length}
+                {t('sidebar.hiddenItems', { count: hiddenCanvases.length })}
               </button>
               {showHidden && hiddenCanvases.map((canvas) => (
                 <div
@@ -652,7 +653,7 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
                     <EntityIcon icon={canvas.icon} color={canvas.color} size={14} entityType="canvas" />
                     <span className="Sidebar__BranchName">{canvas.canvas_name}</span>
                   </NavLink>
-                  <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(canvas.canvas_id)}>숨김 해제</button>
+                  <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(canvas.canvas_id)}>{t('sidebar.unhide')}</button>
                 </div>
               ))}
             </>
@@ -665,11 +666,10 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={executeDeletePage}
-        title={deleteTarget?.isFolder ? 'Delete Folder' : 'Delete Page'}
-        message={deleteTarget?.isFolder
-          ? `"${deleteTarget?.title}" 폴더와 하위 문서가 모두 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.`
-          : `"${deleteTarget?.title}" 문서를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-        confirmLabel="Delete"
+        title={t(deleteTarget?.isFolder ? 'layout.canvasTree.deleteFolderTitle' : 'layout.canvasTree.deletePageTitle')}
+        message={t(deleteTarget?.isFolder ? 'canvasSidebar.deleteFolderConfirm' : 'canvasSidebar.deletePageConfirm',
+          { title: deleteTarget?.title ?? '' })}
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
 
@@ -693,34 +693,34 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
             requestRenamePage(contextMenu.canvasId, contextMenu.page);
             setContextMenu(null);
           }}>
-            <Pencil size={13} /> Rename
+            <Pencil size={13} /> {t('spaceMenu.rename')}
           </button>
           {contextMenu.page.type !== 'folder' && (
             <button className="Sidebar__AddMenuItem" onClick={() => {
               handleCopyPage(contextMenu.canvasId, contextMenu.page);
               setContextMenu(null);
             }}>
-              <Copy size={13} /> Duplicate
+              <Copy size={13} /> {t('layout.canvasTree.duplicate')}
             </button>
           )}
           <button className="Sidebar__AddMenuItem" onClick={() => {
             handleCopyLink(contextMenu.canvasId, contextMenu.page);
             setContextMenu(null);
           }}>
-            <Link size={13} /> Copy link
+            <Link size={13} /> {t('layout.canvasTree.copyLink')}
           </button>
           <button className="Sidebar__AddMenuItem" onClick={() => {
             requestMovePage(contextMenu.canvasId, contextMenu.page);
             setContextMenu(null);
           }}>
-            <FolderInput size={13} /> Move
+            <FolderInput size={13} /> {t('layout.canvasTree.move')}
           </button>
           <div className="Sidebar__AddMenuDivider" />
           <button className="Sidebar__AddMenuItem Sidebar__AddMenuItem--danger" onClick={() => {
             requestDeletePage(contextMenu.canvasId, contextMenu.page);
             setContextMenu(null);
           }}>
-            <Trash2 size={13} /> Delete
+            <Trash2 size={13} /> {t('common.actions.delete')}
           </button>
         </div>
       )}
@@ -733,21 +733,21 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/canvases/${t.id}/leave`);
+            const res = await axios.post(`/canvases/${target.id}/leave`);
             if (res.data.status) {
               window.dispatchEvent(new Event('canvas:created'));
               fetchCanvases();
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="캔버스 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveCanvasTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name ?? '' })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>
@@ -756,6 +756,7 @@ export default function SidebarCanvases({ onCreateCanvas, savedOrder, onOrderCha
 
 // 캔버스 제목 row + 호버 시 더보기/+ 버튼
 function CanvasRow({ canvas, isActive, isExpanded, onToggle, onAddDocument, onAddFolder, onAddTypst, onMenu, rename }) {
+  const { t } = useTranslation();
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addMenuPos, setAddMenuPos] = useState(null);
   const addMenuRef = useRef(null);
@@ -820,8 +821,8 @@ function CanvasRow({ canvas, isActive, isExpanded, onToggle, onAddDocument, onAd
         <button
           className="Sidebar__BranchAddBtn"
           onClick={(e) => { e.stopPropagation(); onMenu(e, canvas); }}
-          title="더보기"
-          aria-label="더보기"
+          title={t('common.actions.more')}
+          aria-label={t('common.actions.more')}
         >
           <MoreHorizontal size={13} />
         </button>
@@ -840,7 +841,7 @@ function CanvasRow({ canvas, isActive, isExpanded, onToggle, onAddDocument, onAd
               }
               setShowAddMenu(!showAddMenu);
             }}
-            title="Add"
+            title={t('layout.canvasTree.add')}
           >
             <Plus size={13} />
           </button>
@@ -848,15 +849,15 @@ function CanvasRow({ canvas, isActive, isExpanded, onToggle, onAddDocument, onAd
             <div className="Sidebar__FixedMenu" style={{ top: addMenuPos.top, left: addMenuPos.left }}>
               <button className="Sidebar__AddMenuItem" onClick={() => { setShowAddMenu(false); onAddDocument(); }}>
                 <FileText size={13} />
-                Document
+                {t('layout.canvasTree.document')}
               </button>
               <button className="Sidebar__AddMenuItem" onClick={() => { setShowAddMenu(false); onAddTypst(); }}>
                 <FileCode size={13} />
-                Typst Document
+                {t('layout.canvasTree.typstDocument')}
               </button>
               <button className="Sidebar__AddMenuItem" onClick={() => { setShowAddMenu(false); onAddFolder(); }}>
                 <FolderPlus size={13} />
-                Folder
+                {t('layout.canvasTree.folder')}
               </button>
             </div>
           )}
@@ -875,6 +876,7 @@ function SidebarPageItem({
   inlineCreate, inlineTitle, setInlineTitle, handleInlineKeyDown, setInlineCreate,
   dropIndicator,
 }) {
+  const { t } = useTranslation();
   const {
     attributes, listeners, setNodeRef: setDragRef, isDragging,
   } = useDraggable({ id: page.page_id });
@@ -956,19 +958,19 @@ function SidebarPageItem({
             setShowMenu(false);
             onQuickCreate(canvasId, 'document', page.page_id);
           }}>
-            <FileText size={13} /> Document
+            <FileText size={13} /> {t('layout.canvasTree.document')}
           </button>
           <button className="Sidebar__AddMenuItem" onClick={() => {
             setShowMenu(false);
             onQuickCreate(canvasId, 'typst', page.page_id);
           }}>
-            <FileCode size={13} /> Typst Document
+            <FileCode size={13} /> {t('layout.canvasTree.typstDocument')}
           </button>
           <button className="Sidebar__AddMenuItem" onClick={() => {
             setShowMenu(false);
             onFolderAdd(canvasId, page.page_id, 'folder');
           }}>
-            <FolderPlus size={13} /> Folder
+            <FolderPlus size={13} /> {t('layout.canvasTree.folder')}
           </button>
           <div className="Sidebar__AddMenuDivider" />
         </>
@@ -977,34 +979,34 @@ function SidebarPageItem({
         setShowMenu(false);
         onRenamePage(canvasId, page);
       }}>
-        <Pencil size={13} /> Rename
+        <Pencil size={13} /> {t('spaceMenu.rename')}
       </button>
       {!isFolder && (
         <button className="Sidebar__AddMenuItem" onClick={() => {
           setShowMenu(false);
           onCopyPage(canvasId, page);
         }}>
-          <Copy size={13} /> Duplicate
+          <Copy size={13} /> {t('layout.canvasTree.duplicate')}
         </button>
       )}
       <button className="Sidebar__AddMenuItem" onClick={() => {
         setShowMenu(false);
         onCopyLink(canvasId, page);
       }}>
-        <Link size={13} /> Copy link
+        <Link size={13} /> {t('layout.canvasTree.copyLink')}
       </button>
       <button className="Sidebar__AddMenuItem" onClick={() => {
         setShowMenu(false);
         onMovePage(canvasId, page);
       }}>
-        <FolderInput size={13} /> Move
+        <FolderInput size={13} /> {t('layout.canvasTree.move')}
       </button>
       <div className="Sidebar__AddMenuDivider" />
       <button className="Sidebar__AddMenuItem Sidebar__AddMenuItem--danger" onClick={() => {
         setShowMenu(false);
         onDeletePage(canvasId, page);
       }}>
-        <Trash2 size={13} /> Delete
+        <Trash2 size={13} /> {t('common.actions.delete')}
       </button>
     </>
   );
@@ -1077,7 +1079,7 @@ function SidebarPageItem({
                 }
                 setShowMenu(!showMenu);
               }}
-              title="More"
+              title={t('common.actions.more')}
             >
               <MoreHorizontal size={12} />
             </button>
@@ -1137,7 +1139,7 @@ function SidebarPageItem({
                 onChange={(e) => setInlineTitle(e.target.value)}
                 onKeyDown={handleInlineKeyDown}
                 onBlur={() => { if (!inlineTitle.trim()) { setInlineCreate(null); setInlineTitle(''); } }}
-                placeholder={inlineCreate.type === 'folder' ? 'Folder name...' : inlineCreate.type === 'typst' ? 'Typst document title...' : 'Document title...'}
+                placeholder={inlineCreate.type === 'folder' ? t('layout.canvasTree.folderNamePlaceholder') : inlineCreate.type === 'typst' ? t('layout.canvasTree.typstTitlePlaceholder') : t('layout.canvasTree.documentTitlePlaceholder')}
               />
             </div>
           )}

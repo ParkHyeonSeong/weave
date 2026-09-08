@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Globe, Lock, AlertTriangle } from 'lucide-react';
 import AppearanceSection from '@/components/common/AppearanceSection';
@@ -7,6 +8,7 @@ import { DEFAULT_COLORS } from '@/library/entityAppearance';
 import { getErrorCode } from '@/library/errorCode';
 
 export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [canvasName, setCanvasName] = useState(canvas?.canvas_name || '');
   const [key, setKey] = useState(canvas?.key || '');
@@ -25,7 +27,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
     const upper = v.toUpperCase().replace(/[^A-Z0-9]/g, '');
     setKey(upper);
     if (upper && !/^[A-Z][A-Z0-9]{1,9}$/.test(upper)) {
-      setKeyError('2-10 uppercase letters/numbers, starting with a letter');
+      setKeyError(t('canvasExt.settings.keyRule'));
     } else {
       setKeyError('');
     }
@@ -50,7 +52,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
         window.dispatchEvent(new Event('canvas:created'));
         setTimeout(() => setSaved(false), 2000);
       } else if (getErrorCode(res.data) === 'KEY_ALREADY_EXISTS') {
-        setKeyError('This key is already in use.');
+        setKeyError(t('errors.KEY_ALREADY_EXISTS'));
       }
     } catch {}
     setSaving(false);
@@ -73,7 +75,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
 
       {/* Canvas Name */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Canvas Name</label>
+        <label className="SettingsGeneral__Label">{t('canvasExt.settings.canvasName')}</label>
         <input
           className="SettingsGeneral__Input"
           value={canvasName}
@@ -84,7 +86,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
 
       {/* Key */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Key</label>
+        <label className="SettingsGeneral__Label">{t('canvasExt.settings.key')}</label>
         <input
           className={`SettingsGeneral__Input ${!isAdmin ? 'SettingsGeneral__Input--readonly' : ''}`}
           value={key}
@@ -95,27 +97,27 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
         {keyError && <span className="SettingsGeneral__Error">{keyError}</span>}
         {isAdmin && !keyError && (
           <span className="SettingsGeneral__Hint">
-            2-10 uppercase letters/numbers, starting with a letter
+            {t('canvasExt.settings.keyRule')}
           </span>
         )}
       </div>
 
       {/* Description */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Description</label>
+        <label className="SettingsGeneral__Label">{t('canvasExt.settings.description')}</label>
         <textarea
           className="SettingsGeneral__Textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          placeholder="Canvas description..."
+          placeholder={t('canvasExt.settings.descriptionPlaceholder')}
           disabled={!isAdmin}
         />
       </div>
 
       {/* Visibility */}
       <div className="SettingsGeneral__Field">
-        <label className="SettingsGeneral__Label">Visibility</label>
+        <label className="SettingsGeneral__Label">{t('canvasExt.settings.visibility')}</label>
         <div className="SettingsGeneral__VisibilityGroup">
           <button
             type="button"
@@ -124,7 +126,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
             disabled={!isAdmin}
           >
             <Lock size={14} />
-            Private
+            {t('canvasExt.settings.private')}
           </button>
           <button
             type="button"
@@ -133,13 +135,13 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
             disabled={!isAdmin}
           >
             <Globe size={14} />
-            Public
+            {t('canvasExt.settings.public')}
           </button>
         </div>
         <span className="SettingsGeneral__Hint">
           {visibility === 'private'
-            ? 'Only invited members can access this canvas.'
-            : 'Anyone can find and join this canvas.'}
+            ? t('canvasExt.settings.privateHint')
+            : t('canvasExt.settings.publicHint')}
         </span>
       </div>
 
@@ -151,7 +153,7 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
             onClick={handleSave}
             disabled={!canvasName.trim() || !key.trim() || keyError || saving}
           >
-            {saving ? 'Saving...' : saved ? 'Saved' : 'Save Changes'}
+            {saving ? t('common.state.saving') : saved ? t('canvasExt.settings.saved') : t('canvasExt.settings.saveChanges')}
           </button>
         </div>
       )}
@@ -161,28 +163,28 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
         <div className="SettingsGeneral__Danger">
           <div className="SettingsGeneral__DangerHeader">
             <AlertTriangle size={16} />
-            <span>Danger Zone</span>
+            <span>{t('canvasExt.settings.dangerZone')}</span>
           </div>
 
           {!showDeleteConfirm ? (
             <div className="SettingsGeneral__DangerRow">
               <div className="SettingsGeneral__DangerInfo">
-                <span className="SettingsGeneral__DangerTitle">이 캔버스 아카이브</span>
+                <span className="SettingsGeneral__DangerTitle">{t('canvasExt.settings.archiveTitle')}</span>
                 <span className="SettingsGeneral__DangerDesc">
-                  아카이브하면 목록에서 사라지고, 보관함에서 복원하거나 영구삭제할 수 있어요.
+                  {t('canvasExt.settings.archiveDesc')}
                 </span>
               </div>
               <button
                 className="SettingsGeneral__DeleteBtn"
                 onClick={() => setShowDeleteConfirm(true)}
               >
-                아카이브
+                {t('canvasExt.settings.archive')}
               </button>
             </div>
           ) : (
             <div className="SettingsGeneral__DeleteConfirm">
               <p className="SettingsGeneral__DeleteWarning">
-                보관함에서 되돌릴 수 있어요. 확정하려면 <strong>{canvas?.key}</strong> 입력.
+                {t('canvasExt.settings.archiveConfirmIntro')} <strong>{canvas?.key}</strong> {t('canvasExt.settings.archiveConfirmOutro')}
               </p>
               <input
                 className="SettingsGeneral__Input"
@@ -206,13 +208,13 @@ export default function SettingsGeneral({ canvasId, canvas, isAdmin, onUpdated }
                     setDeleting(false);
                   }}
                 >
-                  {deleting ? '아카이브 중…' : '아카이브'}
+                  {deleting ? t('canvasExt.settings.archiving') : t('canvasExt.settings.archive')}
                 </button>
                 <button
                   className="SettingsGeneral__CancelBtn"
                   onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
                 >
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>

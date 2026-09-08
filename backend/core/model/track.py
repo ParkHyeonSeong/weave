@@ -134,7 +134,7 @@ async def find_accessible(user_id: int, db: AsyncSession):
     return tracks
 
 
-async def home_stats(user_id: int, db: AsyncSession):
+async def home_stats(user_id: int, today, db: AsyncSession):
     """사용자가 접근 가능한 Track 전체에 대한 홈 KPI 집계.
 
     - active_track_count: 멤버인(아카이브 안 된) track 수.
@@ -144,7 +144,8 @@ async def home_stats(user_id: int, db: AsyncSession):
     - connected_branch_count: 그 track 들에 연결된 distinct branch 수.
     - in_progress_task_count: track 의 task 참조 중 category = 'in_progress'.
     - due_this_week_count: 미완료(done/cancelled 외) 중 due_date 가
-      오늘~+7일 이내인 task 참조 수.
+      today~+7일 이내인 task 참조 수. today 는 컨트롤러가 넘기는 **개인 timezone의 오늘**
+      (Branch 홈과 같은 정책 — 사용자별 파생 상태라 CURRENT_DATE(UTC)를 쓰지 않는다).
 
     같은 task / branch 가 여러 track 에 참조돼도 distinct 로 한 번만 센다
     (branch 는 명시적 DISTINCT, task 는 task_id distinct).
@@ -178,9 +179,9 @@ async def home_stats(user_id: int, db: AsyncSession):
             (SELECT COUNT(*) FROM my_tasks
              WHERE category NOT IN ('done', 'cancelled')
                AND due_date IS NOT NULL
-               AND due_date >= CURRENT_DATE
-               AND due_date < CURRENT_DATE + 7) AS due_this_week_count
-    """), {'user_id': user_id})
+               AND due_date >= CAST(:today AS DATE)
+               AND due_date < CAST(:today AS DATE) + 7) AS due_this_week_count
+    """), {'user_id': user_id, 'today': today})
     row = result.fetchone()
     return {
         'active_track_count': row._mapping['active_track_count'],

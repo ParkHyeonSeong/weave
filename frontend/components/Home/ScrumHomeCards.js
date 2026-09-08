@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { CalendarCheck, History, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 
 export default function ScrumHomeCards() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [data, setData] = useState(null);
   const [dismissed, setDismissed] = useState(() => new Set());
@@ -31,20 +33,20 @@ export default function ScrumHomeCards() {
         <div key={`t${b.board_id}`} className="ScrumCard ScrumCard--today" style={{ '--accent': b.color }}>
           <div className="ScrumCard__Main" onClick={() => router.push(`/scrum/${b.board_id}`)}>
             <CalendarCheck size={16} />
-            <span><b>{b.name}</b> · 오늘 데일리스크럼 아직 안 썼어요</span>
+            <span><b>{b.name}</b> · {t('home.scrumCards.todayPending')}</span>
           </div>
-          <button className="ScrumCard__Go" onClick={() => router.push(`/scrum/${b.board_id}`)}>지금 쓰기 →</button>
-          <button className="ScrumCard__X" onClick={() => dismiss(`t${b.board_id}`)} aria-label="닫기"><X size={14} /></button>
+          <button className="ScrumCard__Go" onClick={() => router.push(`/scrum/${b.board_id}`)}>{t('home.scrumCards.writeNow')}</button>
+          <button className="ScrumCard__X" onClick={() => dismiss(`t${b.board_id}`)} aria-label={t('common.actions.close')}><X size={14} /></button>
         </div>
       ))}
       {retro.map((b) => (
         <div key={`r${b.board_id}`} className="ScrumCard ScrumCard--retro">
           <div className="ScrumCard__Main" onClick={() => router.push(`/scrum/${b.board_id}?tab=retro`)}>
             <History size={16} />
-            <span><b>{b.name}</b> · 회고할 시간이에요 ({b.period_start.slice(5)}~{b.period_end.slice(5)})</span>
+            <span><b>{b.name}</b> · {t('home.scrumCards.retroDue')} ({b.period_start.slice(5)}~{b.period_end.slice(5)})</span>
           </div>
-          <button className="ScrumCard__Go ScrumCard__Go--retro" onClick={() => router.push(`/scrum/${b.board_id}?tab=retro`)}>회고 쓰기 →</button>
-          <button className="ScrumCard__X" onClick={() => dismiss(`r${b.board_id}`)} aria-label="닫기"><X size={14} /></button>
+          <button className="ScrumCard__Go ScrumCard__Go--retro" onClick={() => router.push(`/scrum/${b.board_id}?tab=retro`)}>{t('home.scrumCards.writeRetro')}</button>
+          <button className="ScrumCard__X" onClick={() => dismiss(`r${b.board_id}`)} aria-label={t('common.actions.close')}><X size={14} /></button>
         </div>
       ))}
     </div>

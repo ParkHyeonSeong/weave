@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Star, FileText } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import NavLink from '@/components/common/NavLink';
 
 export default function StarredItems() {
+  const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isHidden } = useUiPrefs();
@@ -39,10 +41,10 @@ export default function StarredItems() {
       <div className="Widget StarredItems">
         <div className="Widget__Header">
           <Star size={16} />
-          <span className="Widget__Title">Starred</span>
+          <span className="Widget__Title">{t('home.widgets.starred.title')}</span>
         </div>
         <div className="Widget__Body">
-          <div className="Widget__Empty">Loading...</div>
+          <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
     );
@@ -52,11 +54,11 @@ export default function StarredItems() {
     <div className="Widget StarredItems">
       <div className="Widget__Header">
         <Star size={16} />
-        <span className="Widget__Title">Starred</span>
+        <span className="Widget__Title">{t('home.widgets.starred.title')}</span>
       </div>
       <div className="Widget__Body">
         {visibleItems.length === 0 ? (
-          <div className="Widget__Empty">No starred items</div>
+          <div className="Widget__Empty">{t('home.widgets.starred.empty')}</div>
         ) : (
           <div className="StarredItems__List">
             {visibleItems.map((item) => {

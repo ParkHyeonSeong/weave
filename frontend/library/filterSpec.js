@@ -1,23 +1,38 @@
 // frontend/library/filterSpec.js
 /** FilterSpec 클라이언트 평가기. backend/core/query/eval_inmem.py와 의미 일치(parity 픽스처로 강제). */
+//
+// ⚠️ 이 모듈은 **시계를 직접 읽지 않는다**. `$today`는 호출부가 ctx.today로 넘긴
+//    'YYYY-MM-DD'(= useDateFormat().today(), 사용자 **개인** timezone의 오늘)로만 해석된다.
+//    여기서 new Date()를 읽으면 브라우저 timezone의 오늘이 되어 백엔드 $today(사용자
+//    language_region.time_zone 기준)와 갈린다 — 같은 저장 필터가 프런트/백엔드에서
+//    다른 날을 가리키게 된다.
+import { addDaysToDateOnly } from './formatDateTime';
+
 const DATE_FIELDS = new Set(['due_date', 'start_date', 'created_at', 'updated_at']);
 const LEAF = { status: 'status', status_category: 'status_category', priority: 'priority',
   task_type: 'task_type', epic: 'epic_id', sprint: 'sprint_id', created_by: 'created_by',
   due_date: 'due_date', start_date: 'start_date', created_at: 'created_at', updated_at: 'updated_at' };
 
-function addDays(iso, n) {
-  const d = new Date(iso + 'T00:00:00Z');
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().slice(0, 10);
+// grammar는 filter_spec._DATE_TOKEN / eval_inmem._REL과 동기.
+const DATE_TOKEN_RE = /^\$today([+-]\d+)d$/;
+
+/**
+ * `$today` / `$today±Nd` → 'YYYY-MM-DD'.
+ * @param value 필터 값(토큰이 아니면 그대로 반환)
+ * @param today **명시 인자**로 받는 오늘('YYYY-MM-DD'). 이 함수는 시계를 읽지 않는다.
+ */
+export function resolveDateToken(value, today) {
+  if (typeof value !== 'string') return value;
+  if (value === '$today') return today;
+  const m = DATE_TOKEN_RE.exec(value);
+  if (!m) return value;
+  // 오프셋도 달력 산술 — instant로 환산하지 않으므로 DST/timezone과 무관하다.
+  return today ? addDaysToDateOnly(today, parseInt(m[1], 10)) : today;
 }
+
 function resolve(value, ctx, isDate) {
   if (value === '$me') return ctx.userId;
-  if (isDate && typeof value === 'string') {
-    if (value === '$today') return ctx.today;
-    // grammar는 filter_spec._DATE_TOKEN / eval_inmem._REL과 동기
-    const m = /^\$today([+-]\d+)d$/.exec(value);
-    if (m) return addDays(ctx.today, parseInt(m[1], 10));
-  }
+  if (isDate) return resolveDateToken(value, ctx.today);
   return value;
 }
 function cmp(a, op, b) {

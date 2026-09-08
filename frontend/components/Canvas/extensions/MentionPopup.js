@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import Avatar from '@/components/common/Avatar';
 
 const MentionPopup = forwardRef(({ keyword, branchId, roomId, canvasId, members, onSelect, onClose }, ref) => {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [activeIdx, setActiveIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -77,12 +79,12 @@ const MentionPopup = forwardRef(({ keyword, branchId, roomId, canvasId, members,
     <div className="MentionPopup">
       <div className="MentionPopup__Header">
         <Search size={12} />
-        Mention a user
+        {t('canvasExt.mention.header')}
       </div>
       <ul className="MentionPopup__List" ref={listRef}>
-        {loading && <li className="MentionPopup__Empty">Searching...</li>}
+        {loading && <li className="MentionPopup__Empty">{t('canvasExt.searching')}</li>}
         {!loading && users.length === 0 && (
-          <li className="MentionPopup__Empty">No users found</li>
+          <li className="MentionPopup__Empty">{t('canvasExt.mention.noUsers')}</li>
         )}
         {!loading && users.map((user, idx) => (
           <li

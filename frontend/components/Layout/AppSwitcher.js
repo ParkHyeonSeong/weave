@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { LayoutDashboard, GitBranch, FileEdit, Workflow, CalendarCheck, ChevronDown, Check, FileText } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { useUiPrefs } from '@/library/UiPrefsContext';
@@ -7,15 +8,17 @@ import { getAppContext, APP_HOME } from '@/library/appContext';
 import { DEFAULT_COLORS } from '@/library/entityAppearance';
 import NavLink from '@/components/common/NavLink';
 
+// 라벨은 catalog 키로 둔다 — 모듈 상수는 언어 변경을 못 따라가므로 렌더 시점에 t로 푼다.
 const APPS = [
-  { key: 'home',   label: 'Home',   Icon: LayoutDashboard, color: '#64748b',             path: '/' },
-  { key: 'branch', label: 'Branch', Icon: GitBranch,       color: DEFAULT_COLORS.branch, path: APP_HOME.branch },
-  { key: 'canvas', label: 'Canvas', Icon: FileEdit,        color: DEFAULT_COLORS.canvas, path: APP_HOME.canvas },
-  { key: 'track',  label: 'Track',  Icon: Workflow,        color: DEFAULT_COLORS.track,  path: APP_HOME.track },
-  { key: 'scrum',  label: 'Scrum',  Icon: CalendarCheck,   color: DEFAULT_COLORS.scrum,  path: APP_HOME.scrum },
+  { key: 'home',   labelKey: 'layout.appSwitcher.apps.home',   Icon: LayoutDashboard, color: '#64748b',             path: '/' },
+  { key: 'branch', labelKey: 'layout.appSwitcher.apps.branch', Icon: GitBranch,       color: DEFAULT_COLORS.branch, path: APP_HOME.branch },
+  { key: 'canvas', labelKey: 'layout.appSwitcher.apps.canvas', Icon: FileEdit,        color: DEFAULT_COLORS.canvas, path: APP_HOME.canvas },
+  { key: 'track',  labelKey: 'layout.appSwitcher.apps.track',  Icon: Workflow,        color: DEFAULT_COLORS.track,  path: APP_HOME.track },
+  { key: 'scrum',  labelKey: 'layout.appSwitcher.apps.scrum',  Icon: CalendarCheck,   color: DEFAULT_COLORS.scrum,  path: APP_HOME.scrum },
 ];
 
 export default function AppSwitcher() {
+  const { t } = useTranslation();
   const router = useRouter();
   const currentKey = getAppContext(router.pathname) || 'home';
   const current = APPS.find((a) => a.key === currentKey) || APPS[0];
@@ -57,20 +60,20 @@ export default function AppSwitcher() {
       <button
         className="AppSwitcher__Trigger"
         onClick={() => setOpen((p) => !p)}
-        title="앱 전환"
+        title={t('layout.appSwitcher.switchApp')}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         <span className="AppSwitcher__TrigIcon" style={{ color: current.color }}>
           <CurIcon size={15} strokeWidth={2.2} />
         </span>
-        <span className="AppSwitcher__TrigLabel">{current.label}</span>
+        <span className="AppSwitcher__TrigLabel">{t(current.labelKey)}</span>
         <ChevronDown size={14} className="AppSwitcher__Chevron" />
       </button>
 
       {open && (
         <div className="AppSwitcher__Menu">
-          <div className="AppSwitcher__Label">앱 전환</div>
+          <div className="AppSwitcher__Label">{t('layout.appSwitcher.switchApp')}</div>
           {APPS.map((app) => {
             const Icon = app.Icon;
             const active = app.key === currentKey;
@@ -84,7 +87,7 @@ export default function AppSwitcher() {
                 <span className="AppSwitcher__ItemIcon" style={{ color: app.color }}>
                   <Icon size={16} strokeWidth={2.2} />
                 </span>
-                <span className="AppSwitcher__ItemLabel">{app.label}</span>
+                <span className="AppSwitcher__ItemLabel">{t(app.labelKey)}</span>
                 {active && <Check size={14} className="AppSwitcher__ItemCheck" />}
               </NavLink>
             );
@@ -93,7 +96,7 @@ export default function AppSwitcher() {
           {visibleRecent.length > 0 && (
             <>
               <div className="AppSwitcher__Divider" />
-              <div className="AppSwitcher__Label">최근</div>
+              <div className="AppSwitcher__Label">{t('layout.appSwitcher.recent')}</div>
               {visibleRecent.map((item) => {
                 const href = item.type === 'task'
                   ? `/branch/${item.branch_id}/task/${item.task_id}`

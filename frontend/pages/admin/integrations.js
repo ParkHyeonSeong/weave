@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -9,6 +10,7 @@ import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
 export default function IntegrationsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
 
@@ -78,7 +80,7 @@ export default function IntegrationsPage() {
 
   const handleSaveAiConfig = async () => {
     if (!aiApiKey && !aiKeyPlaceholder) {
-      showAlert('Error', 'Please enter an API key.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.enterApiKey'));
       return;
     }
     setAiSaving(true);
@@ -90,15 +92,15 @@ export default function IntegrationsPage() {
       }
       const res = await axios.put('/ai/config', body);
       if (res.data.status) {
-        showAlert('Success', 'AI configuration saved successfully.');
+        showAlert(t('authAdmin.success'), t('authAdmin.integrations.aiSaved'));
         fetchAiConfig();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to save configuration.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.integrations.saveFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to save AI configuration.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.aiSaveFailed'));
     } finally {
       setAiSaving(false);
     }
@@ -127,11 +129,11 @@ export default function IntegrationsPage() {
 
   const handleSaveSmtpConfig = async () => {
     if (!smtpHost || !smtpUser || !senderEmail) {
-      showAlert('Error', 'Please fill in all required fields.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.fillRequired'));
       return;
     }
     if (!smtpPassword && !smtpPasswordPlaceholder) {
-      showAlert('Error', 'Please enter an SMTP password.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.enterSmtpPassword'));
       return;
     }
     setSmtpSaving(true);
@@ -149,15 +151,15 @@ export default function IntegrationsPage() {
       }
       const res = await axios.put('/admin/smtp-config', body);
       if (res.data.status) {
-        showAlert('Success', 'SMTP configuration saved successfully.');
+        showAlert(t('authAdmin.success'), t('authAdmin.integrations.smtpSaved'));
         fetchSmtpConfig();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to save configuration.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.integrations.saveFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to save SMTP configuration.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.smtpSaveFailed'));
     } finally {
       setSmtpSaving(false);
     }
@@ -171,14 +173,14 @@ export default function IntegrationsPage() {
         test_email: profile.email || senderEmail,
       });
       if (res.data.status) {
-        showAlert('Success', `Test email sent to ${profile.email || senderEmail}.`);
+        showAlert(t('authAdmin.success'), t('authAdmin.integrations.testEmailSent', { email: profile.email || senderEmail }));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to send test email.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('authAdmin.integrations.testEmailFailed');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'Failed to send test email.');
+      showAlert(t('common.state.error'), t('authAdmin.integrations.testEmailFailed'));
     } finally {
       setSmtpTesting(false);
     }
@@ -189,28 +191,28 @@ export default function IntegrationsPage() {
   return (
     <AdminLayout>
       <Head>
-        <title>Integrations - Weave</title>
+        <title>{t('pageTitles.integrations')}</title>
       </Head>
       <div className="Admin">
         <div className="Admin__Header">
           <Blocks size={20} />
-          <h1 className="Admin__Title">Integrations</h1>
+          <h1 className="Admin__Title">{t('authAdmin.integrations.title')}</h1>
         </div>
 
         <div className="Admin__Section">
           <div className="Admin__SectionHeader">
             <h2 className="Admin__SectionTitle">
               <Bot size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
-              AI Assistant
+              {t('authAdmin.integrations.aiTitle')}
             </h2>
           </div>
           <p className="Admin__Description">
-            Configure the AI provider and model for the AI Assistant on the Dashboard.
+            {t('authAdmin.integrations.aiDesc')}
           </p>
 
           <div className="Admin__Form">
             <div className="Admin__Field">
-              <label className="Admin__Label">Provider</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.provider')}</label>
               <select
                 className="Admin__Select"
                 value={aiProvider}
@@ -222,19 +224,19 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">API Key</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.apiKey')}</label>
               <input
                 className="Admin__Input"
                 type="password"
                 value={aiApiKey}
-                placeholder={aiKeyPlaceholder || 'Enter API key'}
+                placeholder={aiKeyPlaceholder || t('authAdmin.integrations.apiKeyPlaceholder')}
                 onChange={(e) => setAiApiKey(e.target.value)}
                 onFocus={() => setAiApiKey('')}
               />
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">Model</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.model')}</label>
               <input
                 className="Admin__Input"
                 type="text"
@@ -249,7 +251,7 @@ export default function IntegrationsPage() {
               onClick={handleSaveAiConfig}
               disabled={aiSaving}
             >
-              {aiSaving ? 'Saving...' : 'Save Configuration'}
+              {aiSaving ? t('common.state.saving') : t('authAdmin.integrations.saveConfig')}
             </button>
           </div>
         </div>
@@ -257,16 +259,16 @@ export default function IntegrationsPage() {
           <div className="Admin__SectionHeader">
             <h2 className="Admin__SectionTitle">
               <Mail size={16} style={{ marginRight: 6, verticalAlign: -2 }} />
-              Email (SMTP)
+              {t('authAdmin.integrations.smtpTitle')}
             </h2>
           </div>
           <p className="Admin__Description">
-            Configure SMTP settings for sending emails (password resets, notifications).
+            {t('authAdmin.integrations.smtpDesc')}
           </p>
 
           <div className="Admin__Form">
             <div className="Admin__Field">
-              <label className="Admin__Label">SMTP Host *</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.smtpHost')}</label>
               <input
                 className="Admin__Input"
                 type="text"
@@ -277,7 +279,7 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">SMTP Port</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.smtpPort')}</label>
               <input
                 className="Admin__Input"
                 type="number"
@@ -288,7 +290,7 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">SMTP User *</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.smtpUser')}</label>
               <input
                 className="Admin__Input"
                 type="text"
@@ -299,19 +301,19 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">SMTP Password *</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.smtpPassword')}</label>
               <input
                 className="Admin__Input"
                 type="password"
                 value={smtpPassword}
-                placeholder={smtpPasswordPlaceholder || 'Enter SMTP password'}
+                placeholder={smtpPasswordPlaceholder || t('authAdmin.integrations.smtpPasswordPlaceholder')}
                 onChange={(e) => setSmtpPassword(e.target.value)}
                 onFocus={() => setSmtpPassword('')}
               />
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">Sender Email *</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.senderEmail')}</label>
               <input
                 className="Admin__Input"
                 type="email"
@@ -322,7 +324,7 @@ export default function IntegrationsPage() {
             </div>
 
             <div className="Admin__Field">
-              <label className="Admin__Label">Sender Name</label>
+              <label className="Admin__Label">{t('authAdmin.integrations.senderName')}</label>
               <input
                 className="Admin__Input"
                 type="text"
@@ -338,7 +340,7 @@ export default function IntegrationsPage() {
                 checked={useTls}
                 onChange={(e) => setUseTls(e.target.checked)}
               />
-              Use TLS (STARTTLS)
+              {t('authAdmin.integrations.useTls')}
             </label>
 
             <div className="Admin__BtnRow">
@@ -347,14 +349,14 @@ export default function IntegrationsPage() {
                 onClick={handleSaveSmtpConfig}
                 disabled={smtpSaving}
               >
-                {smtpSaving ? 'Saving...' : 'Save Configuration'}
+                {smtpSaving ? t('common.state.saving') : t('authAdmin.integrations.saveConfig')}
               </button>
               <button
                 className="Admin__TestBtn"
                 onClick={handleTestSmtp}
                 disabled={smtpTesting}
               >
-                {smtpTesting ? 'Sending...' : 'Send Test Email'}
+                {smtpTesting ? t('authAdmin.integrations.sending') : t('authAdmin.integrations.sendTestEmail')}
               </button>
             </div>
           </div>

@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next';
 import Head from 'next/head';
 import { axios } from '@/library/_axios';
 import ArchiveView from '@/components/Home/shared/ArchiveView';
 
 export default function ScrumArchive() {
+  const { t } = useTranslation();
   return (
     <>
-      <Head><title>보관함 · Scrum</title></Head>
+      <Head><title>{t('pageTitles.scrumArchive')}</title></Head>
       <ArchiveView
-        title="Scrum 보관함"
+        title={t('misc.archive.title', { app: 'Scrum' })}
         backHref="/scrum"
         fetchItems={async () => {
           const res = await axios.get('/scrum/archived');

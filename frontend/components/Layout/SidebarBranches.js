@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Plus, ChevronRight, ChevronDown, Bookmark } from 'lucide-react';
@@ -72,6 +73,7 @@ function SortableBranchItem({ branch, isActive, onMenu, rename }) {
 }
 
 export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderChange, hidden = [], onHide, onUnhide, pinnedViews = [], currentBranchId }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [branches, setBranches] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
@@ -154,15 +156,14 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
               window.dispatchEvent(new Event('branch:created'));
               fetchBranches();
               // Toast(showToast)는 액션 버튼을 지원하지 않아 undo 없이 성공 알림만 표시.
-              showToast(`"${branch.branch_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: branch.branch_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id: branch.branch_id, name: branch.branch_name }),
-      },
-    ));
+      }, t));
   };
 
   const handleDragStart = (event) => {
@@ -187,8 +188,8 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
   return (
     <>
       <div className="Sidebar__SectionHeader">
-        <span className="Sidebar__SectionLabel">Branches</span>
-        <button className="Sidebar__SectionAddBtn" onClick={onCreateBranch} title="Create Branch">
+        <span className="Sidebar__SectionLabel">{t('layout.sections.branches')}</span>
+        <button className="Sidebar__SectionAddBtn" onClick={onCreateBranch} title={t('layout.sections.createBranch')}>
           <Plus size={14} />
         </button>
       </div>
@@ -196,7 +197,7 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
       <div className="Sidebar__Branches">
         {sortedBranches.length === 0 ? (
           <div className="Sidebar__Empty">
-            No branches yet.<br />Create one to get started.
+            {t('layout.empty.branches')}<br />{t('layout.empty.createHint')}
           </div>
         ) : (
           <>
@@ -237,7 +238,7 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
               <>
                 <button className="Sidebar__HiddenToggle" onClick={() => setShowHidden((s) => !s)}>
                   {showHidden ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  숨긴 항목 {hiddenBranches.length}
+                  {t('sidebar.hiddenItems', { count: hiddenBranches.length })}
                 </button>
                 {showHidden && hiddenBranches.map((branch) => (
                   <div
@@ -249,7 +250,7 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
                       <EntityIcon icon={branch.icon} color={branch.color} size={14} entityType="branch" />
                       <span className="Sidebar__BranchName">{branch.branch_name}</span>
                     </NavLink>
-                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(branch.branch_id)}>숨김 해제</button>
+                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(branch.branch_id)}>{t('sidebar.unhide')}</button>
                   </div>
                 ))}
               </>
@@ -261,7 +262,7 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
       {/* 현재 브랜치의 고정한 뷰 (클릭 → ?view= 딥링크로 적용) */}
       {pinnedViews.length > 0 && (
         <div className="Sidebar__PinnedViews">
-          <div className="Sidebar__SubSectionLabel">고정한 뷰</div>
+          <div className="Sidebar__SubSectionLabel">{t('sidebar.pinnedViews')}</div>
           {pinnedViews.map((v) => (
             <button
               key={v.view_id}
@@ -282,21 +283,21 @@ export default function SidebarBranches({ onCreateBranch, savedOrder, onOrderCha
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/branches/${t.id}/leave`);
+            const res = await axios.post(`/branches/${target.id}/leave`);
             if (res.data.status) {
               window.dispatchEvent(new Event('branch:created'));
               fetchBranches();
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="브랜치 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveBranchTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name ?? '' })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

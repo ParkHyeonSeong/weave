@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
 import { axios } from '@/library/_axios';
 import { Plus, Trash2, Pencil, Check, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const FIELD_TYPES = [
-  { value: 'text', label: 'Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Select' },
-  { value: 'date', label: 'Date' },
-  { value: 'checkbox', label: 'Checkbox' },
-  { value: 'url', label: 'URL' },
+  { value: 'text', labelKey: 'branch.customFields.type.text' },
+  { value: 'number', labelKey: 'branch.customFields.type.number' },
+  { value: 'select', labelKey: 'branch.customFields.type.select' },
+  { value: 'date', labelKey: 'branch.customFields.type.date' },
+  { value: 'checkbox', labelKey: 'branch.customFields.type.checkbox' },
+  { value: 'url', labelKey: 'branch.customFields.type.url' },
 ];
 
 export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
+  const { t } = useTranslation();
   const [fields, setFields] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,8 +102,8 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
   };
 
   const getTypeLabel = (type) => {
-    const t = FIELD_TYPES.find(ft => ft.value === type);
-    return t ? t.label : type;
+    const ft = FIELD_TYPES.find(item => item.value === type);
+    return ft ? t(ft.labelKey) : type;
   };
 
   if (loading) return null;
@@ -118,15 +120,15 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                     className="SettingsCustomFields__EditInput"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Field name"
+                    placeholder={t('branch.customFields.namePlaceholder')}
                   />
                   <select
                     className="SettingsCustomFields__Select"
                     value={editType}
                     onChange={(e) => setEditType(e.target.value)}
                   >
-                    {FIELD_TYPES.map(t => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+                    {FIELD_TYPES.map(ft => (
+                      <option key={ft.value} value={ft.value}>{t(ft.labelKey)}</option>
                     ))}
                   </select>
                   {editType === 'select' && (
@@ -134,7 +136,7 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                       className="SettingsCustomFields__EditInput"
                       value={editOptions}
                       onChange={(e) => setEditOptions(e.target.value)}
-                      placeholder="Options (comma separated)"
+                      placeholder={t('branch.customFields.optionsPlaceholder')}
                     />
                   )}
                   <label className="SettingsCustomFields__CheckLabel">
@@ -143,7 +145,7 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                       checked={editRequired}
                       onChange={(e) => setEditRequired(e.target.checked)}
                     />
-                    Required
+                    {t('branch.customFields.required')}
                   </label>
                 </div>
                 <div className="SettingsCustomFields__EditActions">
@@ -161,7 +163,7 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                   <span className="SettingsCustomFields__Name">{f.field_name}</span>
                   <span className="SettingsCustomFields__Type">{getTypeLabel(f.field_type)}</span>
                   {f.is_required && (
-                    <span className="SettingsCustomFields__Required">Required</span>
+                    <span className="SettingsCustomFields__Required">{t('branch.customFields.required')}</span>
                   )}
                   {f.field_type === 'select' && f.field_options && (
                     <span className="SettingsCustomFields__Options">
@@ -174,14 +176,14 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                     <button
                       className="SettingsCustomFields__ActionBtn"
                       onClick={() => startEdit(f)}
-                      title="Edit"
+                      title={t('common.actions.edit')}
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       className="SettingsCustomFields__ActionBtn SettingsCustomFields__ActionBtn--danger"
                       onClick={() => handleDelete(f.custom_field_id)}
-                      title="Delete"
+                      title={t('common.actions.delete')}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -193,7 +195,7 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
         ))}
 
         {fields.length === 0 && (
-          <p className="SettingsCustomFields__Empty">No custom fields defined yet.</p>
+          <p className="SettingsCustomFields__Empty">{t('branch.customFields.empty')}</p>
         )}
       </div>
 
@@ -206,15 +208,15 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                   className="SettingsCustomFields__AddInput"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Field name"
+                  placeholder={t('branch.customFields.namePlaceholder')}
                 />
                 <select
                   className="SettingsCustomFields__Select"
                   value={newType}
                   onChange={(e) => setNewType(e.target.value)}
                 >
-                  {FIELD_TYPES.map(t => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
+                  {FIELD_TYPES.map(ft => (
+                    <option key={ft.value} value={ft.value}>{t(ft.labelKey)}</option>
                   ))}
                 </select>
                 {newType === 'select' && (
@@ -222,7 +224,7 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                     className="SettingsCustomFields__AddInput"
                     value={newOptions}
                     onChange={(e) => setNewOptions(e.target.value)}
-                    placeholder="Options (comma separated)"
+                    placeholder={t('branch.customFields.optionsPlaceholder')}
                   />
                 )}
                 <label className="SettingsCustomFields__CheckLabel">
@@ -231,22 +233,22 @@ export default function SettingsCustomFields({ branchId, typeId, isAdmin }) {
                     checked={newRequired}
                     onChange={(e) => setNewRequired(e.target.checked)}
                   />
-                  Required
+                  {t('branch.customFields.required')}
                 </label>
               </div>
               <div className="SettingsCustomFields__AddActions">
                 <button className="SettingsCustomFields__SubmitBtn" onClick={handleAdd}>
-                  Add Field
+                  {t('branch.customFields.addField')}
                 </button>
                 <button className="SettingsCustomFields__CancelAddBtn" onClick={() => setShowAdd(false)}>
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>
           ) : (
             <button className="SettingsCustomFields__AddBtn" onClick={() => setShowAdd(true)}>
               <Plus size={14} />
-              Add Custom Field
+              {t('branch.customFields.addCustomField')}
             </button>
           )}
         </>

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { ArrowLeft, Trash2, ChevronDown, ShieldAlert, Star, Pencil, Copy, ArrowUp } from 'lucide-react';
 import useStar from '@/hooks/useStar';
@@ -10,7 +11,7 @@ import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import useTaskDetail from '@/hooks/useTaskDetail';
 import { sanitizeHtml } from '@/library/sanitize';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
-import { formatYMD, formatDateTime } from '@/library/formatTime';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { selectableEpics } from '@/library/epics';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
@@ -32,14 +33,17 @@ import { buildTaskDescriptionExtensions } from './taskDescriptionExtensions';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
 import { priorityVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
 
-const PRIORITY_OPTIONS = [
-  { value: 'urgent', label: 'Urgent', color: priorityVar('urgent') },
-  { value: 'high', label: 'High', color: priorityVar('high') },
-  { value: 'medium', label: 'Medium', color: priorityVar('medium') },
-  { value: 'low', label: 'Low', color: priorityVar('low') },
+// 라벨은 렌더 시 t()로 해석한다(모듈 로드 시점에는 locale이 확정되지 않는다).
+const priorityOptions = (t) => [
+  { value: 'urgent', label: t('branchTasks.priority.urgent'), color: priorityVar('urgent') },
+  { value: 'high', label: t('branchTasks.priority.high'), color: priorityVar('high') },
+  { value: 'medium', label: t('branchTasks.priority.medium'), color: priorityVar('medium') },
+  { value: 'low', label: t('branchTasks.priority.low'), color: priorityVar('low') },
 ];
 
 export default function TaskFullPage() {
+  const { t } = useTranslation();
+  const { formatTimestamp, formatTimestampYMD } = useDateFormat();
   const router = useRouter();
   const { id: branchId, taskId } = router.query;
   const highlightCommentId = router.query.comment_id ? Number(router.query.comment_id) : null;
@@ -123,18 +127,18 @@ export default function TaskFullPage() {
 
   if (!branchId || !taskId) return null;
   if (loading) {
-    return <div className="TaskFullPage"><div className="TaskFullPage__Loading">Loading...</div></div>;
+    return <div className="TaskFullPage"><div className="TaskFullPage__Loading">{t('common.state.loading')}</div></div>;
   }
   if (error || !task) {
     // error는 useTaskDetail이 setError(getErrorCode(res.data))로 저장한 코드 문자열
-    const msg = errorText(error) ?? '태스크를 불러올 수 없습니다.';
+    const msg = errorText(error) ?? t('branchTasks.fullPage.loadFailed');
     return (
       <div className="TaskFullPage">
         <div className="TaskFullPage__Error">
           <ShieldAlert size={32} />
           <p>{msg}</p>
           <button className="TaskFullPage__ErrorBtn" onClick={() => router.back()}>
-            Go Back
+            {t('common.actions.back')}
           </button>
         </div>
       </div>
@@ -142,7 +146,7 @@ export default function TaskFullPage() {
   }
 
   const branchKey = branch?.key || '';
-  const typeConfig = (taskTypes || []).find((t) => t.type_key === task.task_type);
+  const typeConfig = (taskTypes || []).find((tt) => tt.type_key === task.task_type);
   const displayId = task.display_id || `${branchKey}-${task.display_number}`;
 
   return (
@@ -173,14 +177,14 @@ export default function TaskFullPage() {
           <button
             className={`TaskFullPage__StarBtn ${starred ? 'TaskFullPage__StarBtn--active' : ''}`}
             onClick={toggleStar}
-            title={starred ? 'Remove star' : 'Add star'}
+            title={starred ? t('branchTasks.star.remove') : t('branchTasks.star.add')}
           >
             <Star size={14} fill={starred ? 'currentColor' : 'none'} />
           </button>
         </div>
         <button className="TaskFullPage__DeleteBtn" onClick={() => setShowDeleteConfirm(true)}>
           <Trash2 size={14} />
-          Delete
+          {t('common.actions.delete')}
         </button>
       </div>
 
@@ -220,7 +224,7 @@ export default function TaskFullPage() {
               onChange={(val) => updateField('status', val)}
             />
             {subtaskProgress?.total > 0 && (
-              <span className="TaskFullPage__SubtaskBadge" title="완료된 하위태스크">
+              <span className="TaskFullPage__SubtaskBadge" title={t('branchTasks.subtasks.doneBadgeTitle')}>
                 {progressLabel(subtaskProgress)}
               </span>
             )}
@@ -246,13 +250,13 @@ export default function TaskFullPage() {
           {/* 설명 */}
           <div className="TaskFullPage__Section">
             <div className="TaskFullPage__SectionLabel">
-              Description
+              {t('branchTasks.detail.description')}
               {!editingDesc && task.description && (
                 <>
-                  <button className="TaskFullPage__DescEditBtn" onClick={() => setEditingDesc(true)} title="Edit description">
+                  <button className="TaskFullPage__DescEditBtn" onClick={() => setEditingDesc(true)} title={t('branchTasks.detail.editDescription')}>
                     <Pencil size={11} />
                   </button>
-                  <button className="TaskFullPage__DescEditBtn" onClick={copyDescMarkdown} title="Copy as Markdown">
+                  <button className="TaskFullPage__DescEditBtn" onClick={copyDescMarkdown} title={t('branchTasks.copyAsMarkdown')}>
                     <Copy size={11} />
                   </button>
                 </>
@@ -284,7 +288,7 @@ export default function TaskFullPage() {
                     }}
                   />
                 ) : (
-                  'Add description...'
+                  t('branchTasks.detail.addDescription')
                 )}
               </div>
             )}
@@ -336,40 +340,40 @@ export default function TaskFullPage() {
 
         {/* 오른쪽: 세부 사항 */}
         <div className="TaskFullPage__Sidebar">
-          <div className="TaskFullPage__SectionLabel">Details</div>
+          <div className="TaskFullPage__SectionLabel">{t('branchTasks.detail.details')}</div>
           <div className="TaskFullPage__Fields">
-            <FieldRow label="Type">
+            <FieldRow label={t('branchTasks.fields.type')}>
               <CustomSelect
                 value={task.task_type}
-                options={(taskTypes || []).map((t) => ({
-                  value: t.type_key,
-                  label: t.type_name,
-                  icon: <TaskTypeIcon name={t.icon} size={12} color={t.color} />,
+                options={(taskTypes || []).map((tt) => ({
+                  value: tt.type_key,
+                  label: tt.type_name,
+                  icon: <TaskTypeIcon name={tt.icon} size={12} color={tt.color} />,
                 }))}
                 onChange={(val) => handleSelectChange('task_type', val)}
                 size="sm"
               />
             </FieldRow>
 
-            <FieldRow label="Priority">
+            <FieldRow label={t('branchTasks.fields.priority')}>
               <CustomSelect
                 value={task.priority}
-                options={PRIORITY_OPTIONS}
+                options={priorityOptions(t)}
                 onChange={(val) => handleSelectChange('priority', val)}
                 size="sm"
               />
             </FieldRow>
 
-            <FieldRow label="Sprint">
+            <FieldRow label={t('branchTasks.fields.sprint')}>
               {task.parent ? (
-                <span className="TaskFullPage__Inherited" title="부모 태스크에서 상속">
-                  {task.parent.sprint_name || 'Backlog'}
+                <span className="TaskFullPage__Inherited" title={t('branchTasks.inheritedFromParent')}>
+                  {task.parent.sprint_name || t('branchTasks.backlog')}
                 </span>
               ) : (
                 <CustomSelect
                   value={task.sprint_id || ''}
                   options={[
-                    { value: '', label: 'Backlog' },
+                    { value: '', label: t('branchTasks.backlog') },
                     ...sprints.map((s) => ({ value: s.sprint_id, label: s.sprint_name })),
                   ]}
                   onChange={(val) => handleSelectChange('sprint_id', val)}
@@ -378,16 +382,16 @@ export default function TaskFullPage() {
               )}
             </FieldRow>
 
-            <FieldRow label="Epic">
+            <FieldRow label={t('branchTasks.fields.epic')}>
               {task.parent ? (
-                <span className="TaskFullPage__Inherited" title="부모 태스크에서 상속">
-                  {task.parent.epic_name || 'None'}
+                <span className="TaskFullPage__Inherited" title={t('branchTasks.inheritedFromParent')}>
+                  {task.parent.epic_name || t('branchTasks.none')}
                 </span>
               ) : (
                 <CustomSelect
                   value={task.epic_id || ''}
                   options={[
-                    { value: '', label: 'None' },
+                    { value: '', label: t('branchTasks.none') },
                     ...selectableEpics(epics, task.epic_id).map((ep) => ({
                       value: ep.epic_id,
                       label: ep.epic_name,
@@ -400,11 +404,11 @@ export default function TaskFullPage() {
               )}
             </FieldRow>
 
-            <FieldRow label="Main Assignee">
+            <FieldRow label={t('branchTasks.fields.mainAssignee')}>
               <CustomSelect
                 value={(task.assignees || []).find((a) => a.role === 'main')?.user_id || ''}
                 options={[
-                  { value: '', label: 'Unassigned' },
+                  { value: '', label: t('branchTasks.unassigned') },
                   ...pickerMembers.map((m) => ({ value: m.user_id, label: m.username })),
                 ]}
                 onChange={(val) => {
@@ -416,7 +420,7 @@ export default function TaskFullPage() {
               />
             </FieldRow>
 
-            <FieldRow label="Sub Assignees">
+            <FieldRow label={t('branchTasks.fields.subAssignees')}>
               <SubAssigneeDropdown
                 members={members.filter((m) => {
                   const mainId = (task.assignees || []).find((a) => a.role === 'main')?.user_id;
@@ -430,7 +434,7 @@ export default function TaskFullPage() {
               />
             </FieldRow>
 
-            <FieldRow label="Labels">
+            <FieldRow label={t('branchTasks.fields.labels')}>
               <LabelTagInput
                 assignedLabels={task.labels || []}
                 allLabels={labels}
@@ -441,7 +445,7 @@ export default function TaskFullPage() {
               />
             </FieldRow>
 
-            <FieldRow label="Start date">
+            <FieldRow label={t('branchTasks.fields.startDate')}>
               <DatePicker
                 size="sm"
                 value={task.start_date || null}
@@ -450,7 +454,7 @@ export default function TaskFullPage() {
               />
             </FieldRow>
 
-            <FieldRow label="Due date">
+            <FieldRow label={t('branchTasks.fields.dueDate')}>
               <DatePicker
                 size="sm"
                 value={task.due_date || null}
@@ -460,7 +464,7 @@ export default function TaskFullPage() {
             </FieldRow>
 
             {/* 생성자 */}
-            <FieldRow label="Created by">
+            <FieldRow label={t('branchTasks.fields.createdBy')}>
               {task.creator ? (
                 <span className="TaskFullPage__Creator">
                   <Avatar user={task.creator} size="xs" />
@@ -472,12 +476,12 @@ export default function TaskFullPage() {
             </FieldRow>
 
             {/* 생성일 */}
-            <FieldRow label="Created">
+            <FieldRow label={t('branchTasks.fields.created')}>
               <span
                 className="TaskFullPage__CreatedAt"
-                title={formatDateTime(task.created_at) || undefined}
+                title={formatTimestamp(task.created_at) || undefined}
               >
-                {formatYMD(task.created_at) || '—'}
+                {formatTimestampYMD(task.created_at) || '—'}
               </span>
             </FieldRow>
 
@@ -503,11 +507,12 @@ export default function TaskFullPage() {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={onDelete}
-        title="Delete Task"
+        title={t('branchTasks.deleteTaskTitle')}
         message={taskDeleteMessage(task, {
-          prefix: `"${displayId} - ${task.title}" 을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+          prefix: t('branchTasks.deleteTaskConfirm', { target: `${displayId} - ${task.title}` }),
+          t,
         })}
-        confirmLabel="Delete"
+        confirmLabel={t('common.actions.delete')}
         variant="danger"
       />
     </div>
@@ -524,6 +529,7 @@ function FieldRow({ label, children, align }) {
 }
 
 function CustomFieldInput({ field, value, onChange, className = '' }) {
+  const { t } = useTranslation();
   const inputClass = className || 'TaskFullPage__DateInput';
   switch (field.field_type) {
     case 'text':
@@ -537,7 +543,7 @@ function CustomFieldInput({ field, value, onChange, className = '' }) {
     case 'select':
       return (
         <select className={inputClass} value={value || ''} onChange={(e) => onChange(e.target.value || null)}>
-          <option value="">Select...</option>
+          <option value="">{t('branchTasks.selectPlaceholder')}</option>
           {(field.field_options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       );
@@ -549,6 +555,7 @@ function CustomFieldInput({ field, value, onChange, className = '' }) {
 }
 
 function SubAssigneeDropdown({ members, selectedIds, onChange }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -580,7 +587,7 @@ function SubAssigneeDropdown({ members, selectedIds, onChange }) {
         onClick={() => setOpen((prev) => !prev)}
       >
         <span className={selectedNames.length > 0 ? '' : 'TaskFullPage__Placeholder'}>
-          {selectedNames.length > 0 ? selectedNames.join(', ') : 'None'}
+          {selectedNames.length > 0 ? selectedNames.join(', ') : t('branchTasks.none')}
         </span>
         <ChevronDown size={12} />
       </button>

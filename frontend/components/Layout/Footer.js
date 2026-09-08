@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import NavLink from '@/components/common/NavLink';
 import { PanelLeft, PanelRight, LayoutDashboard, CheckSquare, Compass, Menu, MessageSquare } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function Footer({
   onToggleSidebar,
   onToggleMessenger,
 }) {
+  const { t } = useTranslation();
   const router = useRouter();
 
   // 모바일: 바텀 네비게이션
@@ -24,21 +26,21 @@ export default function Footer({
           className={`Footer__NavItem ${router.pathname === '/' ? 'Footer__NavItem--active' : ''}`}
         >
           <LayoutDashboard size={20} />
-          <span className="Footer__NavLabel">Home</span>
+          <span className="Footer__NavLabel">{t('layout.footer.home')}</span>
         </NavLink>
         <NavLink
           href="/my-tasks"
           className={`Footer__NavItem ${router.pathname === '/my-tasks' ? 'Footer__NavItem--active' : ''}`}
         >
           <CheckSquare size={20} />
-          <span className="Footer__NavLabel">Tasks</span>
+          <span className="Footer__NavLabel">{t('layout.footer.tasks')}</span>
         </NavLink>
         <NavLink
           href="/browse"
           className={`Footer__NavItem ${router.pathname === '/browse' ? 'Footer__NavItem--active' : ''}`}
         >
           <Compass size={20} />
-          <span className="Footer__NavLabel">Browse</span>
+          <span className="Footer__NavLabel">{t('layout.footer.browse')}</span>
         </NavLink>
         {hasSidebar && (
           <button
@@ -46,7 +48,7 @@ export default function Footer({
             onClick={onToggleSidebar}
           >
             <Menu size={20} />
-            <span className="Footer__NavLabel">Menu</span>
+            <span className="Footer__NavLabel">{t('common.actions.menu')}</span>
           </button>
         )}
         <button
@@ -54,7 +56,7 @@ export default function Footer({
           onClick={onToggleMessenger}
         >
           <MessageSquare size={20} />
-          <span className="Footer__NavLabel">Chat</span>
+          <span className="Footer__NavLabel">{t('layout.footer.chat')}</span>
         </button>
       </footer>
     );
@@ -70,7 +72,7 @@ export default function Footer({
             onClick={onToggleSidebar}
           >
             <PanelLeft size={14} />
-            <span className="Footer__Tooltip">Sidebar <kbd>{mod}B</kbd></span>
+            <span className="Footer__Tooltip">{t('layout.panels.sidebar')} <kbd>{mod}B</kbd></span>
           </button>
         )}
       </div>
@@ -83,7 +85,7 @@ export default function Footer({
           onClick={onToggleMessenger}
         >
           <PanelRight size={14} />
-          <span className="Footer__Tooltip Footer__Tooltip--right">Messenger <kbd>{mod}.</kbd></span>
+          <span className="Footer__Tooltip Footer__Tooltip--right">{t('layout.panels.messenger')} <kbd>{mod}.</kbd></span>
         </button>
       </div>
     </footer>

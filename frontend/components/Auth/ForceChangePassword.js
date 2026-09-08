@@ -6,10 +6,12 @@ import { getReturnToFromQuery } from '@/library/authRedirect';
 import Alert from '@/components/modal/Alert';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 
 export default function ForceChangePassword() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
 
   const [newPassword, setNewPassword] = useState('');
@@ -32,11 +34,11 @@ export default function ForceChangePassword() {
     if (loading) return;
 
     if (newPassword.length < 8) {
-      showAlert('Input Error', 'Password must be at least 8 characters.');
+      showAlert(t('auth.inputError'), t('errors.PASSWORD_TOO_SHORT'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert('Input Error', 'Passwords do not match.');
+      showAlert(t('auth.inputError'), t('auth.passwordMismatch'));
       return;
     }
 
@@ -55,11 +57,11 @@ export default function ForceChangePassword() {
         router.replace(getReturnToFromQuery(router.query));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'An unexpected error occurred. Please try again.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('auth.unexpectedError');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert(t('common.state.error'), t('auth.unexpectedError'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export default function ForceChangePassword() {
         <div className="ChangePassword__Header">
           <h1 className="ChangePassword__Logo">Weave</h1>
           <p className="ChangePassword__Subtitle">
-            You must change your password before continuing.
+            {t('authAdmin.password.forceSubtitle')}
           </p>
         </div>
 
@@ -79,14 +81,14 @@ export default function ForceChangePassword() {
           if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
         }}>
           <div className="ChangePassword__Field">
-            <label className="ChangePassword__Label" htmlFor="newPassword">New Password</label>
+            <label className="ChangePassword__Label" htmlFor="newPassword">{t('authAdmin.password.newPassword')}</label>
             <div className="ChangePassword__InputWrap">
               <Lock size={16} className="ChangePassword__InputIcon" />
               <input
                 id="newPassword"
                 type={showPassword ? 'text' : 'password'}
                 className="ChangePassword__Input"
-                placeholder="Minimum 8 characters"
+                placeholder={t('authAdmin.password.minLengthPlaceholder')}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
@@ -105,14 +107,14 @@ export default function ForceChangePassword() {
           </div>
 
           <div className="ChangePassword__Field">
-            <label className="ChangePassword__Label" htmlFor="confirmPassword">Confirm Password</label>
+            <label className="ChangePassword__Label" htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
             <div className="ChangePassword__InputWrap">
               <Lock size={16} className="ChangePassword__InputIcon" />
               <input
                 id="confirmPassword"
                 type={showPassword ? 'text' : 'password'}
                 className="ChangePassword__Input"
-                placeholder="Confirm password"
+                placeholder={t('auth.confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
@@ -124,7 +126,7 @@ export default function ForceChangePassword() {
           <button type="submit" className="ChangePassword__SubmitBtn" disabled={loading}>
             {loading
               ? <Loader2 size={18} className="ChangePassword__Spinner" />
-              : 'Change Password'
+              : t('authAdmin.password.changeSubmit')
             }
           </button>
         </form>

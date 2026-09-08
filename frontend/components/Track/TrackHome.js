@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
+// useMemo는 위 import 줄에 합치지 않는다 — library/literalColorSweep.test.js가 그 줄을
+// 정확한 문자열 앵커로 쓴다.
+import { useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Workflow, GitBranch, Clock, AlarmClock } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -10,7 +13,7 @@ import HomeEmptyState from '@/components/Home/shared/HomeEmptyState';
 import ProgressRing from '@/components/Home/shared/ProgressRing';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import useHomeListControls from '@/library/useHomeListControls';
-import { byTextAsc, byNumberDesc, byDateDesc, ROLE_GROUP } from '@/library/homeListControls';
+import { byTextAsc, byNumberDesc, byDateDesc, roleGroup } from '@/library/homeListControls';
 import AppCard from '@/components/Home/shared/AppCard';
 import CreateTrack from '@/components/modal/CreateTrack';
 import useContextMenu from '@/components/common/useContextMenu';
@@ -18,6 +21,7 @@ import ContextMenu from '@/components/common/ContextMenu';
 import { buildSpaceMenu } from '@/components/Layout/spaceMenu';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { showToast } from '@/components/Layout/Toast';
+import { useTranslation } from 'react-i18next';
 
 const getMyName = () => {
   try {
@@ -30,6 +34,7 @@ const getMyName = () => {
 
 const openCommandPalette = () => window.dispatchEvent(new CustomEvent('layout:open-search'));
 
+// key/value는 저장되는 식별자라 그대로 두고, 라벨만 카탈로그 키로 렌더 시점에 푼다.
 const TRACK_CONTROLS = {
   appKey: 'track',
   hiddenApp: 'tracks',
@@ -37,19 +42,19 @@ const TRACK_CONTROLS = {
   queryFields: ['track_name'],
   defaultView: 'grid',
   sortOptions: [
-    { key: 'updated', label: '최근 수정순', compare: byDateDesc('updated_at') },
-    { key: 'progress', label: '진행률순', compare: byNumberDesc('progress_percent') },
-    { key: 'name', label: '이름순', compare: byTextAsc('track_name') },
-    { key: 'branches', label: '브랜치순', compare: byNumberDesc('branch_count') },
+    { key: 'updated', labelKey: 'track.home.sortUpdated', compare: byDateDesc('updated_at') },
+    { key: 'progress', labelKey: 'track.home.sortProgress', compare: byNumberDesc('progress_percent') },
+    { key: 'name', labelKey: 'track.home.sortName', compare: byTextAsc('track_name') },
+    { key: 'branches', labelKey: 'track.home.sortBranches', compare: byNumberDesc('branch_count') },
   ],
   filterConfig: {
+    // 역할 필터 그룹(roleGroup(t))은 t가 필요해 모듈 스코프에 둘 수 없다 — buildTrackControls가 앞에 붙인다.
     groups: [
-      ROLE_GROUP,
       {
-        key: 'status', label: '진행 상태', options: [
-          { value: 'all', label: '전체', test: () => true },
-          { value: 'active', label: '진행 중', test: (it) => (it.progress_percent ?? 0) < 100 },
-          { value: 'done', label: '완료', test: (it) => it.progress_percent === 100 },
+        key: 'status', labelKey: 'track.home.filterStatus', options: [
+          { value: 'all', labelKey: 'track.home.filterAll', test: () => true },
+          { value: 'active', labelKey: 'track.home.filterActive', test: (it) => (it.progress_percent ?? 0) < 100 },
+          { value: 'done', labelKey: 'track.home.filterDone', test: (it) => it.progress_percent === 100 },
         ],
       },
     ],
@@ -57,13 +62,31 @@ const TRACK_CONTROLS = {
   },
 };
 
+// 렌더 시점에 t로 라벨을 푼다. 공용 역할 필터(roleGroup)는 다른 앱 홈과 같은 자리(맨 앞)에 붙인다.
+const buildTrackControls = (t) => ({
+  ...TRACK_CONTROLS,
+  sortOptions: TRACK_CONTROLS.sortOptions.map((o) => ({ ...o, label: t(o.labelKey) })),
+  filterConfig: {
+    ...TRACK_CONTROLS.filterConfig,
+    groups: [roleGroup(t), ...TRACK_CONTROLS.filterConfig.groups].map((g) => (g.labelKey
+      ? {
+        ...g,
+        label: t(g.labelKey),
+        options: g.options.map((o) => ({ ...o, label: t(o.labelKey) })),
+      }
+      : g)),
+  },
+});
+
 export default function TrackHome() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { isHidden, hide, unhide } = useUiPrefs();
   const ctx = useContextMenu();
   const [leaveTarget, setLeaveTarget] = useState(null);
   const [tracks, setTracks] = useState([]);
-  const { processed, view, query, toolbarProps } = useHomeListControls(TRACK_CONTROLS, tracks);
+  const controls = useMemo(() => buildTrackControls(t), [t]);
+  const { processed, view, query, toolbarProps } = useHomeListControls(controls, tracks);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -96,16 +119,16 @@ export default function TrackHome() {
     if (trackId) router.push(`/tracks/${trackId}`);
   }, [router]);
 
-  const openCardMenu = (e, t) => {
-    const id = t.track_id;
+  const openCardMenu = (e, track) => {
+    const id = track.track_id;
     const detailPath = `/tracks/${id}`;
     const settingsPath = `${detailPath}/settings`;
     ctx.open(e, buildSpaceMenu(
       {
         appType: 'track',
         id,
-        name: t.track_name,
-        role: t.my_role,
+        name: track.track_name,
+        role: track.my_role,
         isHidden: isHidden('tracks', id),
       },
       {
@@ -121,38 +144,39 @@ export default function TrackHome() {
             if (res.data.status) {
               fetchTracks();
               window.dispatchEvent(new Event('track:updated'));
-              showToast(`"${t.track_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: track.track_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
-        leave: () => setLeaveTarget({ id, name: t.track_name }),
-      },
-    ));
+        leave: () => setLeaveTarget({ id, name: track.track_name }),
+      }, t));
   };
 
   return (
     <>
     <div className="HomeMain">
       <HomeHero
-        greeting={me ? <>안녕하세요, {me}님 👋</> : <>워크플로우 현황을 살펴볼까요 👋</>}
+        greeting={me
+          ? <>{t('track.home.greeting', { name: me })} 👋</>
+          : <>{t('track.home.greetingAnonymous')} 👋</>}
         summary={stats && (
           <>
-            진행 중 <b>{stats.in_progress_task_count}</b> · 이번 주 마감{' '}
-            <b>{stats.due_this_week_count}</b>
+            {t('track.home.summaryInProgress')} <b>{stats.in_progress_task_count}</b> ·{' '}
+            {t('track.home.summaryDueThisWeek')} <b>{stats.due_this_week_count}</b>
           </>
         )}
         actions={
           <>
             <button className="HBtn HBtn--sm" onClick={openCommandPalette}>
-              ⌘K 빠른 이동
+              ⌘K {t('track.home.quickJump')}
             </button>
             <button className="HBtn HBtn--sm" onClick={() => router.push('/tracks/archive')}>
-              🗄 보관함
+              🗄 {t('track.home.archive')}
             </button>
             <button className="HBtn HBtn--pri HBtn--sm" onClick={() => setShowCreate(true)}>
-              ＋ 새 트랙
+              ＋ {t('track.home.newTrack')}
             </button>
           </>
         }
@@ -161,18 +185,18 @@ export default function TrackHome() {
       <StatTiles
         loading={!stats}
         tiles={stats ? [
-          { icon: <Workflow size={16} />, label: '활성 트랙', value: stats.active_track_count, tone: 'track' },
-          { icon: <GitBranch size={16} />, label: '연결된 브랜치', value: stats.connected_branch_count, tone: 'primary' },
-          { icon: <Clock size={16} />, label: '진행 중 태스크', value: stats.in_progress_task_count, tone: 'inprog' },
-          { icon: <AlarmClock size={16} />, label: '이번 주 마감', value: stats.due_this_week_count, tone: 'error' },
+          { icon: <Workflow size={16} />, label: t('track.home.statActiveTracks'), value: stats.active_track_count, tone: 'track' },
+          { icon: <GitBranch size={16} />, label: t('track.home.statConnectedBranches'), value: stats.connected_branch_count, tone: 'primary' },
+          { icon: <Clock size={16} />, label: t('track.home.statInProgressTasks'), value: stats.in_progress_task_count, tone: 'inprog' },
+          { icon: <AlarmClock size={16} />, label: t('track.home.statDueThisWeek'), value: stats.due_this_week_count, tone: 'error' },
         ] : []}
       />
 
       <div className="HomeDivider" />
 
       <HomeToolbar
-        count={`트랙 ${processed.length}`}
-        placeholder="트랙 검색…"
+        count={t('track.home.trackCount', { n: processed.length })}
+        placeholder={t('track.home.searchPlaceholder')}
         {...toolbarProps}
       />
 
@@ -181,46 +205,50 @@ export default function TrackHome() {
       ) : processed.length === 0 ? (
         <HomeEmptyState
           icon={<Workflow size={26} />}
-          title={tracks.length === 0 ? '아직 트랙이 없어요' : (query.trim() ? '검색 결과 없음' : '표시할 트랙이 없어요')}
+          title={tracks.length === 0
+            ? t('track.home.emptyTitle')
+            : (query.trim() ? t('track.home.noResultsTitle') : t('track.home.nothingToShowTitle'))}
           desc={
             tracks.length === 0
-              ? '첫 Track을 만들고 여러 branch의 task를 모아 흐름을 그려보세요.'
-              : `"${query}"에 맞는 트랙이 없습니다.`
+              ? t('track.home.emptyDesc')
+              : t('track.home.noResultsDesc', { query })
           }
-          ctaLabel={tracks.length === 0 ? '＋ 새 트랙' : undefined}
+          ctaLabel={tracks.length === 0 ? `＋ ${t('track.home.newTrack')}` : undefined}
           onCta={() => setShowCreate(true)}
         />
       ) : (
         <div className={view === 'list' ? 'HList' : 'HGrid'}>
-          {processed.map((t) => (
+          {processed.map((tr) => (
             <AppCard
-              key={t.track_id}
-              accent={t.color}
-              href={`/tracks/${t.track_id}`}
-              onContextMenu={(e) => openCardMenu(e, t)}
+              key={tr.track_id}
+              accent={tr.color}
+              href={`/tracks/${tr.track_id}`}
+              onContextMenu={(e) => openCardMenu(e, tr)}
             >
               <div className="HCard__Top">
                 <div className="HCard__TopText">
-                  <div className="HCard__Title">{t.track_name}</div>
-                  <div className="HCard__Desc">{t.description}</div>
+                  <div className="HCard__Title">{tr.track_name}</div>
+                  <div className="HCard__Desc">{tr.description}</div>
                 </div>
-                <ProgressRing value={t.progress_percent} color={t.color} />
+                <ProgressRing value={tr.progress_percent} color={tr.color} />
               </div>
               <div className="HCard__Linked">
-                {(t.branches || []).map((br, i) => (
+                {(tr.branches || []).map((br, i) => (
                   <span key={i} className="HCard__LChip">
                     <span className="HDot" style={{ background: br.color }} />
                     {br.name}
                   </span>
                 ))}
-                {t.branch_count > (t.branches?.length || 0) && (
+                {tr.branch_count > (tr.branches?.length || 0) && (
                   <span className="HCard__LChip">
-                    +{t.branch_count - (t.branches?.length || 0)}
+                    +{tr.branch_count - (tr.branches?.length || 0)}
                   </span>
                 )}
               </div>
               <div className="HCard__Foot">
-                <span className="HChip HChip--muted">{t.item_count || 0} 태스크</span>
+                <span className="HChip HChip--muted">
+                  {t('track.home.taskCount', { n: tr.item_count || 0 })}
+                </span>
               </div>
             </AppCard>
           ))}
@@ -240,21 +268,21 @@ export default function TrackHome() {
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/tracks/${t.id}/leave`);
+            const res = await axios.post(`/tracks/${target.id}/leave`);
             if (res.data.status) {
               fetchTracks();
               window.dispatchEvent(new Event('track:updated'));
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="트랙 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveTrackTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

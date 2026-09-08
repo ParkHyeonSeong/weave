@@ -5,6 +5,7 @@ import CustomSelect from '@/components/common/CustomSelect';
 import DatePicker from '@/components/common/DatePicker';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import { statusCategoryVar, DEFAULT_STATUS_FALLBACK } from '@/library/themePalette';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#5E6AD2', '#2563EB', '#DC2626', '#16A34A', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
@@ -16,6 +17,7 @@ const STATUS_COLORS = {
 };
 
 export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicSummary, onClose, onSelectTask }) {
+  const { t } = useTranslation();
   const [epic, setEpic] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,7 +138,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
               backgroundColor: epic.color || '#5E6AD2', flexShrink: 0,
             }}
           />
-          <span className="TaskDetailPanel__Id">Epic</span>
+          <span className="TaskDetailPanel__Id">{t('branch.epicDetail.badge')}</span>
         </div>
         <button className="TaskDetailPanel__CloseBtn" onClick={onClose}>
           <X size={16} />
@@ -179,7 +181,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
         {/* 설명 */}
         <div className="TaskDetailPanel__Section">
-          <div className="TaskDetailPanel__SectionLabel">Description</div>
+          <div className="TaskDetailPanel__SectionLabel">{t('branchTasks.detail.description')}</div>
           {editingDesc ? (
             <textarea
               className="TaskDetailPanel__DescInput"
@@ -195,7 +197,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
               className={`TaskDetailPanel__DescText ${!epic.description ? 'TaskDetailPanel__DescText--empty' : ''}`}
               onClick={() => { setDescValue(epic.description || ''); setEditingDesc(true); }}
             >
-              {epic.description || 'Add description...'}
+              {epic.description || t('branchTasks.detail.addDescription')}
             </div>
           )}
         </div>
@@ -204,11 +206,11 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
         {/* 세부 사항 */}
         <div className="TaskDetailPanel__Section">
-          <div className="TaskDetailPanel__SectionLabel">Details</div>
+          <div className="TaskDetailPanel__SectionLabel">{t('branchTasks.detail.details')}</div>
           <div className="TaskDetailPanel__Fields">
             {/* 색상 */}
             <div className="TaskDetailPanel__Row">
-              <span className="TaskDetailPanel__RowLabel">Color</span>
+              <span className="TaskDetailPanel__RowLabel">{t('modal.fields.color')}</span>
               <div className="TaskDetailPanel__RowValue">
                 <div style={{ display: 'flex', gap: 4 }}>
                   {COLORS.map((c) => (
@@ -228,7 +230,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
             {/* 시작일 */}
             <div className="TaskDetailPanel__Row">
-              <span className="TaskDetailPanel__RowLabel">Start date</span>
+              <span className="TaskDetailPanel__RowLabel">{t('branchTasks.fields.startDate')}</span>
               <div className="TaskDetailPanel__RowValue">
                 <DatePicker
                   size="sm"
@@ -241,7 +243,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
             {/* 마감일 */}
             <div className="TaskDetailPanel__Row">
-              <span className="TaskDetailPanel__RowLabel">Due date</span>
+              <span className="TaskDetailPanel__RowLabel">{t('branchTasks.fields.dueDate')}</span>
               <div className="TaskDetailPanel__RowValue">
                 <DatePicker
                   size="sm"
@@ -258,10 +260,10 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
         {/* 태스크 목록 */}
         <div className="TaskDetailPanel__Section">
-          <div className="TaskDetailPanel__SectionLabel">Tasks ({tasks.length})</div>
+          <div className="TaskDetailPanel__SectionLabel">{t('branch.epicDetail.tasksCount', { count: tasks.length })}</div>
           <div className="EpicTaskList">
             {tasks.length === 0 ? (
-              <div className="EpicTaskList__Empty">No tasks in this epic</div>
+              <div className="EpicTaskList__Empty">{t('branch.epics.noTasksInEpic')}</div>
             ) : (
               tasks.map((task) => {
                 const si = getStatusInfo(task.status);
@@ -282,7 +284,7 @@ export default function EpicDetailPanel({ branchId, workflowStatuses = [], epicS
 
         <button className="TaskDetailPanel__DeleteBtn" onClick={handleDelete}>
           <Trash2 size={14} />
-          Delete epic
+          {t('branch.epicDetail.deleteEpic')}
         </button>
       </div>
     </div>

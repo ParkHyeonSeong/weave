@@ -1,13 +1,19 @@
 import { useState, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { isOutOfRange } from '@/library/dateRange';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { parseDateOnly } from '@/library/formatDateTime';
 
 const POPOVER_WIDTH = 256;
 const POPOVER_HEIGHT = 320;
 const VIEWPORT_MARGIN = 8;
 
-const WEEK_DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+// 요일 머리글은 locale을 따른다. 1970-01-04가 일요일이므로 그 주를 기준으로 뽑는다
+// (date-only 문자열이라 timezone 변환이 개입하지 않는다).
+const WEEK_DAY_KEYS = ['1970-01-04', '1970-01-05', '1970-01-06', '1970-01-07',
+  '1970-01-08', '1970-01-09', '1970-01-10'];
 
 function pad2(n) {
   return String(n).padStart(2, '0');
@@ -28,9 +34,10 @@ function sameYMD(a, b) {
   return a && b && a.y === b.y && a.m === b.m && a.d === b.d;
 }
 
-function getToday() {
-  const t = new Date();
-  return { y: t.getFullYear(), m: t.getMonth(), d: t.getDate() };
+// "오늘" 강조는 **개인 timezone**을 따른다(공유 기간이 아니라 개인 파생 상태다).
+function todayParts(todayStr) {
+  const p = parseDateOnly(todayStr);
+  return p ? { y: p.y, m: p.m - 1, d: p.d } : { y: 1970, m: 0, d: 1 };
 }
 
 function buildMonthCells(year, month) {
@@ -48,14 +55,12 @@ function buildMonthCells(year, month) {
   return cells;
 }
 
-function monthLabel(year, month) {
-  return new Date(year, month, 1).toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
-}
+
 
 export default function DatePicker({
   value,
   onChange,
-  placeholder = 'Pick date',
+  placeholder,
   size = 'md',
   className = '',
   disabled = false,
@@ -68,10 +73,18 @@ export default function DatePicker({
   const [hoverTrigger, setHoverTrigger] = useState(false);
   const [position, setPosition] = useState(null);
 
+  const { t } = useTranslation();
+  const { formatDateOnly, today: personalToday } = useDateFormat();
+  const monthLabel = (year, month) => formatDateOnly(
+    `${year}-${String(month + 1).padStart(2, '0')}-01`, { year: 'numeric', month: 'long' },
+  );
+  const weekDays = WEEK_DAY_KEYS.map((d) => formatDateOnly(d, { weekday: 'short' }));
+  const placeholderText = placeholder ?? t('common.actions.pickDate');
+
   const parsed = useMemo(() => parseDateStr(value), [value]);
   // intentionally not memoized: re-evaluate per render so the "today" highlight
   // stays correct if the tab is left open across midnight.
-  const today = getToday();
+  const today = todayParts(personalToday());
 
   const [viewYear, setViewYear] = useState(() => (parsed ? parsed.y : today.y));
   const [viewMonth, setViewMonth] = useState(() => (parsed ? parsed.m : today.m));
@@ -199,7 +212,7 @@ export default function DatePicker({
           type="button"
           className="DatePicker__NavBtn"
           onClick={() => (view === 'days' ? shiftMonth(-1) : setYearGridStart((s) => s - 12))}
-          aria-label="Previous"
+          aria-label={t('common.actions.previous')}
         >
           <ChevronLeft size={14} />
         </button>
@@ -223,7 +236,7 @@ export default function DatePicker({
           type="button"
           className="DatePicker__NavBtn"
           onClick={() => (view === 'days' ? shiftMonth(1) : setYearGridStart((s) => s + 12))}
-          aria-label="Next"
+          aria-label={t('common.actions.next')}
         >
           <ChevronRight size={14} />
         </button>
@@ -232,7 +245,7 @@ export default function DatePicker({
       {view === 'days' ? (
         <>
           <div className="DatePicker__WeekHeader">
-            {WEEK_DAYS.map((d) => (
+            {weekDays.map((d) => (
               <span key={d} className="DatePicker__WeekDay">{d}</span>
             ))}
           </div>
@@ -291,7 +304,7 @@ export default function DatePicker({
             className="DatePicker__ClearLink"
             onClick={handleClear}
           >
-            Clear
+            {t('common.actions.clear')}
           </button>
         </div>
       )}
@@ -324,7 +337,7 @@ export default function DatePicker({
           disabled={disabled}
         >
           <span className="DatePicker__Value">
-            {value || <span className="DatePicker__Placeholder">{placeholder}</span>}
+            {value || <span className="DatePicker__Placeholder">{placeholderText}</span>}
           </span>
           {showClear ? (
             <span
@@ -333,7 +346,7 @@ export default function DatePicker({
               tabIndex={-1}
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleClear}
-              aria-label="Clear date"
+              aria-label={t('common.datePicker.clearDate')}
             >
               <X size={iconSize} />
             </span>

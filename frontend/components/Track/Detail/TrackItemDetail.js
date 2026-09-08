@@ -7,16 +7,18 @@ import { useMathHydration } from '@/library/mathRender';
 import Avatar from '@/components/common/Avatar';
 import { PRIORITIES } from '../mockData';
 import { entityBorderStyle, entityInkStyle, entitySolidStyle, entityTintStyle } from '@/library/entityTint';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { useTranslation } from 'react-i18next';
 
-function formatDateLong(date) {
-  if (!date) return '—';
-  const d = new Date(date);
-  const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-  return `${m} ${d.getDate()}`;
-}
+// due_date는 date-only다 — new Date('YYYY-MM-DD')는 UTC 자정 instant라 음수 offset에서
+// 하루 전으로 렌더된다. 하드코딩 영문 월 배열도 locale을 따르지 않았다.
+const DUE_LONG_OPTS = { month: 'short', day: 'numeric' };
 
 export default function TrackItemDetail({ item, branch, workflowStatuses, onClose, onRemove }) {
+  const { t } = useTranslation();
   const router = useRouter();
+  const { formatDateOnly } = useDateFormat();
+  const formatDateLong = (date) => (date ? formatDateOnly(date, DUE_LONG_OPTS) : '—');
   // openInBranch는 restricted/empty 분기 이후 렌더되므로 item/branch_id/task_id는 항상 존재
   const openInBranch = () => router.push(`/branch/${item.branch_id}?task=${item.task_id}`);
 
@@ -34,8 +36,8 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
             <circle cx="24" cy="24" r="3" fill="#D1D5DB" />
           </svg>
         </div>
-        <div className="TrackDetail__EmptyTitle">No item selected</div>
-        <div className="TrackDetail__EmptyHint">캔버스의 카드를 클릭하면 상세가 여기 표시돼요</div>
+        <div className="TrackDetail__EmptyTitle">{t('track.itemDetail.noSelection')}</div>
+        <div className="TrackDetail__EmptyHint">{t('track.itemDetail.noSelectionHint')}</div>
       </aside>
     );
   }
@@ -43,15 +45,14 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
   if (item.restricted) {
     return (
       <aside className="TrackDetail TrackDetail--restricted">
-        <button className="TrackDetail__Close" onClick={onClose} aria-label="Close"><X size={14} /></button>
+        <button className="TrackDetail__Close" onClick={onClose} aria-label={t('common.actions.close')}><X size={14} /></button>
         <div className="TrackDetail__RestrictedHero">
           <div className="TrackDetail__RestrictedShield">
             <Lock size={20} />
           </div>
-          <div className="TrackDetail__RestrictedTitle">Restricted item</div>
+          <div className="TrackDetail__RestrictedTitle">{t('track.restricted.title')}</div>
           <div className="TrackDetail__RestrictedBody">
-            이 Task는 너가 접근할 수 없는 브랜치에 있어요.
-            Track 위치만 보이고 상세 정보는 가려져 있어요.
+            {t('track.restricted.body')}
           </div>
           {item.restricted_hint && (
             <div className="TrackDetail__RestrictedHint">{item.restricted_hint}</div>
@@ -103,7 +104,7 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
           )}
           <span className="TrackDetail__DisplayId">{item.display_id}</span>
         </div>
-        <button className="TrackDetail__Close" onClick={onClose} aria-label="Close"><X size={14} /></button>
+        <button className="TrackDetail__Close" onClick={onClose} aria-label={t('common.actions.close')}><X size={14} /></button>
       </div>
 
       <h2 className="TrackDetail__Title">{item.title}</h2>
@@ -124,31 +125,31 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
           style={{ ...prioInk, ...prioBd }}
         >
           <Flag size={10} />
-          {prio.label}
+          {prio.label ? t(`track.priority.${item.priority}`) : null}
         </span>
       </div>
 
       <dl className="TrackDetail__Meta">
         <div className="TrackDetail__MetaRow">
-          <dt>Assignee</dt>
+          <dt>{t('track.fields.assignee')}</dt>
           <dd>
             {item.assignees && item.assignees.length > 0 ? (
               <span className="TrackDetail__Assignee">
                 <Avatar user={item.assignees[0]} size={20} />
                 <span>{item.assignees[0].username}</span>
               </span>
-            ) : <span className="TrackDetail__MetaEmpty">unassigned</span>}
+            ) : <span className="TrackDetail__MetaEmpty">{t('track.itemDetail.unassigned')}</span>}
           </dd>
         </div>
         <div className="TrackDetail__MetaRow">
-          <dt>Due</dt>
+          <dt>{t('track.fields.due')}</dt>
           <dd>
             <CalendarDays size={12} className="TrackDetail__MetaIcon" />
             {formatDateLong(item.due_date)}
           </dd>
         </div>
         <div className="TrackDetail__MetaRow">
-          <dt>Origin</dt>
+          <dt>{t('track.fields.origin')}</dt>
           <dd>
             <span>{branch.name}</span>
             <button
@@ -157,7 +158,7 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
               onClick={openInBranch}
             >
               <ExternalLink size={11} />
-              <span>open</span>
+              <span>{t('track.itemDetail.open')}</span>
             </button>
           </dd>
         </div>
@@ -166,7 +167,7 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
       <section className="TrackDetail__Section">
         <h3 className="TrackDetail__SectionTitle">
           <MessageSquare size={12} />
-          Description
+          {t('track.fields.description')}
         </h3>
         {item.description ? (
           <div
@@ -177,7 +178,7 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
           />
         ) : (
           <p className="TrackDetail__Description">
-            <span className="TrackDetail__MetaEmpty">No description</span>
+            <span className="TrackDetail__MetaEmpty">{t('track.itemDetail.noDescription')}</span>
           </p>
         )}
       </section>
@@ -185,19 +186,19 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
       <section className="TrackDetail__Section">
         <h3 className="TrackDetail__SectionTitle">
           <Layers size={12} />
-          Also in tracks
+          {t('track.itemDetail.alsoInTracks')}
         </h3>
         {item.other_tracks && item.other_tracks.length > 0 ? (
           <div className="TrackDetail__TrackChips">
-            {item.other_tracks.map((t) => (
-              <a key={t.track_id} className="TrackDetail__TrackChip" href={`/tracks/${t.track_id}`}>
+            {item.other_tracks.map((tr) => (
+              <a key={tr.track_id} className="TrackDetail__TrackChip" href={`/tracks/${tr.track_id}`}>
                 <span className="TrackDetail__TrackChipMark" />
-                {t.track_name}
+                {tr.track_name}
               </a>
             ))}
           </div>
         ) : (
-          <div className="TrackDetail__MetaEmpty">only this track</div>
+          <div className="TrackDetail__MetaEmpty">{t('track.itemDetail.onlyThisTrack')}</div>
         )}
       </section>
 
@@ -206,13 +207,13 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
           className="TrackDetail__FootBtn TrackDetail__FootBtn--ghost"
           onClick={() => onRemove?.(item.item_id)}
         >
-          Remove from track
+          {t('track.actions.removeFromTrack')}
         </button>
         <button
           className="TrackDetail__FootBtn TrackDetail__FootBtn--primary"
           onClick={openInBranch}
         >
-          Open in branch ↗
+          {t('track.itemDetail.openInBranch')} ↗
         </button>
       </footer>
     </aside>

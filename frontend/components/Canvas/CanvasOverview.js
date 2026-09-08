@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import dynamic from 'next/dynamic';
 import { Pencil, X, Wifi, WifiOff, Loader, Copy } from 'lucide-react';
 import { axios } from '@/library/_axios';
@@ -16,6 +17,7 @@ import { buildCanvasEditorExtensions } from './canvasEditorExtensions';
 const CanvasCollabEditor = dynamic(() => import('./CanvasCollabEditor'), { ssr: false });
 
 export default function CanvasOverview() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { canvasId } = router.query;
   const [canvas, setCanvas] = useState(null);
@@ -197,7 +199,7 @@ export default function CanvasOverview() {
               size={24}
               entityType="canvas"
               onClick={isAdmin ? () => setPopoverOpen(true) : undefined}
-              title={isAdmin ? 'Click to edit appearance' : undefined}
+              title={isAdmin ? t('canvas.overview.editAppearance') : undefined}
             />
           </span>
           <EntityAppearancePopover
@@ -228,14 +230,14 @@ export default function CanvasOverview() {
                      <WifiOff size={14} />}
                   </span>
                   <span className="CanvasOverview__SaveStatus">
-                    {saveStatus === 'saved' ? 'Saved' : saveStatus === 'saving' ? 'Saving...' : 'Offline'}
+                    {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.offline')}
                   </span>
                 </div>
                 <div className="CanvasOverview__OverviewActions">
                   <PresenceBar users={connectedUsers} currentUserId={user?.user_id} />
                   <button className="CanvasOverview__OverviewBtn" onClick={handleCloseEdit}>
                     <X size={15} />
-                    Close
+                    {t('common.actions.close')}
                   </button>
                 </div>
               </>
@@ -244,14 +246,14 @@ export default function CanvasOverview() {
                 {overview.content ? (
                   <button className="CanvasOverview__OverviewBtn" onClick={handleCopyMarkdown}>
                     <Copy size={15} />
-                    Copy as Markdown
+                    {t('canvas.copyAsMarkdown')}
                   </button>
                 ) : (
                   <div />
                 )}
                 <button className="CanvasOverview__OverviewBtn" onClick={() => setIsEditing(true)}>
                   <Pencil size={15} />
-                  Edit
+                  {t('common.actions.edit')}
                 </button>
               </>
             )}
@@ -269,16 +271,22 @@ export default function CanvasOverview() {
                   onHtmlChange={handleHtmlChange}
                 />
               ) : (
-                <div className="CanvasOverview__Loading">Connecting...</div>
+                <div className="CanvasOverview__Loading">{t('canvas.connecting')}</div>
               )
             ) : (
-              <div
-                ref={contentRef}
-                className="CanvasOverview__OverviewContent"
-                dangerouslySetInnerHTML={{
-                  __html: sanitizeHtml(overview.content) || '<p>No content yet. Click Edit to start writing.</p>',
-                }}
-              />
+              <>
+                <div
+                  ref={contentRef}
+                  className="CanvasOverview__OverviewContent"
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(overview.content) || '<p></p>',
+                  }}
+                />
+                {/* 빈 콘텐츠 안내는 __html 밖의 별도 요소 — 번역 문구를 raw HTML로 흘리지 않는다. */}
+                {!overview.content?.trim() && (
+                  <p className="CanvasOverview__EmptyHint">{t('canvas.emptyContent')}</p>
+                )}
+              </>
             )}
           </div>
         </div>

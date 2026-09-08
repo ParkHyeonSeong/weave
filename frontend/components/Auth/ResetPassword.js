@@ -6,10 +6,12 @@ import { LOGIN_PATH } from '@/library/authRedirect';
 import Alert from '@/components/modal/Alert';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 
 export default function ResetPassword({ token }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -36,7 +38,7 @@ export default function ResetPassword({ token }) {
           <div className="ChangePassword__Header">
             <h1 className="ChangePassword__Logo">Weave</h1>
             <p className="ChangePassword__Subtitle">
-              This password reset link is invalid.
+              {t('authAdmin.reset.invalidLink')}
             </p>
           </div>
           <button
@@ -44,7 +46,7 @@ export default function ResetPassword({ token }) {
             className="ChangePassword__SubmitBtn"
             onClick={() => router.replace(LOGIN_PATH)}
           >
-            Go to Sign In
+            {t('authAdmin.reset.goToSignIn')}
           </button>
         </div>
       </div>
@@ -56,11 +58,11 @@ export default function ResetPassword({ token }) {
     if (loading) return;
 
     if (newPassword.length < 8) {
-      showAlert('Input Error', 'Password must be at least 8 characters.');
+      showAlert(t('auth.inputError'), t('errors.PASSWORD_TOO_SHORT'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      showAlert('Input Error', 'Passwords do not match.');
+      showAlert(t('auth.inputError'), t('auth.passwordMismatch'));
       return;
     }
 
@@ -75,11 +77,11 @@ export default function ResetPassword({ token }) {
         setDone(true);
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'This link has expired or is invalid. Please request a new password reset.';
-        showAlert('Error', msg);
+        const msg = errorText(err.code, err.category) ?? t('errors.INVALID_OR_EXPIRED_TOKEN');
+        showAlert(t('common.state.error'), msg);
       }
     } catch {
-      showAlert('Error', 'An unexpected error occurred. Please try again.');
+      showAlert(t('common.state.error'), t('auth.unexpectedError'));
     } finally {
       setLoading(false);
     }
@@ -92,9 +94,9 @@ export default function ResetPassword({ token }) {
         <div className="ChangePassword__Card">
           <div className="ChangePassword__Header">
             <CheckCircle2 size={32} style={{ color: 'var(--color-success)', marginBottom: 8 }} />
-            <h1 className="ChangePassword__Logo">Password Changed</h1>
+            <h1 className="ChangePassword__Logo">{t('authAdmin.reset.doneTitle')}</h1>
             <p className="ChangePassword__Subtitle">
-              Your password has been updated. Please sign in with your new password.
+              {t('authAdmin.reset.doneSubtitle')}
             </p>
           </div>
           <button
@@ -102,7 +104,7 @@ export default function ResetPassword({ token }) {
             className="ChangePassword__SubmitBtn"
             onClick={() => router.replace(LOGIN_PATH)}
           >
-            Go to Sign In
+            {t('authAdmin.reset.goToSignIn')}
           </button>
         </div>
       </div>
@@ -115,7 +117,7 @@ export default function ResetPassword({ token }) {
         <div className="ChangePassword__Header">
           <h1 className="ChangePassword__Logo">Weave</h1>
           <p className="ChangePassword__Subtitle">
-            Set a new password for your account.
+            {t('authAdmin.reset.subtitle')}
           </p>
         </div>
 
@@ -123,14 +125,14 @@ export default function ResetPassword({ token }) {
           if (e.key === 'Enter' && e.nativeEvent.isComposing) e.preventDefault();
         }}>
           <div className="ChangePassword__Field">
-            <label className="ChangePassword__Label" htmlFor="newPassword">New Password</label>
+            <label className="ChangePassword__Label" htmlFor="newPassword">{t('authAdmin.password.newPassword')}</label>
             <div className="ChangePassword__InputWrap">
               <Lock size={16} className="ChangePassword__InputIcon" />
               <input
                 id="newPassword"
                 type={showPassword ? 'text' : 'password'}
                 className="ChangePassword__Input"
-                placeholder="Minimum 8 characters"
+                placeholder={t('authAdmin.password.minLengthPlaceholder')}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
@@ -149,14 +151,14 @@ export default function ResetPassword({ token }) {
           </div>
 
           <div className="ChangePassword__Field">
-            <label className="ChangePassword__Label" htmlFor="confirmPassword">Confirm Password</label>
+            <label className="ChangePassword__Label" htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
             <div className="ChangePassword__InputWrap">
               <Lock size={16} className="ChangePassword__InputIcon" />
               <input
                 id="confirmPassword"
                 type={showPassword ? 'text' : 'password'}
                 className="ChangePassword__Input"
-                placeholder="Confirm password"
+                placeholder={t('auth.confirmPasswordPlaceholder')}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"
@@ -168,7 +170,7 @@ export default function ResetPassword({ token }) {
           <button type="submit" className="ChangePassword__SubmitBtn" disabled={loading}>
             {loading
               ? <Loader2 size={18} className="ChangePassword__Spinner" />
-              : 'Set New Password'
+              : t('authAdmin.reset.submit')
             }
           </button>
         </form>

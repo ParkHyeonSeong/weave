@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, FileText, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import NavLink from '@/components/common/NavLink';
 
 export default function TaskPageLinkSection({ branchId, taskId }) {
+  const { t } = useTranslation();
   const [links, setLinks] = useState([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +81,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
   return (
     <div className="TaskPageLinkSection">
       <div className="TaskPageLinkSection__Header">
-        <span className="TaskPageLinkSection__Label">Linked Pages</span>
+        <span className="TaskPageLinkSection__Label">{t('branchTasks2.pageLinks.title')}</span>
         <button
           className="TaskPageLinkSection__AddBtn"
           onClick={() => setShowSearch(!showSearch)}
@@ -93,7 +95,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
           <input
             className="TaskPageLinkSection__SearchInput"
             type="text"
-            placeholder="Search pages..."
+            placeholder={t('branchTasks2.pageLinks.searchPlaceholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus
@@ -101,7 +103,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
           {(searchResults.length > 0 || searching) && (
             <div className="TaskPageLinkSection__SearchDropdown">
               {searching && searchResults.length === 0 ? (
-                <div className="TaskPageLinkSection__SearchEmpty">Searching...</div>
+                <div className="TaskPageLinkSection__SearchEmpty">{t('branchTasks2.pageLinks.searching')}</div>
               ) : (
                 searchResults.map((page) => (
                   <button
@@ -110,7 +112,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
                     onClick={() => handleLink(page.page_id)}
                   >
                     <FileText size={14} className="TaskPageLinkSection__Icon" />
-                    <span className="TaskPageLinkSection__PageTitle">{page.title || 'Untitled'}</span>
+                    <span className="TaskPageLinkSection__PageTitle">{page.title || t('branchTasks2.pageLinks.untitled')}</span>
                     <span className="TaskPageLinkSection__CanvasName">{page.canvas_name}</span>
                   </button>
                 ))
@@ -121,7 +123,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
       )}
 
       {links.length === 0 && !showSearch ? (
-        <div className="TaskPageLinkSection__Empty">No linked pages</div>
+        <div className="TaskPageLinkSection__Empty">{t('branchTasks2.pageLinks.empty')}</div>
       ) : (
         <div className="TaskPageLinkSection__List">
           {links.map((link) => (
@@ -130,10 +132,10 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
               <NavLink
                 className="TaskPageLinkSection__ItemOverlay"
                 href={`/canvas/${link.canvas_id}/${link.page_id}`}
-                aria-label={link.title || 'Untitled'}
+                aria-label={link.title || t('branchTasks2.pageLinks.untitled')}
               />
               <FileText size={14} className="TaskPageLinkSection__Icon" />
-              <span className="TaskPageLinkSection__PageTitle">{link.title || 'Untitled'}</span>
+              <span className="TaskPageLinkSection__PageTitle">{link.title || t('branchTasks2.pageLinks.untitled')}</span>
               <span className="TaskPageLinkSection__CanvasName">{link.canvas_name}</span>
               <button
                 className="TaskPageLinkSection__UnlinkBtn"

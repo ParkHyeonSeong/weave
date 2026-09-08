@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import Avatar from '@/components/common/Avatar';
 
 export default function MessengerUserList({ onOpenRoom }) {
+  const { t } = useTranslation();
   const [users, setUsers] = useState([]);
   const [search, setSearch] = useState('');
   const [onlineSet, setOnlineSet] = useState(new Set());
@@ -77,21 +79,21 @@ export default function MessengerUserList({ onOpenRoom }) {
   return (
     <div className="MessengerUserList">
       <div className="MessengerUserList__Header">
-        <span className="MessengerUserList__Title">Users</span>
+        <span className="MessengerUserList__Title">{t('messenger.tabs.users')}</span>
       </div>
       <div className="MessengerUserList__Search">
         <Search size={14} className="MessengerUserList__SearchIcon" />
         <input
           className="MessengerUserList__SearchInput"
           type="text"
-          placeholder="Search users..."
+          placeholder={t('messenger.userList.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
       <div className="MessengerUserList__Items">
         {filteredUsers.length === 0 ? (
-          <div className="MessengerUserList__Empty">No users found.</div>
+          <div className="MessengerUserList__Empty">{t('messenger.userList.empty')}</div>
         ) : filteredUsers.map((user) => (
             <button
               key={user.user_id}

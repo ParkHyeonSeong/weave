@@ -23,6 +23,11 @@ class MyDocument extends Document {
           {/* 테마 부트스트랩 — 외부 parser-blocking 파일(script-src 'self' 통과).
               인라인+nonce는 ASO 정적 HTML에서 nonce가 비어 prod CSP에 차단되므로 금지. */}
           <script src="/theme-boot.js" />
+          {/* 언어 부트스트랩 — 첫 페인트 전에 <html lang>을 확정한다. 같은 CSP 제약(인라인 금지)이
+              적용되므로 theme-boot.js와 동일하게 외부 파일이다. 생성원은 library/localePrefs.js의
+              buildLocaleBootstrapScript()이고 i18nCatalog.test.js가 parity를 강제한다.
+              lang 기본값은 아래 <Html lang>이고, 이 스크립트가 기기 값으로 교정한다. */}
+          <script src="/locale-boot.js" />
           <meta charSet="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
           <meta name="robots" content="noindex, nofollow" />

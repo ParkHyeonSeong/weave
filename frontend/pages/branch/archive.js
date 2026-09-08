@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next';
 import Head from 'next/head';
 import { axios } from '@/library/_axios';
 import ArchiveView from '@/components/Home/shared/ArchiveView';
 
 export default function BranchArchive() {
+  const { t } = useTranslation();
   return (
     <>
-      <Head><title>보관함 · Branch</title></Head>
+      <Head><title>{t('pageTitles.branchArchive')}</title></Head>
       <ArchiveView
-        title="Branch 보관함"
+        title={t('misc.archive.title', { app: 'Branch' })}
         backHref="/branch"
         fetchItems={async () => {
           const res = await axios.get('/branches/archived');

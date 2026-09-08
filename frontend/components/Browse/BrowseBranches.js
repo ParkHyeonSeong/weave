@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Search, Users, Globe, GitBranch, FileText } from 'lucide-react';
 import EntityIcon from '@/components/common/EntityIcon';
 import NavLink from '@/components/common/NavLink';
 
 export default function BrowseBranches() {
+  const { t } = useTranslation();
   const [branches, setBranches] = useState([]);
   const [canvases, setCanvases] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,10 +68,10 @@ export default function BrowseBranches() {
       <div className="BrowseBranches__Header">
         <div className="BrowseBranches__TitleRow">
           <Globe size={20} />
-          <h2 className="BrowseBranches__Title">Browse</h2>
+          <h2 className="BrowseBranches__Title">{t('account.browse.title')}</h2>
         </div>
         <p className="BrowseBranches__Desc">
-          Discover and join public branches and canvases.
+          {t('account.browse.description')}
         </p>
       </div>
 
@@ -78,7 +80,7 @@ export default function BrowseBranches() {
         <Search size={16} className="BrowseBranches__SearchIcon" />
         <input
           className="BrowseBranches__SearchInput"
-          placeholder="Search branches and canvases..."
+          placeholder={t('account.browse.searchPlaceholder')}
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
         />
@@ -87,11 +89,11 @@ export default function BrowseBranches() {
       {/* 결과 */}
       <div className="BrowseBranches__List">
         {loading && branches.length === 0 && canvases.length === 0 && (
-          <div className="BrowseBranches__Empty">Loading...</div>
+          <div className="BrowseBranches__Empty">{t('common.state.loading')}</div>
         )}
         {isEmpty && (
           <div className="BrowseBranches__Empty">
-            {query ? 'No results found.' : 'No public branches or canvases available.'}
+            {query ? t('account.browse.noResults') : t('account.browse.emptyPublic')}
           </div>
         )}
 
@@ -100,7 +102,7 @@ export default function BrowseBranches() {
           <>
             <div className="BrowseBranches__SectionLabel">
               <GitBranch size={14} />
-              <span>Branches</span>
+              <span>{t('account.browse.branches')}</span>
             </div>
             {branches.map((branch) => (
               <div key={branch.branch_id} className="BrowseBranches__Card">
@@ -120,7 +122,7 @@ export default function BrowseBranches() {
                   )}
                   <div className="BrowseBranches__CardMeta">
                     <Users size={13} />
-                    <span>{branch.member_count || 0} members</span>
+                    <span>{t('account.browse.memberCount', { count: branch.member_count || 0 })}</span>
                   </div>
                 </div>
                 {branch.is_member ? (
@@ -128,14 +130,14 @@ export default function BrowseBranches() {
                     href={`/branch/${branch.branch_id}`}
                     className="BrowseBranches__JoinBtn BrowseBranches__JoinBtn--joined"
                   >
-                    Open
+                    {t('spaceMenu.open')}
                   </NavLink>
                 ) : (
                   <button
                     className="BrowseBranches__JoinBtn"
                     onClick={() => handleJoinBranch(branch.branch_id)}
                   >
-                    Join
+                    {t('account.browse.join')}
                   </button>
                 )}
               </div>
@@ -148,7 +150,7 @@ export default function BrowseBranches() {
           <>
             <div className="BrowseBranches__SectionLabel">
               <FileText size={14} />
-              <span>Canvases</span>
+              <span>{t('account.browse.canvases')}</span>
             </div>
             {canvases.map((canvas) => (
               <div key={canvas.canvas_id} className="BrowseBranches__Card">
@@ -168,7 +170,7 @@ export default function BrowseBranches() {
                   )}
                   <div className="BrowseBranches__CardMeta">
                     <Users size={13} />
-                    <span>{canvas.member_count || 0} members</span>
+                    <span>{t('account.browse.memberCount', { count: canvas.member_count || 0 })}</span>
                   </div>
                 </div>
                 {canvas.is_member ? (
@@ -176,14 +178,14 @@ export default function BrowseBranches() {
                     href={`/canvas/${canvas.canvas_id}`}
                     className="BrowseBranches__JoinBtn BrowseBranches__JoinBtn--joined"
                   >
-                    Open
+                    {t('spaceMenu.open')}
                   </NavLink>
                 ) : (
                   <button
                     className="BrowseBranches__JoinBtn"
                     onClick={() => handleJoinCanvas(canvas.canvas_id)}
                   >
-                    Join
+                    {t('account.browse.join')}
                   </button>
                 )}
               </div>

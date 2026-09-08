@@ -31,10 +31,12 @@ INVALID_BRANCH_REF = "INVALID_BRANCH_REF"      # malformed branch id/key (_branc
 USER_REF_NOT_FOUND = "USER_REF_NOT_FOUND"      # user ref matched no member (_user_ref.py)
 USER_REF_AMBIGUOUS = "USER_REF_AMBIGUOUS"      # user ref matched 2+ members (_user_ref.py)
 INVALID_USER_REF = "INVALID_USER_REF"          # malformed user ref (_user_ref.py)
+WORKSPACE_TZ_UNAVAILABLE = "WORKSPACE_TZ_UNAVAILABLE"  # workspace timezone lookup failed (tools/scrum.py)
 MCP_LOCAL_CODES = frozenset({
     TOKEN_NOT_SET, WEEKEND_NO_CELL, MCP_TOOL_EXCEPTION,
     BRANCH_KEY_NOT_FOUND, INVALID_BRANCH_REF,
     USER_REF_NOT_FOUND, USER_REF_AMBIGUOUS, INVALID_USER_REF,
+    WORKSPACE_TZ_UNAVAILABLE,
 })
 
 
@@ -45,6 +47,8 @@ _OVERRIDES = {
     "ACCOUNT_INACTIVE": "auth", "ACCOUNT_PENDING": "auth", "ACCOUNT_REJECTED": "auth",
     "INVALID_CREDENTIALS": "auth", "INVALID_OR_EXPIRED_TOKEN": "auth",
     "NEED_LOGIN": "auth",
+    # --- network: MCP-local, workspace timezone could not be determined (retryable) ---
+    "WORKSPACE_TZ_UNAVAILABLE": "network",
     # --- forbidden: explicit entries so NOT_*_PUBLIC and SCOPE_* are covered ---
     "ADMIN_ONLY": "forbidden", "ACCESS_DENIED": "forbidden", "NOT_ALLOWED": "forbidden",
     "PERMISSION_DENIED": "forbidden", "ADMIN_REQUIRED": "forbidden",

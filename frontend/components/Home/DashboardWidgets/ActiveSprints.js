@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Zap } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 
 export default function ActiveSprints() {
+  const { t } = useTranslation();
   const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(true);
   const { isHidden } = useUiPrefs();
@@ -53,10 +55,10 @@ export default function ActiveSprints() {
       <div className="Widget">
         <div className="Widget__Header">
           <Zap size={16} />
-          <span className="Widget__Title">Active Sprints</span>
+          <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
         </div>
         <div className="Widget__Body">
-          <div className="Widget__Empty">Loading...</div>
+          <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
     );
@@ -66,11 +68,11 @@ export default function ActiveSprints() {
     <div className="Widget">
       <div className="Widget__Header">
         <Zap size={16} />
-        <span className="Widget__Title">Active Sprints</span>
+        <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
       </div>
       <div className="Widget__Body">
         {visibleSprints.length === 0 ? (
-          <div className="Widget__Empty">No active sprints</div>
+          <div className="Widget__Empty">{t('home.widgets.activeSprints.empty')}</div>
         ) : (
           visibleSprints.map((sprint) => {
             const percent = sprint.total > 0 ? Math.round((sprint.done / sprint.total) * 100) : 0;

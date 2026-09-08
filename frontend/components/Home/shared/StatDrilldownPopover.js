@@ -1,16 +1,22 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { axios } from '@/library/_axios';
-import { ddayBadge, fmtDate } from '@/library/dueBadge';
+import { ddayBadge } from '@/library/dueBadge';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { progressPercent } from '@/library/subtaskProgress';
 import { formatSprintRange } from '@/library/formatTime';
 
-const BUCKET_TITLE = {
-  open: '열린 태스크', in_progress: '진행 중',
-  due_this_week: '이번 주 마감', active_sprint: '활성 스프린트',
+const BUCKET_TITLE_KEY = {
+  open: 'home.statDrill.buckets.open', in_progress: 'home.statDrill.buckets.inProgress',
+  due_this_week: 'home.statDrill.buckets.dueThisWeek', active_sprint: 'home.statDrill.buckets.activeSprint',
 };
 const CAP = 8;
 
 export default function StatDrilldownPopover({ bucket, onClose, onOpenTask, onOpenSprint }) {
+  const { t } = useTranslation();
+  // 마감일은 date-only(요일 포함 표시), D-day는 개인 timezone의 오늘 기준 파생값.
+  const { formatDateOnly, today: personalToday } = useDateFormat();
+  const dueText = (iso) => (iso ? formatDateOnly(iso, { month: 'numeric', day: 'numeric', weekday: 'short' }) : t('common.time.noDueDate'));
   const [state, setState] = useState({ status: 'loading', items: [], total: 0 });
   const [expanded, setExpanded] = useState(false);
   const [flip, setFlip] = useState(false); // 뷰포트 우측 넘침 시 우측 정렬(반응형 2열에서 idx1·3 카드 대응)
@@ -72,9 +78,15 @@ export default function StatDrilldownPopover({ bucket, onClose, onOpenTask, onOp
   return (
     <div className={`StatDrill${flip ? ' StatDrill--right' : ''}`} ref={ref}>
       <div className="StatDrill__Head">
-        <span>{BUCKET_TITLE[bucket]}</span>
+        <span>{t(BUCKET_TITLE_KEY[bucket])}</span>
         <span className="StatDrill__HeadMeta">
-          {state.status === 'ready' && (isSprint ? `${state.total}건` : `임박순 · ${expanded ? (capped ? `상위 ${state.items.length}` : `전체 ${state.total}`) : `상위 ${Math.min(CAP, state.total)}`}`)}
+          {state.status === 'ready' && (isSprint
+            ? t('home.statDrill.sprintCount', { count: state.total })
+            : `${t('home.statDrill.sortByDue')} · ${expanded
+              ? (capped
+                ? t('home.statDrill.top', { value: state.items.length })
+                : t('home.statDrill.all', { value: state.total }))
+              : t('home.statDrill.top', { value: Math.min(CAP, state.total) })}`)}
         </span>
       </div>
 
@@ -85,11 +97,11 @@ export default function StatDrilldownPopover({ bucket, onClose, onOpenTask, onOp
       )}
 
       {state.status === 'error' && (
-        <div className="StatDrill__Error">불러오기 실패<button type="button" onClick={load}>다시 시도</button></div>
+        <div className="StatDrill__Error">{t('home.statDrill.loadFailed')}<button type="button" onClick={load}>{t('common.actions.retry')}</button></div>
       )}
 
       {state.status === 'ready' && state.items.length === 0 && (
-        <div className="StatDrill__Empty">{isSprint ? '활성 스프린트가 없어요' : '해당 항목이 없어요'}</div>
+        <div className="StatDrill__Empty">{isSprint ? t('home.statDrill.emptySprints') : t('home.statDrill.emptyItems')}</div>
       )}
 
       {state.status === 'ready' && state.items.length > 0 && (
@@ -120,20 +132,20 @@ export default function StatDrilldownPopover({ bucket, onClose, onOpenTask, onOp
                 <span className="StatDrill__Dot" />
                 <div className="StatDrill__Main">
                   <div className="StatDrill__Title">{it.title}</div>
-                  <div className="StatDrill__Sub"><span className="StatDrill__Branch">#{it.branch_name}</span> · {fmtDate(it.due_date)}</div>
+                  <div className="StatDrill__Sub"><span className="StatDrill__Branch">#{it.branch_name}</span> · {dueText(it.due_date)}</div>
                 </div>
-                {(() => { const b = ddayBadge(it.due_date); return <span className={`StatDrill__Dday StatDrill__Dday--${b.cls}`}>{b.text}</span>; })()}
+                {(() => { const b = ddayBadge(it.due_date, personalToday()); return <span className={`StatDrill__Dday StatDrill__Dday--${b.cls}`}>{b.text}</span>; })()}
               </div>
             ))}
           </div>
           {hasMore && !expanded && (
-            <button type="button" className="StatDrill__Foot StatDrill__Foot--more" onClick={() => setExpanded(true)}>{capped ? `상위 ${state.items.length}개` : `전체 ${state.total}개`} 보기 ▾</button>
+            <button type="button" className="StatDrill__Foot StatDrill__Foot--more" onClick={() => setExpanded(true)}>{capped ? t('home.statDrill.showTop', { value: state.items.length }) : t('home.statDrill.showAll', { value: state.total })}</button>
           )}
           {expanded && hasMore && (
-            <button type="button" className="StatDrill__Foot StatDrill__Foot--collapse" onClick={() => setExpanded(false)}>접기</button>
+            <button type="button" className="StatDrill__Foot StatDrill__Foot--collapse" onClick={() => setExpanded(false)}>{t('home.statDrill.collapse')}</button>
           )}
           {state.total > state.items.length && (
-            <div className="StatDrill__Note">외 {state.total - state.items.length}개는 각 브랜치 보드에서</div>
+            <div className="StatDrill__Note">{t('home.statDrill.moreInBoards', { value: state.total - state.items.length })}</div>
           )}
         </>
       )}

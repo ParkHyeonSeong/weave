@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import ColorPicker from './ColorPicker';
 import IconPicker from './IconPicker';
@@ -20,6 +21,7 @@ export default function EntityAppearancePopover({
   initialIcon,
   initialColor,
 }) {
+  const { t } = useTranslation();
   const [icon, setIcon] = useState(initialIcon ?? null);
   const [color, setColor] = useState(initialColor || DEFAULT_COLORS[entityType] || DEFAULT_COLORS.branch);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
@@ -95,21 +97,21 @@ export default function EntityAppearancePopover({
             className="EntityAppearancePopover__IconBtn"
             onClick={() => setIconPickerOpen(true)}
           >
-            {icon ? 'Change icon...' : 'Choose icon...'}
+            {icon ? t('common.appearance.changeIcon') : t('common.appearance.chooseIcon')}
           </button>
         </div>
 
         <ColorPicker value={color} onChange={setColor} />
 
         <div className="EntityAppearancePopover__Actions">
-          <button type="button" onClick={onClose}>Cancel</button>
+          <button type="button" onClick={onClose}>{t('common.actions.cancel')}</button>
           <button
             type="button"
             className="EntityAppearancePopover__BtnPrimary"
             onClick={handleSave}
             disabled={!canSave || saving}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('common.state.saving') : t('common.actions.save')}
           </button>
         </div>
       </div>

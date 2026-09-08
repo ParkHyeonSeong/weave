@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { X, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 // 페이지 이동 대상 폴더 선택 모달
 export default function PageMoveModal({ isOpen, onClose, onConfirm, pages, currentPageId, canvasName }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState(null); // null = root
   const [expanded, setExpanded] = useState({});
 
@@ -82,7 +84,7 @@ export default function PageMoveModal({ isOpen, onClose, onConfirm, pages, curre
     <div className="PageMoveModal__Backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="PageMoveModal">
         <div className="PageMoveModal__Header">
-          <h3 className="PageMoveModal__Title">Move to</h3>
+          <h3 className="PageMoveModal__Title">{t('modal.pageMove.title')}</h3>
           <button className="PageMoveModal__CloseBtn" onClick={onClose}>
             <X size={18} />
           </button>
@@ -96,13 +98,13 @@ export default function PageMoveModal({ isOpen, onClose, onConfirm, pages, curre
           >
             <span className="PageMoveModal__Expand" />
             <Folder size={14} />
-            <span>{canvasName || 'Canvas'}</span>
+            <span>{canvasName || t('modal.pageMove.canvasRoot')}</span>
           </button>
           {rootFolders.map((folder) => renderFolder(folder, 1))}
         </div>
         <div className="PageMoveModal__Footer">
-          <button className="PageMoveModal__CancelBtn" onClick={onClose}>Cancel</button>
-          <button className="PageMoveModal__ConfirmBtn" onClick={() => onConfirm(selected)}>Move</button>
+          <button className="PageMoveModal__CancelBtn" onClick={onClose}>{t('common.actions.cancel')}</button>
+          <button className="PageMoveModal__ConfirmBtn" onClick={() => onConfirm(selected)}>{t('modal.pageMove.move')}</button>
         </div>
       </div>
     </div>

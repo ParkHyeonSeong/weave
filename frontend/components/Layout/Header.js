@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { Search, Bell, Settings, Shield, AtSign, UserPlus, AlertCircle, MessageSquare, CheckCircle2, CircleDot, Menu, User, LogOut, Reply } from 'lucide-react';
-import { formatMessageTime } from '@/library/formatTime';
+import { useTranslation } from 'react-i18next';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { clearWorkspaceSettingsCache, useWorkspaceSettings } from '@/library/workspaceSettings';
 import { LOGIN_PATH } from '@/library/authRedirect';
 import AppSwitcher from './AppSwitcher';
 import Avatar from '@/components/common/Avatar';
@@ -24,16 +26,18 @@ const NOTI_ICONS = {
 // 알림 타입 → 색 그룹(스캔용) + 짧은 한글 라벨. 그룹 색은 SCSS의
 // .Header__NotiChip--{group}가 입힌다(멘션=primary·태스크=success·이슈=warning).
 // 매핑에 없는 타입은 칩을 그리지 않는다.
+// label은 catalog 키다 — 서버가 만든 알림 title 본문은 번역하지 않고 원문 그대로 두되,
+// 프런트가 소유한 이 짧은 분류 라벨은 현재 언어를 따른다.
 const NOTI_TYPE_META = {
-  mention:             { group: 'mention', label: '멘션' },
-  chat_mention:        { group: 'mention', label: '멘션' },
-  comment_reply:       { group: 'task',    label: '답글' },
-  task_assigned:       { group: 'task',    label: '배정' },
-  task_status_changed: { group: 'task',    label: '상태' },
-  issue_created:       { group: 'issue',   label: '이슈' },
-  issue_comment:       { group: 'issue',   label: '댓글' },
-  issue_closed:        { group: 'issue',   label: '닫힘' },
-  issue_reopened:      { group: 'issue',   label: '재개' },
+  mention:             { group: 'mention', labelKey: 'notifications.types.mention' },
+  chat_mention:        { group: 'mention', labelKey: 'notifications.types.mention' },
+  comment_reply:       { group: 'task',    labelKey: 'notifications.types.reply' },
+  task_assigned:       { group: 'task',    labelKey: 'notifications.types.assigned' },
+  task_status_changed: { group: 'task',    labelKey: 'notifications.types.status' },
+  issue_created:       { group: 'issue',   labelKey: 'notifications.types.issue' },
+  issue_comment:       { group: 'issue',   labelKey: 'notifications.types.comment' },
+  issue_closed:        { group: 'issue',   labelKey: 'notifications.types.closed' },
+  issue_reopened:      { group: 'issue',   labelKey: 'notifications.types.reopened' },
 };
 
 // 알림 title은 항상 "{actor_name}님이 …" 템플릿으로 생성되는데, 같은 이름이
@@ -49,7 +53,11 @@ function stripActorPrefix(title, actorName) {
 
 export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, onSearchClick, notifications = [], unreadCount = 0, chatUnreadCount = 0, onChatClick, onClearNotifications, onMarkAllRead, onReadNotification, onNotiClick }) {
   const router = useRouter();
-  const [workspaceName, setWorkspaceName] = useState('');
+  const { t } = useTranslation();
+  const { formatMessageTime } = useDateFormat();
+  // 워크스페이스 이름은 공유 Provider에서 온다 — 예전엔 이 컴포넌트가 /setup/status를
+  // 따로 호출해 _app.js의 같은 호출과 중복됐다.
+  const { workspaceName } = useWorkspaceSettings();
   const [username, setUsername] = useState('');
   const [role, setRole] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -73,16 +81,6 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
       setAvatarColor(profile.avatar_color ?? null);
     } catch {}
 
-    const fetchWorkspace = async () => {
-      try {
-        const { axios } = await import('@/library/_axios');
-        const res = await axios.get('/setup/status');
-        if (res.data.initialized) {
-          setWorkspaceName(res.data.workspace_name || '');
-        }
-      } catch {}
-    };
-    fetchWorkspace();
   }, []);
 
   // 프로필 변경 시 헤더 갱신
@@ -128,7 +126,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
       // 쿠키 폐기는 서버 책임이라 네트워크 실패해도 클라이언트는 계속 정리한다
     }
     clearClientSession();
-    sessionStorage.removeItem('app_initialized');
+    clearWorkspaceSettingsCache();
     // returnTo 미전달: 로그아웃 후 다시 보호 페이지로 복귀시키지 않는다
     router.replace(LOGIN_PATH);
   };
@@ -183,10 +181,10 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
         <div className="Header__NotiBody">
           <div className="Header__NotiItemTop">
             <span className="Header__NotiSenderWrap">
-              <span className="Header__NotiSender">{noti.actor_name || 'System'}</span>
+              <span className="Header__NotiSender">{noti.actor_name || t('layout.header.systemActor')}</span>
               {typeMeta && (
                 <span className={`Header__NotiChip Header__NotiChip--${typeMeta.group}`}>
-                  {typeMeta.label}
+                  {t(typeMeta.labelKey)}
                 </span>
               )}
             </span>
@@ -237,7 +235,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
       <div className="Header__Left">
         {/* 모바일: 햄버거 메뉴 */}
         {isMobile && hasSidebar && (
-          <button className="Header__IconBtn" onClick={onToggleSidebar} title="Menu">
+          <button className="Header__IconBtn" onClick={onToggleSidebar} title={t('common.actions.menu')}>
             <Menu size={20} />
           </button>
         )}
@@ -258,7 +256,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
       <div className="Header__Center">
         <button className="Header__SearchBtn" onClick={onSearchClick}>
           <Search size={14} className="Header__SearchIcon" />
-          {!isMobile && <span className="Header__SearchText">Search...</span>}
+          {!isMobile && <span className="Header__SearchText">{t('layout.header.search')}</span>}
           {!isMobile && <kbd className="Header__SearchShortcut">Cmd+K</kbd>}
         </button>
       </div>
@@ -267,7 +265,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
         <ThemeToggleButton />
         <button
           className="Header__IconBtn"
-          title="Messenger"
+          title={t('layout.panels.messenger')}
           onClick={onChatClick}
         >
           <MessageSquare size={18} />
@@ -280,7 +278,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
         <div className="Header__NotiWrap" ref={notiRef}>
           <button
             className="Header__IconBtn"
-            title="Notifications"
+            title={t('layout.header.notifications')}
             onClick={() => setShowNotiMenu((prev) => !prev)}
           >
             <Bell size={18} />
@@ -293,16 +291,16 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
           {showNotiMenu && (
             <div className="Header__NotiMenu">
               <div className="Header__NotiHeader">
-                <span className="Header__NotiTitle">Notifications</span>
+                <span className="Header__NotiTitle">{t('layout.header.notifications')}</span>
                 <div className="Header__NotiActions">
                   {unreadCount > 0 && (
                     <button className="Header__NotiMarkAll" onClick={onMarkAllRead}>
-                      Mark all read
+                      {t('layout.header.markAllRead')}
                     </button>
                   )}
                   {notifications.length > 0 && (
                     <button className="Header__NotiClear" onClick={onClearNotifications}>
-                      Clear all
+                      {t('layout.header.clearAll')}
                     </button>
                   )}
                 </div>
@@ -313,21 +311,21 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
                     className={`Header__NotiFilterBtn ${!notiFilterUnread ? 'Header__NotiFilterBtn--active' : ''}`}
                     onClick={() => setNotiFilterUnread(false)}
                   >
-                    All
+                    {t('layout.header.filterAll')}
                   </button>
                   <button
                     className={`Header__NotiFilterBtn ${notiFilterUnread ? 'Header__NotiFilterBtn--active' : ''}`}
                     onClick={() => setNotiFilterUnread(true)}
                   >
-                    Unread{notiUnreadInList > 0 ? ` ${notiUnreadInList}` : ''}
+                    {t('layout.header.filterUnread')}{notiUnreadInList > 0 ? ` ${notiUnreadInList}` : ''}
                   </button>
                 </div>
               )}
               <div className="Header__NotiList">
                 {notifications.length === 0 ? (
-                  <div className="Header__NotiEmpty">No notifications</div>
+                  <div className="Header__NotiEmpty">{t('layout.header.noNotifications')}</div>
                 ) : visibleNotis.length === 0 ? (
-                  <div className="Header__NotiEmpty">No unread notifications</div>
+                  <div className="Header__NotiEmpty">{t('layout.header.noUnreadNotifications')}</div>
                 ) : (
                   visibleNotis.map(renderNotiItem)
                 )}
@@ -340,7 +338,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
           <div className="Header__SettingsWrap" ref={settingsRef}>
             <button
               className="Header__IconBtn"
-              title="Settings"
+              title={t('spaceMenu.settings')}
               onClick={() => setShowSettingsMenu((prev) => !prev)}
             >
               <Settings size={18} />
@@ -353,7 +351,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
                   onClick={() => { setShowSettingsMenu(false); }}
                 >
                   <Shield size={15} />
-                  <span>Admin Settings</span>
+                  <span>{t('layout.header.adminSettings')}</span>
                 </NavLink>
               </div>
             )}
@@ -364,7 +362,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
             type="button"
             className="Header__Avatar"
             onClick={() => setShowUserMenu((prev) => !prev)}
-            title={username || '내 계정'}
+            title={username || t('auth.myAccount')}
           >
             <Avatar
               name={username}
@@ -382,14 +380,14 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
                 onClick={() => { setShowUserMenu(false); }}
               >
                 <User size={15} />
-                <span>프로필 설정</span>
+                <span>{t('auth.profileSettings')}</span>
               </NavLink>
               <button
                 className="Header__SettingsItem Header__SettingsItem--danger"
                 onClick={handleLogout}
               >
                 <LogOut size={15} />
-                <span>로그아웃</span>
+                <span>{t('auth.signOut')}</span>
               </button>
             </div>
           )}

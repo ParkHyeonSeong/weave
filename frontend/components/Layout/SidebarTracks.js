@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { Plus, ChevronRight, ChevronDown } from 'lucide-react';
@@ -72,6 +73,7 @@ function SortableTrackItem({ track, isActive, onMenu, rename }) {  // isActive�
 }
 
 export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange, hidden = [], onHide, onUnhide }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [tracks, setTracks] = useState([]);
   const [activeItem, setActiveItem] = useState(null);
@@ -155,15 +157,14 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
               window.dispatchEvent(new Event('track:updated'));
               fetchTracks();
               // Toast(showToast)는 액션 버튼을 지원하지 않아 undo 없이 성공 알림만 표시.
-              showToast(`"${track.track_name}" 아카이브됨`);
+              showToast(t('sidebar.archived', { name: track.track_name }));
             } else {
-              showToast('아카이브 실패', 'error');
+              showToast(t('sidebar.archiveFailed'), 'error');
             }
           } catch {}
         },
         leave: () => setLeaveTarget({ id: track.track_id, name: track.track_name }),
-      },
-    ));
+      }, t));
   };
 
   const handleDragStart = (event) => {
@@ -185,9 +186,9 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
   return (
     <>
       <div className="Sidebar__SectionHeader">
-        <span className="Sidebar__SectionLabel">Tracks</span>
+        <span className="Sidebar__SectionLabel">{t('layout.sections.tracks')}</span>
         {onCreateTrack && (
-          <button className="Sidebar__SectionAddBtn" onClick={onCreateTrack} title="Create Track">
+          <button className="Sidebar__SectionAddBtn" onClick={onCreateTrack} title={t('layout.sections.createTrack')}>
             <Plus size={14} />
           </button>
         )}
@@ -196,7 +197,7 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
       <div className="Sidebar__Branches">
         {sortedTracks.length === 0 ? (
           <div className="Sidebar__Empty">
-            No tracks yet.<br />Create one to get started.
+            {t('layout.empty.tracks')}<br />{t('layout.empty.createHint')}
           </div>
         ) : (
           <>
@@ -240,7 +241,7 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
               <>
                 <button className="Sidebar__HiddenToggle" onClick={() => setShowHidden((s) => !s)}>
                   {showHidden ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  숨긴 항목 {hiddenTracks.length}
+                  {t('sidebar.hiddenItems', { count: hiddenTracks.length })}
                 </button>
                 {showHidden && hiddenTracks.map((track) => (
                   <div
@@ -252,7 +253,7 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
                       <EntityIcon icon={track.icon} color={track.color} size={14} entityType="track" />
                       <span className="Sidebar__BranchName">{track.track_name}</span>
                     </NavLink>
-                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(track.track_id)}>숨김 해제</button>
+                    <button className="Sidebar__UnhideBtn" onClick={() => onUnhide(track.track_id)}>{t('sidebar.unhide')}</button>
                   </div>
                 ))}
               </>
@@ -266,21 +267,21 @@ export default function SidebarTracks({ onCreateTrack, savedOrder, onOrderChange
         isOpen={!!leaveTarget}
         onClose={() => setLeaveTarget(null)}
         onConfirm={async () => {
-          const t = leaveTarget;
+          const target = leaveTarget;
           setLeaveTarget(null);
           try {
-            const res = await axios.post(`/tracks/${t.id}/leave`);
+            const res = await axios.post(`/tracks/${target.id}/leave`);
             if (res.data.status) {
               window.dispatchEvent(new Event('track:updated'));
               fetchTracks();
             } else {
-              showToast('나가기 실패', 'error');
+              showToast(t('sidebar.leaveFailed'), 'error');
             }
           } catch {}
         }}
-        title="트랙 나가기"
-        message={`"${leaveTarget?.name}"에서 나가시겠습니까?`}
-        confirmLabel="나가기"
+        title={t('sidebar.leaveTrackTitle')}
+        message={t('sidebar.leaveConfirm', { name: leaveTarget?.name ?? '' })}
+        confirmLabel={t('sidebar.leave')}
         variant="danger"
       />
     </>

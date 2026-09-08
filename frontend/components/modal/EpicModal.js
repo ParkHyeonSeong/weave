@@ -4,10 +4,12 @@ import { axios } from '@/library/_axios';
 import DatePicker from '@/components/common/DatePicker';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#5E6AD2', '#2563EB', '#DC2626', '#16A34A', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 export default function EpicModal({ branchId, epic, onClose }) {
+  const { t } = useTranslation();
   const isEdit = !!epic;
 
   const [epicName, setEpicName] = useState(epic?.epic_name || '');
@@ -58,11 +60,11 @@ export default function EpicModal({ branchId, epic, onClose }) {
         onClose();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to save epic.';
+        const msg = errorText(err.code, err.category) ?? t('modal.epic.saveFailed');
         setError(msg);
       }
     } catch {
-      setError('Failed to save epic.');
+      setError(t('modal.epic.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -78,7 +80,7 @@ export default function EpicModal({ branchId, epic, onClose }) {
         onClose();
       }
     } catch {
-      setError('Failed to delete epic.');
+      setError(t('modal.epic.deleteFailed'));
     } finally {
       setLoading(false);
     }
@@ -88,7 +90,7 @@ export default function EpicModal({ branchId, epic, onClose }) {
     <div className="EpicModal__Backdrop" onClick={onClose}>
       <form className="EpicModal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="EpicModal__Header">
-          <h2 className="EpicModal__Title">{isEdit ? 'Edit Epic' : 'New Epic'}</h2>
+          <h2 className="EpicModal__Title">{isEdit ? t('modal.epic.editTitle') : t('modal.epic.newTitle')}</h2>
           <button type="button" className="EpicModal__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -97,11 +99,11 @@ export default function EpicModal({ branchId, epic, onClose }) {
         <div className="EpicModal__Body">
           {/* 이름 */}
           <div className="EpicModal__Field">
-            <label className="EpicModal__Label">Name</label>
+            <label className="EpicModal__Label">{t('modal.fields.name')}</label>
             <input
               className="EpicModal__Input"
               type="text"
-              placeholder="Epic name"
+              placeholder={t('modal.epic.namePlaceholder')}
               value={epicName}
               onChange={(e) => setEpicName(e.target.value)}
               autoFocus
@@ -111,10 +113,10 @@ export default function EpicModal({ branchId, epic, onClose }) {
 
           {/* 설명 */}
           <div className="EpicModal__Field">
-            <label className="EpicModal__Label">Description</label>
+            <label className="EpicModal__Label">{t('modal.fields.description')}</label>
             <textarea
               className="EpicModal__Textarea"
-              placeholder="Add description..."
+              placeholder={t('modal.epic.descriptionPlaceholder')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -124,7 +126,7 @@ export default function EpicModal({ branchId, epic, onClose }) {
           {/* 상태 + 색상 */}
           <div className="EpicModal__Row">
             <div className="EpicModal__Field EpicModal__Field--half">
-              <label className="EpicModal__Label">Status</label>
+              <label className="EpicModal__Label">{t('modal.fields.status')}</label>
               <select className="EpicModal__Select" value={status} onChange={(e) => setStatus(e.target.value)}>
                 {workflowStatuses.length > 0 ? (
                   workflowStatuses.map((ws) => (
@@ -132,15 +134,15 @@ export default function EpicModal({ branchId, epic, onClose }) {
                   ))
                 ) : (
                   <>
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="done">Done</option>
+                    <option value="todo">{t('modal.epic.statusTodo')}</option>
+                    <option value="in_progress">{t('modal.epic.statusInProgress')}</option>
+                    <option value="done">{t('modal.epic.statusDone')}</option>
                   </>
                 )}
               </select>
             </div>
             <div className="EpicModal__Field EpicModal__Field--half">
-              <label className="EpicModal__Label">Color</label>
+              <label className="EpicModal__Label">{t('modal.fields.color')}</label>
               <div className="EpicModal__Colors">
                 {COLORS.map((c) => (
                   <button
@@ -158,7 +160,7 @@ export default function EpicModal({ branchId, epic, onClose }) {
           {/* 날짜 */}
           <div className="EpicModal__Row">
             <div className="EpicModal__Field EpicModal__Field--half">
-              <label className="EpicModal__Label">Start Date</label>
+              <label className="EpicModal__Label">{t('modal.fields.startDate')}</label>
               <DatePicker
                 value={startDate || null}
                 onChange={(val) => setStartDate(val || '')}
@@ -166,7 +168,7 @@ export default function EpicModal({ branchId, epic, onClose }) {
               />
             </div>
             <div className="EpicModal__Field EpicModal__Field--half">
-              <label className="EpicModal__Label">Due Date</label>
+              <label className="EpicModal__Label">{t('modal.fields.dueDate')}</label>
               <DatePicker
                 value={dueDate || null}
                 onChange={(val) => setDueDate(val || '')}
@@ -181,15 +183,15 @@ export default function EpicModal({ branchId, epic, onClose }) {
         <div className="EpicModal__Footer">
           {isEdit && (
             <button type="button" className="EpicModal__DeleteBtn" onClick={handleDelete} disabled={loading}>
-              Delete
+              {t('common.actions.delete')}
             </button>
           )}
           <div className="EpicModal__FooterRight">
             <button type="button" className="EpicModal__CancelBtn" onClick={onClose}>
-              Cancel
+              {t('common.actions.cancel')}
             </button>
             <button type="submit" className="EpicModal__SubmitBtn" disabled={!epicName.trim() || loading}>
-              {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+              {loading ? t('common.state.saving') : isEdit ? t('modal.update') : t('common.actions.create')}
             </button>
           </div>
         </div>

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { MessageSquare } from 'lucide-react';
 import useResyncOnVisible from '@/hooks/useResyncOnVisible';
 import { sumChatUnread } from '@/library/chatUnread';
 
 export default function UnreadMessages() {
+  const { t } = useTranslation();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,10 +43,10 @@ export default function UnreadMessages() {
       <div className="Widget">
         <div className="Widget__Header">
           <MessageSquare size={16} />
-          <span className="Widget__Title">Messages</span>
+          <span className="Widget__Title">{t('home.widgets.messages.title')}</span>
         </div>
         <div className="Widget__Body">
-          <div className="Widget__Empty">Loading...</div>
+          <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
     );
@@ -54,11 +56,11 @@ export default function UnreadMessages() {
     <div className="Widget">
       <div className="Widget__Header">
         <MessageSquare size={16} />
-        <span className="Widget__Title">Messages</span>
+        <span className="Widget__Title">{t('home.widgets.messages.title')}</span>
       </div>
       <div className="Widget__Body">
         {rooms.length === 0 ? (
-          <div className="Widget__Empty">No unread messages</div>
+          <div className="Widget__Empty">{t('home.widgets.messages.empty')}</div>
         ) : (
           <>
             <div className="UnreadMessages__Total">{totalUnread}</div>

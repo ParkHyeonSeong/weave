@@ -5,10 +5,12 @@ import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import DatePicker from '@/components/common/DatePicker';
 import Avatar from '@/components/common/Avatar';
+import { useTranslation } from 'react-i18next';
 
 const COLORS = ['#5E6AD2', '#2563EB', '#DC2626', '#16A34A', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 export default function ScheduleEventModal({ branchId, event, defaultDate, onClose }) {
+  const { t } = useTranslation();
   const isEdit = !!event;
 
   const [title, setTitle] = useState(event?.title || '');
@@ -141,11 +143,11 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
         onClose();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? '이벤트를 저장하지 못했습니다.';
+        const msg = errorText(err.code, err.category) ?? t('branch.scheduleEvent.saveFailed');
         setError(msg);
       }
     } catch {
-      setError('Failed to save event.');
+      setError(t('branch.scheduleEvent.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -161,7 +163,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
         onClose();
       }
     } catch {
-      setError('Failed to delete event.');
+      setError(t('branch.scheduleEvent.deleteFailed'));
     } finally {
       setLoading(false);
     }
@@ -176,7 +178,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
     <div className="ScheduleEventModal__Backdrop" onClick={onClose}>
       <form className="ScheduleEventModal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="ScheduleEventModal__Header">
-          <h2 className="ScheduleEventModal__Title">{isEdit ? 'Edit Event' : 'New Event'}</h2>
+          <h2 className="ScheduleEventModal__Title">{isEdit ? t('branch.scheduleEvent.editTitle') : t('branch.scheduleEvent.newTitle')}</h2>
           <button type="button" className="ScheduleEventModal__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -185,11 +187,11 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
         <div className="ScheduleEventModal__Body">
           {/* 제목 */}
           <div className="ScheduleEventModal__Field">
-            <label className="ScheduleEventModal__Label">Title</label>
+            <label className="ScheduleEventModal__Label">{t('modal.fields.title')}</label>
             <input
               className="ScheduleEventModal__Input"
               type="text"
-              placeholder="Event title"
+              placeholder={t('branch.scheduleEvent.titlePlaceholder')}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               autoFocus
@@ -199,10 +201,10 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
 
           {/* 설명 */}
           <div className="ScheduleEventModal__Field">
-            <label className="ScheduleEventModal__Label">Description</label>
+            <label className="ScheduleEventModal__Label">{t('modal.fields.description')}</label>
             <textarea
               className="ScheduleEventModal__Textarea"
-              placeholder="Add description..."
+              placeholder={t('branchTasks.detail.addDescription')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
@@ -212,26 +214,26 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
           {/* 날짜 */}
           <div className="ScheduleEventModal__Row">
             <div className="ScheduleEventModal__Field ScheduleEventModal__Field--half">
-              <label className="ScheduleEventModal__Label">Start Date</label>
+              <label className="ScheduleEventModal__Label">{t('modal.fields.startDate')}</label>
               <DatePicker
                 value={startDate || null}
                 onChange={(val) => setStartDate(val || '')}
-                placeholder="Pick start"
+                placeholder={t('branch.scheduleEvent.pickStart')}
               />
             </div>
             <div className="ScheduleEventModal__Field ScheduleEventModal__Field--half">
-              <label className="ScheduleEventModal__Label">End Date</label>
+              <label className="ScheduleEventModal__Label">{t('modal.fields.endDate')}</label>
               <DatePicker
                 value={endDate || null}
                 onChange={(val) => setEndDate(val || '')}
-                placeholder="Pick end"
+                placeholder={t('branch.scheduleEvent.pickEnd')}
               />
             </div>
           </div>
 
           {/* 색상 */}
           <div className="ScheduleEventModal__Field">
-            <label className="ScheduleEventModal__Label">Color</label>
+            <label className="ScheduleEventModal__Label">{t('modal.fields.color')}</label>
             <div className="ScheduleEventModal__Colors">
               {COLORS.map((c) => (
                 <button
@@ -247,7 +249,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
 
           {/* 참석자 */}
           <div className="ScheduleEventModal__Field">
-            <label className="ScheduleEventModal__Label">Participants</label>
+            <label className="ScheduleEventModal__Label">{t('branch.scheduleEvent.participants')}</label>
             <div className="ScheduleEventModal__ParticipantWrap" ref={participantRef}>
               <button
                 type="button"
@@ -255,7 +257,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
                 onClick={() => setParticipantDropdownOpen((prev) => !prev)}
               >
                 <span className="ScheduleEventModal__ParticipantText">
-                  {participantNames.length > 0 ? participantNames.join(', ') : 'Select participants...'}
+                  {participantNames.length > 0 ? participantNames.join(', ') : t('branch.scheduleEvent.selectParticipants')}
                 </span>
                 <ChevronDown size={14} />
               </button>
@@ -280,7 +282,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
           {/* 연결된 태스크 (편집 모드에서만) */}
           {isEdit && (
             <div className="ScheduleEventModal__Field">
-              <label className="ScheduleEventModal__Label">Linked Tasks</label>
+              <label className="ScheduleEventModal__Label">{t('branch.scheduleEvent.linkedTasks')}</label>
 
               {/* 연결된 태스크 목록 */}
               {linkedTasks.length > 0 && (
@@ -302,7 +304,7 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
                 <input
                   className="ScheduleEventModal__Input"
                   type="text"
-                  placeholder="Search tasks to link..."
+                  placeholder={t('branch.scheduleEvent.searchTasksPlaceholder')}
                   value={taskSearch}
                   onChange={(e) => setTaskSearch(e.target.value)}
                 />
@@ -330,15 +332,15 @@ export default function ScheduleEventModal({ branchId, event, defaultDate, onClo
         <div className="ScheduleEventModal__Footer">
           {isEdit && (
             <button type="button" className="ScheduleEventModal__DeleteBtn" onClick={handleDelete} disabled={loading}>
-              Delete
+              {t('common.actions.delete')}
             </button>
           )}
           <div className="ScheduleEventModal__FooterRight">
             <button type="button" className="ScheduleEventModal__CancelBtn" onClick={onClose}>
-              Cancel
+              {t('common.actions.cancel')}
             </button>
             <button type="submit" className="ScheduleEventModal__SubmitBtn" disabled={!title.trim() || !startDate || loading}>
-              {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+              {loading ? t('common.state.saving') : isEdit ? t('modal.update') : t('common.actions.create')}
             </button>
           </div>
         </div>

@@ -16,6 +16,7 @@ import { errorText } from '@/library/errorText';
 import { useTheme } from '@/library/theme';
 import TaskNode from './TaskNode';
 import DeletableEdge from './DeletableEdge';
+import { useTranslation } from 'react-i18next';
 
 const nodeTypes = { task: TaskNode };
 const edgeTypes = { deletable: DeletableEdge };
@@ -44,6 +45,7 @@ export default function FlowCanvas({
   branchId, epicId, tasks, dependencies, flowPositions,
   workflowStatuses, onSelectTask, onDataChange,
 }) {
+  const { t } = useTranslation();
   const saveTimerRef = useRef(null);
   const deleteEdgeRef = useRef(null);
   const [edgeType, setEdgeType] = useState('finish_to_start');
@@ -182,15 +184,15 @@ export default function FlowCanvas({
         if (onDataChange) onDataChange();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? (err.code === 'CIRCULAR_DEPENDENCY' ? 'Cannot create: circular dependency detected' : '의존 관계를 만들지 못했습니다.');
+        const msg = errorText(err.code, err.category) ?? (err.code === 'CIRCULAR_DEPENDENCY' ? t('branch.flow.circularDependency') : t('branch.flow.createDependencyFailed'));
         window.dispatchEvent(new CustomEvent('toast', { detail: { message: msg } }));
       }
     } catch {}
-  }, [branchId, edgeType, setEdges, onDataChange]);
+  }, [branchId, edgeType, setEdges, onDataChange, t]);
 
   // 노드 더블클릭 -> 태스크 상세
   const handleNodeDoubleClick = useCallback((_event, node) => {
-    const task = tasks.find((t) => String(t.task_id) === node.id);
+    const task = tasks.find((item) => String(item.task_id) === node.id);
     if (task && onSelectTask) onSelectTask(task);
   }, [tasks, onSelectTask]);
 
@@ -218,14 +220,14 @@ export default function FlowCanvas({
             <button
               className={`FlowToolbar__Btn ${edgeType === 'finish_to_start' ? 'FlowToolbar__Btn--active' : ''}`}
               onClick={() => setEdgeType('finish_to_start')}
-              title="Finish to Start (sequential)"
+              title={t('branch.flow.edgeFinishToStart')}
             >
               <svg width="20" height="12" viewBox="0 0 20 12"><line x1="0" y1="6" x2="14" y2="6" stroke="currentColor" strokeWidth="2"/><polygon points="14,2 20,6 14,10" fill="currentColor"/></svg>
             </button>
             <button
               className={`FlowToolbar__Btn ${edgeType === 'relates_to' ? 'FlowToolbar__Btn--active' : ''}`}
               onClick={() => setEdgeType('relates_to')}
-              title="Relates to"
+              title={t('branch.flow.edgeRelatesTo')}
             >
               <svg width="20" height="12" viewBox="0 0 20 12"><line x1="0" y1="6" x2="20" y2="6" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3"/></svg>
             </button>
@@ -233,11 +235,11 @@ export default function FlowCanvas({
           <div className="FlowToolbar__Legend">
             <div className="FlowToolbar__LegendItem">
               <svg width="24" height="8"><line x1="0" y1="4" x2="18" y2="4" stroke="var(--color-text-secondary)" strokeWidth="2"/><polygon points="18,1 24,4 18,7" fill="var(--color-text-secondary)"/></svg>
-              <span>Blocks</span>
+              <span>{t('branch.flow.legendBlocks')}</span>
             </div>
             <div className="FlowToolbar__LegendItem">
               <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="var(--color-text-tertiary)" strokeWidth="2" strokeDasharray="4 3"/></svg>
-              <span>Related</span>
+              <span>{t('branch.flow.legendRelated')}</span>
             </div>
           </div>
         </Panel>

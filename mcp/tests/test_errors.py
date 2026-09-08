@@ -4,7 +4,7 @@ from weave_mcp.errors import (
     BRANCH_KEY_NOT_FOUND, INVALID_BRANCH_REF,
     USER_REF_NOT_FOUND, USER_REF_AMBIGUOUS, INVALID_USER_REF,
     category_for_code,
-    error_from_body, error_from_status, normalize_embedded,
+    error_from_body, error_from_status, normalize_embedded, WORKSPACE_TZ_UNAVAILABLE,
 )
 
 
@@ -58,6 +58,7 @@ def test_constants_shape():
         TOKEN_NOT_SET, WEEKEND_NO_CELL, MCP_TOOL_EXCEPTION,
         BRANCH_KEY_NOT_FOUND, INVALID_BRANCH_REF,
         USER_REF_NOT_FOUND, USER_REF_AMBIGUOUS, INVALID_USER_REF,
+        WORKSPACE_TZ_UNAVAILABLE,
     })
 
 

@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { getAppContext } from '@/library/appContext';
@@ -10,6 +11,7 @@ import SidebarTracks from './SidebarTracks';
 import SidebarScrums from './SidebarScrums';
 
 export default function Sidebar({ isMobile, width, onResizeStart, onCreateBranch, onCreateCanvas, onCreateTrack, onCreateScrum, onClose }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const activeApp = getAppContext(router.pathname);
   const { prefs, setNamespace, hide, unhide } = useUiPrefs();
@@ -52,7 +54,7 @@ export default function Sidebar({ isMobile, width, onResizeStart, onCreateBranch
         {/* 모바일: 닫기 버튼 */}
         {isMobile && (
           <div className="Sidebar__MobileHeader">
-            <span className="Sidebar__MobileTitle">Menu</span>
+            <span className="Sidebar__MobileTitle">{t('common.actions.menu')}</span>
             <button className="Sidebar__CloseBtn" onClick={onClose}>
               <X size={18} />
             </button>

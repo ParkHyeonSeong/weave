@@ -3,6 +3,9 @@ import { axios } from '@/library/_axios';
 import { showToast } from '@/components/Layout/Toast';
 import { getErrorCode } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+// React 밖(ProseMirror plugin)에서 불리므로 훅이 아니라 i18next 인스턴스를 직접 읽는다
+// (library/errorText.js와 동일한 패턴).
+import i18next from '@/library/i18n';
 
 const MAX_IMAGE_SIZE_MB = 10;
 const MAX_IMAGE_SIZE = MAX_IMAGE_SIZE_MB * 1024 * 1024;
@@ -11,17 +14,17 @@ const MAX_IMAGE_SIZE = MAX_IMAGE_SIZE_MB * 1024 * 1024;
 function uploadErrorMessage(code) {
   switch (code) {
     case 'FILE_TOO_LARGE':
-      return `이미지가 ${MAX_IMAGE_SIZE_MB}MB를 초과해 첨부할 수 없습니다.`;
+      return i18next.t('canvasExt.imageUpload.tooLarge', { size: MAX_IMAGE_SIZE_MB });
     case 'INVALID_FILE_TYPE':
     case 'INVALID_FILE_CONTENT':
-      return '지원하지 않는 이미지 형식입니다. (JPG·PNG·GIF·WebP)';
+      return i18next.t('canvasExt.imageUpload.invalidType');
     case 'NOT_CANVAS_MEMBER':
     case 'NOT_BRANCH_MEMBER':
-      return '이미지를 업로드할 권한이 없습니다.';
+      return i18next.t('canvasExt.imageUpload.noPermission');
     case 'NO_FILE':
-      return '첨부할 이미지를 찾을 수 없습니다.';
+      return i18next.t('canvasExt.imageUpload.noFile');
     default:
-      return '이미지 업로드에 실패했습니다.';
+      return i18next.t('canvasExt.imageUpload.failed');
   }
 }
 

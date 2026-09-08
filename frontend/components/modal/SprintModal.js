@@ -4,8 +4,10 @@ import { axios } from '@/library/_axios';
 import DatePicker from '@/components/common/DatePicker';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { useTranslation } from 'react-i18next';
 
 export default function SprintModal({ branchId, sprint, onClose }) {
+  const { t } = useTranslation();
   const isEdit = !!sprint?.sprint_id;
 
   const [sprintName, setSprintName] = useState(sprint?.sprint_name || '');
@@ -41,11 +43,11 @@ export default function SprintModal({ branchId, sprint, onClose }) {
         onClose();
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'Failed to save sprint.';
+        const msg = errorText(err.code, err.category) ?? t('modal.sprint.saveFailed');
         setError(msg);
       }
     } catch {
-      setError('Failed to save sprint.');
+      setError(t('modal.sprint.saveFailed'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ export default function SprintModal({ branchId, sprint, onClose }) {
         onClose();
       }
     } catch {
-      setError('Failed to delete sprint.');
+      setError(t('modal.sprint.deleteFailed'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export default function SprintModal({ branchId, sprint, onClose }) {
     <div className="SprintModal__Backdrop" onClick={onClose}>
       <form className="SprintModal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
         <div className="SprintModal__Header">
-          <h2 className="SprintModal__Title">{isEdit ? 'Edit Sprint' : 'New Sprint'}</h2>
+          <h2 className="SprintModal__Title">{isEdit ? t('modal.sprint.editTitle') : t('modal.sprint.newTitle')}</h2>
           <button type="button" className="SprintModal__CloseBtn" onClick={onClose}>
             <X size={16} />
           </button>
@@ -79,11 +81,11 @@ export default function SprintModal({ branchId, sprint, onClose }) {
 
         <div className="SprintModal__Body">
           <div className="SprintModal__Field">
-            <label className="SprintModal__Label">Sprint Name</label>
+            <label className="SprintModal__Label">{t('modal.sprint.nameLabel')}</label>
             <input
               className="SprintModal__Input"
               type="text"
-              placeholder="Sprint 1"
+              placeholder={t('modal.sprint.namePlaceholder')}
               value={sprintName}
               onChange={(e) => setSprintName(e.target.value)}
               autoFocus
@@ -92,10 +94,10 @@ export default function SprintModal({ branchId, sprint, onClose }) {
           </div>
 
           <div className="SprintModal__Field">
-            <label className="SprintModal__Label">Goal</label>
+            <label className="SprintModal__Label">{t('modal.fields.goal')}</label>
             <textarea
               className="SprintModal__Textarea"
-              placeholder="Sprint goal..."
+              placeholder={t('modal.sprint.goalPlaceholder')}
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
               rows={2}
@@ -104,7 +106,7 @@ export default function SprintModal({ branchId, sprint, onClose }) {
 
           <div className="SprintModal__Row">
             <div className="SprintModal__Field SprintModal__Field--half">
-              <label className="SprintModal__Label">Start Date</label>
+              <label className="SprintModal__Label">{t('modal.fields.startDate')}</label>
               <DatePicker
                 value={startDate || null}
                 onChange={(val) => setStartDate(val || '')}
@@ -112,7 +114,7 @@ export default function SprintModal({ branchId, sprint, onClose }) {
               />
             </div>
             <div className="SprintModal__Field SprintModal__Field--half">
-              <label className="SprintModal__Label">End Date</label>
+              <label className="SprintModal__Label">{t('modal.fields.endDate')}</label>
               <DatePicker
                 value={endDate || null}
                 onChange={(val) => setEndDate(val || '')}
@@ -127,15 +129,15 @@ export default function SprintModal({ branchId, sprint, onClose }) {
         <div className="SprintModal__Footer">
           {isEdit && (
             <button type="button" className="SprintModal__DeleteBtn" onClick={handleDelete} disabled={loading}>
-              Delete
+              {t('common.actions.delete')}
             </button>
           )}
           <div className="SprintModal__FooterRight">
             <button type="button" className="SprintModal__CancelBtn" onClick={onClose}>
-              Cancel
+              {t('common.actions.cancel')}
             </button>
             <button type="submit" className="SprintModal__SubmitBtn" disabled={!sprintName.trim() || loading}>
-              {loading ? 'Saving...' : isEdit ? 'Update' : 'Create'}
+              {loading ? t('common.state.saving') : isEdit ? t('modal.update') : t('common.actions.create')}
             </button>
           </div>
         </div>

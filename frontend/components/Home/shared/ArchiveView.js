@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/router';
 import { ArrowLeft, Archive, RotateCcw, Trash2 } from 'lucide-react';
 
@@ -12,6 +13,7 @@ import { ArrowLeft, Archive, RotateCcw, Trash2 } from 'lucide-react';
  *  - onPermanentDelete: async (id) => boolean
  */
 export default function ArchiveView({ title, backHref, fetchItems, onRestore, onPermanentDelete }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [items, setItems] = useState(null);   // null = 로딩 중
   const [confirmId, setConfirmId] = useState(null);
@@ -53,17 +55,17 @@ export default function ArchiveView({ title, backHref, fetchItems, onRestore, on
     <div className="ArchiveView">
       <header className="ArchiveView__Head">
         <button className="ArchiveView__Back" onClick={() => router.push(backHref)}>
-          <ArrowLeft size={16} /> 뒤로
+          <ArrowLeft size={16} /> {t('common.actions.back')}
         </button>
         <h2 className="ArchiveView__Title"><Archive size={18} /> {title}</h2>
       </header>
 
       {items === null ? (
-        <div className="ArchiveView__Loading">불러오는 중…</div>
+        <div className="ArchiveView__Loading">{t('common.state.loading')}</div>
       ) : items.length === 0 ? (
         <div className="ArchiveView__Empty">
           <Archive size={40} />
-          <p>보관된 항목이 없습니다.</p>
+          <p>{t('home.archive.empty')}</p>
         </div>
       ) : (
         <ul className="ArchiveView__List">
@@ -76,7 +78,7 @@ export default function ArchiveView({ title, backHref, fetchItems, onRestore, on
               </div>
               {confirmId === item.id ? (
                 <div className="ArchiveView__Confirm">
-                  <span className="ArchiveView__ConfirmText">되돌릴 수 없음 · <strong>{item.name}</strong> 입력</span>
+                  <span className="ArchiveView__ConfirmText">{t('home.archive.confirmPrefix')} <strong>{item.name}</strong> {t('home.archive.confirmSuffix')}</span>
                   <input
                     value={confirmInput}
                     onChange={(e) => setConfirmInput(e.target.value)}
@@ -88,25 +90,25 @@ export default function ArchiveView({ title, backHref, fetchItems, onRestore, on
                     disabled={confirmInput !== item.name || busy}
                     onClick={() => handlePermanent(item)}
                   >
-                    영구삭제
+                    {t('home.archive.permanentDelete')}
                   </button>
                   <button
                     className="ArchiveView__GhostBtn"
                     onClick={() => { setConfirmId(null); setConfirmInput(''); }}
                   >
-                    취소
+                    {t('common.actions.cancel')}
                   </button>
                 </div>
               ) : (
                 <div className="ArchiveView__Actions">
                   <button className="ArchiveView__RestoreBtn" disabled={busy} onClick={() => handleRestore(item.id)}>
-                    <RotateCcw size={14} /> 복원
+                    <RotateCcw size={14} /> {t('home.archive.restore')}
                   </button>
                   <button
                     className="ArchiveView__DeleteBtn"
                     onClick={() => { setConfirmId(item.id); setConfirmInput(''); }}
                   >
-                    <Trash2 size={14} /> 영구삭제
+                    <Trash2 size={14} /> {t('home.archive.permanentDelete')}
                   </button>
                 </div>
               )}

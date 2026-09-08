@@ -394,14 +394,15 @@ describe('Canvas 콜아웃 아이콘이 상태 토큰과 정확히 짝지어진�
   });
 
   it('(c) 죽은 전체 button으로 정상 배선을 위장하면 RED다', () => {
+    // 라벨은 catalog(t)로 옮겨졌다 — 앵커도 현재 소스 형태를 따른다.
     const real = `            <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('info').run(); closeDropdown(); }}>
-              <Info size={14} style={{ color: 'var(--color-status-in-progress)' }} /> Info
+              <Info size={14} style={{ color: 'var(--color-status-in-progress)' }} /> {t('canvas.editor.calloutInfo')}
             </button>`;
     const mutated = src.replace(real, `            {false && (\n${real}\n            )}
             <button className="CanvasEditorToolbar__DropdownItem"
               onClick={() => { editor.chain().focus().toggleCallout('info').run(); closeDropdown(); }}>
-              <XCircle size={14} style={{ color: 'var(--color-error)' }} /> Info
+              <XCircle size={14} style={{ color: 'var(--color-error)' }} /> {t('canvas.editor.calloutInfo')}
             </button>`);
     expect(mutated, '위장 앵커를 못 찾았다').not.toBe(src);
     // 죽은 button은 JSXExpressionContainer 안이라 직접 자식이 아니다 → 메뉴 자식은 여전히 4개,

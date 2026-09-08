@@ -3,6 +3,7 @@ import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import { Plus, Trash2, Pencil, Check, X, Star, ChevronUp, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const PRESET_COLORS = [
   '#9CA3AF', '#2563EB', '#16A34A', '#DC2626', '#F59E0B',
@@ -10,13 +11,14 @@ const PRESET_COLORS = [
 ];
 
 const CATEGORIES = [
-  { value: 'todo', label: 'To Do' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'done', label: 'Done' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'todo', labelKey: 'branch.statusCategory.todo' },
+  { value: 'in_progress', labelKey: 'branch.statusCategory.inProgress' },
+  { value: 'done', labelKey: 'branch.statusCategory.done' },
+  { value: 'cancelled', labelKey: 'branch.statusCategory.cancelled' },
 ];
 
 export default function SettingsWorkflow({ branchId, isAdmin }) {
+  const { t } = useTranslation();
   const [statuses, setStatuses] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -96,7 +98,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
         window.dispatchEvent(new Event('workflow:updated'));
       } else {
         const err = getError(res.data);
-        const msg = errorText(err.code, err.category) ?? 'This status is in use by existing tasks and cannot be deleted.';
+        const msg = errorText(err.code, err.category) ?? t('branch.workflow.statusInUse');
         alert(msg);
       }
     } catch {}
@@ -140,7 +142,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
 
   const getCategoryBadge = (category) => {
     const cat = CATEGORIES.find(c => c.value === category);
-    return cat ? cat.label : category;
+    return cat ? t(cat.labelKey) : category;
   };
 
   if (loading) return null;
@@ -148,8 +150,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
   return (
     <div className="SettingsWorkflow">
       <p className="SettingsWorkflow__Desc">
-        Define the workflow statuses for tasks in this branch. Each status belongs to a category
-        (To Do, In Progress, Done) used for progress tracking.
+        {t('branch.workflow.desc')}
       </p>
 
       <div className="SettingsWorkflow__List">
@@ -162,7 +163,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                     className="SettingsWorkflow__EditInput"
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
-                    placeholder="Status name"
+                    placeholder={t('branch.workflow.statusNamePlaceholder')}
                   />
                   <select
                     className="SettingsWorkflow__Select"
@@ -170,7 +171,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                     onChange={(e) => setEditCategory(e.target.value)}
                   >
                     {CATEGORIES.map(c => (
-                      <option key={c.value} value={c.value}>{c.label}</option>
+                      <option key={c.value} value={c.value}>{t(c.labelKey)}</option>
                     ))}
                   </select>
                   <div className="SettingsWorkflow__ColorPicker">
@@ -207,7 +208,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                   </span>
                   {s.is_default && (
                     <span className="SettingsWorkflow__Default">
-                      <Star size={11} /> Default
+                      <Star size={11} /> {t('branch.workflow.default')}
                     </span>
                   )}
                 </div>
@@ -217,7 +218,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                       className="SettingsWorkflow__ActionBtn"
                       onClick={() => handleMove(index, -1)}
                       disabled={index === 0}
-                      title="Move up"
+                      title={t('branch.workflow.moveUp')}
                     >
                       <ChevronUp size={13} />
                     </button>
@@ -225,7 +226,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                       className="SettingsWorkflow__ActionBtn"
                       onClick={() => handleMove(index, 1)}
                       disabled={index === statuses.length - 1}
-                      title="Move down"
+                      title={t('branch.workflow.moveDown')}
                     >
                       <ChevronDown size={13} />
                     </button>
@@ -233,7 +234,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                       <button
                         className="SettingsWorkflow__ActionBtn"
                         onClick={() => handleSetDefault(s.workflow_status_id)}
-                        title="Set as default"
+                        title={t('branch.workflow.setAsDefault')}
                       >
                         <Star size={13} />
                       </button>
@@ -241,14 +242,14 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                     <button
                       className="SettingsWorkflow__ActionBtn"
                       onClick={() => startEdit(s)}
-                      title="Edit"
+                      title={t('common.actions.edit')}
                     >
                       <Pencil size={13} />
                     </button>
                     <button
                       className="SettingsWorkflow__ActionBtn SettingsWorkflow__ActionBtn--danger"
                       onClick={() => handleDelete(s.workflow_status_id)}
-                      title="Delete"
+                      title={t('common.actions.delete')}
                     >
                       <Trash2 size={13} />
                     </button>
@@ -269,13 +270,13 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                   className="SettingsWorkflow__AddInput"
                   value={newKey}
                   onChange={(e) => setNewKey(e.target.value)}
-                  placeholder="status_key (e.g. in_review)"
+                  placeholder={t('branch.workflow.keyPlaceholder')}
                 />
                 <input
                   className="SettingsWorkflow__AddInput"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder="Display name (e.g. In Review)"
+                  placeholder={t('branch.workflow.labelPlaceholder')}
                 />
                 <select
                   className="SettingsWorkflow__Select"
@@ -283,7 +284,7 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
                   onChange={(e) => setNewCategory(e.target.value)}
                 >
                   {CATEGORIES.map(c => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
+                    <option key={c.value} value={c.value}>{t(c.labelKey)}</option>
                   ))}
                 </select>
               </div>
@@ -299,17 +300,17 @@ export default function SettingsWorkflow({ branchId, isAdmin }) {
               </div>
               <div className="SettingsWorkflow__AddActions">
                 <button className="SettingsWorkflow__SubmitBtn" onClick={handleAdd}>
-                  Add Status
+                  {t('branch.workflow.addStatus')}
                 </button>
                 <button className="SettingsWorkflow__CancelAddBtn" onClick={() => setShowAdd(false)}>
-                  Cancel
+                  {t('common.actions.cancel')}
                 </button>
               </div>
             </div>
           ) : (
             <button className="SettingsWorkflow__AddBtn" onClick={() => setShowAdd(true)}>
               <Plus size={14} />
-              Add Status
+              {t('branch.workflow.addStatus')}
             </button>
           )}
         </>

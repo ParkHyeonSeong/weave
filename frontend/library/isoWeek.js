@@ -33,6 +33,21 @@ export function weekDates(isoYear, isoWeek) {
   });
 }
 
+// ⚠️ 공용 기간 계약: Scrum의 "이번 주"는 board 구성원 전원이 같은 값을 봐야 하므로
+// **workspace timezone**의 오늘에서 파생한다. 브라우저 기본 timezone이나 개인 시간대를
+// 쓰면 서울/뉴욕 구성원이 서로 다른 scrum_week(board_id, iso_year, iso_week) 행을 만든다.
+//
+// todayStr은 'YYYY-MM-DD' (useWorkspaceDateFormat().today()). 컴포넌트로만 다루므로
+// timezone 변환이 개입하지 않는다.
+export function isoWeekOfDateOnly(todayStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(todayStr || ''));
+  // ⚠️ fail-closed: workspace의 오늘을 모르면(null) 브라우저 시계로 대체하지 않고 null을 준다.
+  //    호출부(ScrumBoardView)가 null이면 주차 get_or_create를 보류한다.
+  if (!m) return null;
+  return getISOWeek(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+}
+
+/** @deprecated 브라우저 기본 timezone을 쓴다 — 공용 기간에는 isoWeekOfDateOnly를 쓸 것. */
 export function currentISOWeek() {
   return getISOWeek(new Date());
 }

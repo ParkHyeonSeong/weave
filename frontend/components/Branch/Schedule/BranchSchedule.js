@@ -2,8 +2,11 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { axios } from '@/library/_axios';
 import { ChevronLeft, ChevronRight, Plus, ListTodo, Layers, CalendarRange } from 'lucide-react';
 import ScheduleEventModal from './ScheduleEventModal';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { parseDateOnly } from '@/library/formatDateTime';
+import { useTranslation } from 'react-i18next';
 
-const WEEK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEK_DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 // 월의 캘린더 그리드 생성 (6주 x 7일)
 function buildCalendarGrid(year, month) {
@@ -22,6 +25,13 @@ function buildCalendarGrid(year, month) {
     weeks.push(week);
   }
   return weeks;
+}
+
+// 'YYYY-MM-DD' → 그리드와 같은 프레임의 로컬 자정 Date. ⚠️ new Date('YYYY-MM-DD')는 UTC 자정
+// instant라 음수 offset(미주)에서 하루 전 셀에 그려진다 — 컴포넌트로만 만든다.
+function fromDateStr(s) {
+  const p = parseDateOnly(s);
+  return p ? new Date(p.y, p.m - 1, p.d) : null;
 }
 
 // 날짜를 YYYY-MM-DD 문자열로
@@ -46,8 +56,9 @@ function buildSprintSegments(sprints, weeks) {
   sprints.forEach((sprint) => {
     if (!sprint.start_date || !sprint.end_date) return;
 
-    const sStart = new Date(sprint.start_date);
-    const sEnd = new Date(sprint.end_date);
+    const sStart = fromDateStr(sprint.start_date);
+    const sEnd = fromDateStr(sprint.end_date);
+    if (!sStart || !sEnd) return;
 
     weeks.forEach((week, weekIdx) => {
       const weekStart = week[0];
@@ -120,8 +131,9 @@ function groupEventsByDate(events) {
     const start = evt.start_date;
     const end = evt.end_date || evt.start_date;
     // 멀티데이 이벤트: 각 날짜에 표시
-    const cursor = new Date(start);
-    const endDate = new Date(end);
+    const cursor = fromDateStr(start);
+    const endDate = fromDateStr(end);
+    if (!cursor || !endDate) return;
     while (cursor <= endDate) {
       const key = toDateStr(cursor);
       if (!map[key]) map[key] = [];
@@ -167,9 +179,13 @@ function groupEpicsByDate(epics) {
 const MAX_VISIBLE_ITEMS = 3;
 
 export default function BranchSchedule({ branchId }) {
+  const { t } = useTranslation();
+  const { formatDateOnly, today: personalToday } = useDateFormat();
+  // "오늘"은 개인 timezone 기준(date-only 문자열)을 그리드 프레임의 로컬 자정 Date로 옮긴 것.
+  const todayDate = () => fromDateStr(personalToday()) || new Date();
   const [currentMonth, setCurrentMonth] = useState(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    const initial = todayDate();
+    return new Date(initial.getFullYear(), initial.getMonth(), 1);
   });
   const [events, setEvents] = useState([]);
   const [sprints, setSprints] = useState([]);
@@ -183,7 +199,7 @@ export default function BranchSchedule({ branchId }) {
 
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
-  const today = new Date();
+  const today = todayDate();
 
   // 캘린더 그리드
   const weeks = useMemo(() => buildCalendarGrid(year, month), [year, month]);
@@ -249,13 +265,17 @@ export default function BranchSchedule({ branchId }) {
   const goToPrev = () => { setCurrentMonth(new Date(year, month - 1, 1)); setExpandedCells({}); };
   const goToNext = () => { setCurrentMonth(new Date(year, month + 1, 1)); setExpandedCells({}); };
   const goToToday = () => {
-    const now = new Date();
+    const now = todayDate();
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
     setExpandedCells({});
   };
 
   // 월 라벨
-  const monthLabel = currentMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+  // 개인 Schedule의 월 라벨/오늘 강조는 개인 timezone을 쓴다(공유 기간이 아니다).
+  const monthLabel = formatDateOnly(
+    `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`,
+    { year: 'numeric', month: 'long' },
+  );
 
   // 셀 클릭 -> 일정 생성
   const handleCellClick = (date) => {
@@ -281,40 +301,40 @@ export default function BranchSchedule({ branchId }) {
             <ChevronRight size={16} />
           </button>
           <button className="BranchSchedule__TodayBtn" onClick={goToToday}>
-            Today
+            {t('common.time.today')}
           </button>
         </div>
         <div className="BranchSchedule__ActionsRight">
           <button
             className={`BranchSchedule__ToggleBtn ${showSprints ? 'BranchSchedule__ToggleBtn--active' : ''}`}
             onClick={() => setShowSprints((prev) => !prev)}
-            title={showSprints ? 'Hide sprints' : 'Show sprints'}
+            title={showSprints ? t('branch.schedule.hideSprints') : t('branch.schedule.showSprints')}
           >
             <CalendarRange size={14} />
-            Sprints
+            {t('branch.schedule.sprints')}
           </button>
           <button
             className={`BranchSchedule__ToggleBtn ${showTasks ? 'BranchSchedule__ToggleBtn--active' : ''}`}
             onClick={() => setShowTasks((prev) => !prev)}
-            title={showTasks ? 'Hide tasks' : 'Show tasks'}
+            title={showTasks ? t('branch.schedule.hideTasks') : t('branch.schedule.showTasks')}
           >
             <ListTodo size={14} />
-            Tasks
+            {t('branch.schedule.tasks')}
           </button>
           <button
             className={`BranchSchedule__ToggleBtn ${showEpics ? 'BranchSchedule__ToggleBtn--active' : ''}`}
             onClick={() => setShowEpics((prev) => !prev)}
-            title={showEpics ? 'Hide epics' : 'Show epics'}
+            title={showEpics ? t('branch.schedule.hideEpics') : t('branch.schedule.showEpics')}
           >
             <Layers size={14} />
-            Epics
+            {t('branch.schedule.epics')}
           </button>
           <button
             className="BranchSchedule__CreateBtn"
             onClick={() => setEventModal({ open: true, event: null, defaultDate: toDateStr(today) })}
           >
             <Plus size={14} />
-            Add Event
+            {t('branch.schedule.addEvent')}
           </button>
         </div>
       </div>
@@ -323,12 +343,12 @@ export default function BranchSchedule({ branchId }) {
       <div className="BranchSchedule__Calendar">
         {/* 요일 헤더 */}
         <div className="BranchSchedule__WeekHeader">
-          {WEEK_DAYS.map((day, i) => (
+          {WEEK_DAY_KEYS.map((day, i) => (
             <div
               key={day}
               className={`BranchSchedule__WeekDay ${i === 0 || i === 6 ? 'BranchSchedule__WeekDay--weekend' : ''}`}
             >
-              {day}
+              {t(`branch.schedule.weekDays.${day}`)}
             </div>
           ))}
         </div>
@@ -361,7 +381,10 @@ export default function BranchSchedule({ branchId }) {
                             key={`${seg.sprint.sprint_id}-${weekIdx}-${i}`}
                             className={`BranchSchedule__SprintBar ${statusClass} ${contLeftClass} ${contRightClass}`}
                             style={{ left: `${leftPct}%`, width: `${widthPct}%`, top: `${top}px` }}
-                            title={`${seg.sprint.sprint_name} (${seg.sprint.status})`}
+                            title={t('branch.schedule.sprintTooltip', {
+                              name: seg.sprint.sprint_name,
+                              status: t(`branch.sprintStatus.${seg.sprint.status}`, { defaultValue: seg.sprint.status }),
+                            })}
                           >
                             {!seg.continuedLeft && seg.sprint.sprint_name}
                           </div>
@@ -414,7 +437,7 @@ export default function BranchSchedule({ branchId }) {
                                 key={`epic-${item.epic_id}-${item._dateType}`}
                                 className="BranchSchedule__EpicPill"
                                 onClick={(e) => e.stopPropagation()}
-                                title={`${item.epic_name} (${item.task_count} tasks)`}
+                                title={t('branch.schedule.epicTooltip', { name: item.epic_name, count: item.task_count })}
                               >
                                 <span
                                   className="BranchSchedule__EventDot"
@@ -463,7 +486,7 @@ export default function BranchSchedule({ branchId }) {
                               setExpandedCells((prev) => ({ ...prev, [dateStr]: true }));
                             }}
                           >
-                            +{hiddenCount} more
+                            {t('branch.schedule.moreItems', { count: hiddenCount })}
                           </div>
                         )}
                       </div>

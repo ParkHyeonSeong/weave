@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { CodeXml } from 'lucide-react';
 import { useEditorRefHydration } from '@/library/refHydration';
@@ -25,13 +26,15 @@ import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
  */
 export default function CommentEditor({
   initialContent = '',
-  placeholder = 'Add a comment...',
+  placeholder,
   branchId,
   autoFocus = false,
   rawAutoEnter = true,
   onSubmit,
   onCancel,
 }) {
+  const { t } = useTranslation();
+  const resolvedPlaceholder = placeholder ?? t('branchTasks.commentEditor.placeholder');
   // keep latest callbacks in refs so the editor's keydown handler always sees current values
   const submitRef = useRef(onSubmit);
   const cancelRef = useRef(onCancel);
@@ -43,8 +46,8 @@ export default function CommentEditor({
   useEffect(() => { cancelRef.current = onCancel; }, [onCancel]);
 
   const extensions = useMemo(
-    () => buildMarkdownExtensions([...buildCommentEditorExtensions({ placeholder, branchId }), MarkdownClipboardExtension]),
-    [placeholder, branchId]
+    () => buildMarkdownExtensions([...buildCommentEditorExtensions({ placeholder: resolvedPlaceholder, branchId }), MarkdownClipboardExtension]),
+    [resolvedPlaceholder, branchId]
   );
 
   // 제출 공용 경로 — WYSIWYG(handleKeyDown)과 raw(Cmd+Enter) 양쪽이 사용.
@@ -137,7 +140,7 @@ export default function CommentEditor({
             key={session}
             value={rawText}
             onChange={handleRawChange}
-            placeholder={`${placeholder} (markdown)`}
+            placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: resolvedPlaceholder })}
           />
         </div>
       )}
@@ -145,13 +148,13 @@ export default function CommentEditor({
         <EditorContent editor={editor} />
       </div>
       <div className="CommentEditor__Hint">
-        <span>{submitting ? '등록 중…' : 'Cmd/Ctrl+Enter to submit · Esc to cancel'}</span>
+        <span>{submitting ? t('branchTasks.commentEditor.submitting') : t('branchTasks.commentEditor.hint')}</span>
         <button
           type="button"
           className={`CommentEditor__RawToggle${isRaw ? ' CommentEditor__RawToggle--active' : ''}`}
           onMouseDown={(e) => e.preventDefault()}
           onClick={toggleRaw}
-          title={isRaw ? 'Rich text 편집으로 전환' : 'Markdown 소스로 편집'}
+          title={isRaw ? t('branchTasks.rawEditor.switchToRichText') : t('branchTasks.rawEditor.switchToMarkdown')}
         >
           <CodeXml size={12} />
         </button>

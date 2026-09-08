@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'react-i18next';
 import { X, ExternalLink, ArrowRight, Loader } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { sanitizeHtml } from '@/library/sanitize';
@@ -7,6 +8,7 @@ import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
 
 export default function RefPreviewPanel({ refType, refData, onClose }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -57,20 +59,20 @@ export default function RefPreviewPanel({ refType, refData, onClose }) {
   };
 
   // task 칩은 RefPanelHost에서 TaskDetailPanel로 라우팅됨 — 이 패널은 doc/issue 전용
-  const typeLabels = { doc: 'Document', issue: 'Issue' };
+  const typeLabels = { doc: t('canvas.refPreview.typeDoc'), issue: t('canvas.refPreview.typeIssue') };
 
   return (
     <div className="RefPreviewPanel">
       <div className="RefPreviewPanel__Header">
-        <span className="RefPreviewPanel__TypeLabel">{typeLabels[refType] || 'Preview'}</span>
+        <span className="RefPreviewPanel__TypeLabel">{typeLabels[refType] || t('canvas.refPreview.typeFallback')}</span>
         <div className="RefPreviewPanel__HeaderRight">
-          <button className="RefPreviewPanel__HeaderBtn" onClick={handleOpenNewTab} title="Open in new tab">
+          <button className="RefPreviewPanel__HeaderBtn" onClick={handleOpenNewTab} title={t('spaceMenu.openNewTab')}>
             <ExternalLink size={14} />
           </button>
-          <button className="RefPreviewPanel__HeaderBtn" onClick={handleNavigate} title="Navigate">
+          <button className="RefPreviewPanel__HeaderBtn" onClick={handleNavigate} title={t('canvas.refPreview.navigate')}>
             <ArrowRight size={14} />
           </button>
-          <button className="RefPreviewPanel__HeaderBtn" onClick={onClose} title="Close">
+          <button className="RefPreviewPanel__HeaderBtn" onClick={onClose} title={t('common.actions.close')}>
             <X size={14} />
           </button>
         </div>
@@ -82,7 +84,7 @@ export default function RefPreviewPanel({ refType, refData, onClose }) {
             <Loader size={20} className="RefPreviewPanel__Spinner" />
           </div>
         ) : !data ? (
-          <div className="RefPreviewPanel__Empty">Failed to load content.</div>
+          <div className="RefPreviewPanel__Empty">{t('canvas.refPreview.loadFailed')}</div>
         ) : (
           <>
             {refType === 'doc' && <DocPreview page={data} />}
@@ -110,7 +112,8 @@ function DocPreview({ page }) {
 }
 
 function IssuePreview({ issue }) {
-  const statusLabel = issue.status === 'open' ? 'Open' : 'Closed';
+  const { t } = useTranslation();
+  const statusLabel = issue.status === 'open' ? t('canvas.refPreview.issueOpen') : t('canvas.refPreview.issueClosed');
 
   return (
     <div className="RefPreviewPanel__Content">
@@ -123,7 +126,7 @@ function IssuePreview({ issue }) {
 
       {issue.description && (
         <div className="RefPreviewPanel__Section">
-          <span className="RefPreviewPanel__SectionTitle">Description</span>
+          <span className="RefPreviewPanel__SectionTitle">{t('canvas.refPreview.description')}</span>
           <div
             className="RefPreviewPanel__HtmlContent"
             dangerouslySetInnerHTML={{ __html: sanitizeHtml(issue.description) }}
