@@ -7,7 +7,9 @@ import i18next from './i18n';
 import en from './i18n/en';
 import ko from './i18n/ko';
 import { notificationText } from './serverMessages.js';
-import { activitySummary } from './activitySummary.js';
+import { activitySummary, changeValueText } from './activitySummary.js';
+import { chatMessagePreview } from './notification.js';
+import { formatDateOnly } from './formatDateTime.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -146,5 +148,127 @@ describe('activitySummary', () => {
 
   it('알 수 없는 action(구버전 행)은 저장된 summary로 폴백한다', () => {
     expect(activitySummary({ action: 'legacy_thing', summary: '옛 문장' }, t)).toBe('옛 문장');
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// 채팅 알림 본문 — 포그라운드(브라우저 알림·토스트) 폴백
+// ---------------------------------------------------------------------------
+
+describe('chatMessagePreview', () => {
+  const original = i18next.language;
+  afterAll(async () => { await i18next.changeLanguage(original); });
+  const t = (key) => i18next.t(key);
+
+  it('사용자가 쓴 내용은 그대로 쓴다 (번역·변형 없음)', async () => {
+    await i18next.changeLanguage('en');
+    expect(chatMessagePreview({ content: '안녕하세요 deploy 갑니다' }, t))
+      .toBe('안녕하세요 deploy 갑니다');
+  });
+
+  it('내용이 없으면 무엇이 왔는지 현재 언어로 알려준다 (빈 본문이 되지 않는다)', async () => {
+    const cases = [
+      [{ task_ref: { task_id: 1 } }, 'Shared a task', '태스크를 공유했습니다'],
+      [{ doc_ref: { page_id: 1 } }, 'Shared a document', '문서를 공유했습니다'],
+      [{ issue_ref: { issue_id: 1 } }, 'Shared an issue', '이슈를 공유했습니다'],
+      [{ attachments: [{ file_name: 'a.png' }] }, 'Sent an attachment', '첨부를 보냈습니다'],
+      [{}, 'New Message', '새 메시지'],
+    ];
+    for (const [message, en, ko] of cases) {
+      await i18next.changeLanguage('en');
+      expect(chatMessagePreview(message, t), JSON.stringify(message)).toBe(en);
+      await i18next.changeLanguage('ko');
+      expect(chatMessagePreview(message, t), JSON.stringify(message)).toBe(ko);
+      expect(chatMessagePreview(message, t)).not.toBe('');
+    }
+  });
+
+  it('서버의 오프라인 push 문구와 같은 문장을 쓴다', () => {
+    // backend/library/messages.py의 chat.* 와 layout.chatNotification.* 는 같은 화면 문구다.
+    const src = readFileSync(resolve(ROOT, 'backend/library/messages.py'), 'utf8');
+    const pairs = {
+      'chat.sharedTask': 'sharedTask', 'chat.sharedDocument': 'sharedDocument',
+      'chat.sharedIssue': 'sharedIssue', 'chat.sharedAttachment': 'sharedAttachment',
+    };
+    for (const [locale, catalog] of [['en', en], ['ko', ko]]) {
+      const block = src.match(new RegExp(`'${locale}': \\{([\\s\\S]*?)\\n    \\},`))[1];
+      for (const [serverKey, frontKey] of Object.entries(pairs)) {
+        const m = block.match(new RegExp(`'${serverKey}': '([^']*)'`));
+        expect(m, `${locale}.${serverKey}`).toBeTruthy();
+        expect(m[1], `${locale}.${serverKey}`).toBe(catalog.layout.chatNotification[frontKey]);
+      }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 활동 이력 값 표시 — 요약과 펼친 상세가 같은 포매터를 쓴다
+// ---------------------------------------------------------------------------
+
+describe('활동 변경값 표시', () => {
+  const original = i18next.language;
+  afterAll(async () => { await i18next.changeLanguage(original); });
+  const t = (key, params) => i18next.t(key, params);
+  const ctx = (locale) => ({ t, formatDateOnly: (s) => formatDateOnly(s, { locale }) });
+
+  it('priority는 제품 enum이 아니라 사용자 언어 라벨로 보인다', async () => {
+    const change = { field: 'priority', old: 'low', new: 'urgent' };
+    await i18next.changeLanguage('en');
+    expect(changeValueText(change, 'old', ctx('en'))).toBe('Low');
+    expect(changeValueText(change, 'new', ctx('en'))).toBe('Urgent');
+    await i18next.changeLanguage('ko');
+    expect(changeValueText(change, 'old', ctx('ko'))).toBe('낮음');
+    expect(changeValueText(change, 'new', ctx('ko'))).toBe('긴급');
+  });
+
+  it('date-only는 locale 표기로 보이고 시간대에 따라 날짜가 이동하지 않는다', async () => {
+    const change = { field: 'due_date', old: '2026-09-01', new: '2026-12-31' };
+    await i18next.changeLanguage('en');
+    expect(changeValueText(change, 'old', ctx('en'))).toBe('Sep 1, 2026');
+    expect(changeValueText(change, 'new', ctx('en'))).toBe('Dec 31, 2026');
+    await i18next.changeLanguage('ko');
+    expect(changeValueText(change, 'old', ctx('ko'))).toBe('2026년 9월 1일');
+    // 날짜 숫자는 어느 언어에서도 그대로다(변환 없음)
+    expect(changeValueText(change, 'new', ctx('ko'))).toContain('12월 31일');
+  });
+
+  it('status·task_type은 내부 key가 아니라 기록 당시 라벨을 그대로 보인다', async () => {
+    // 워크스페이스가 만든 이름이므로 번역하지 않는다.
+    const change = { field: 'status', old: 'todo', new: 'in_progress',
+                     old_label: '해야 할 일', new_label: '진행 중' };
+    for (const locale of ['en', 'ko']) {
+      await i18next.changeLanguage(locale);
+      expect(changeValueText(change, 'old', ctx(locale))).toBe('해야 할 일');
+      expect(changeValueText(change, 'new', ctx(locale))).toBe('진행 중');
+    }
+  });
+
+  it('값이 없으면 언어에 맞는 "없음"을 쓴다', async () => {
+    await i18next.changeLanguage('en');
+    expect(changeValueText({ field: 'due_date', old: null }, 'old', ctx('en'))).toBe('none');
+    await i18next.changeLanguage('ko');
+    expect(changeValueText({ field: 'due_date', old: null }, 'old', ctx('ko'))).toBe('없음');
+  });
+
+  it('요약 문장이 펼친 상세와 같은 값 표기를 쓴다', async () => {
+    await i18next.changeLanguage('ko');
+    const activity = {
+      action: 'updated', entity_type: 'task',
+      changes: [
+        { field: 'priority', old: 'low', new: 'urgent' },
+        { field: 'due_date', old: '2026-09-01', new: '2026-12-31' },
+        { field: 'status', old: 'todo', new: 'in_progress', old_label: '해야 할 일', new_label: '진행 중' },
+      ],
+    };
+    const summary = activitySummary(activity, t, ctx('ko'));
+    for (const change of activity.changes) {
+      // 상세 행이 쓰는 값이 요약 문장 안에 그대로 있어야 한다.
+      expect(summary).toContain(changeValueText(change, 'old', ctx('ko')));
+      expect(summary).toContain(changeValueText(change, 'new', ctx('ko')));
+    }
+    expect(summary).not.toContain('urgent');    // 제품 enum이 새어나오지 않는다
+    expect(summary).not.toContain('2026-12-31'); // date-only 원문이 새어나오지 않는다
+    expect(summary).not.toContain('in_progress'); // 내부 status key가 새어나오지 않는다
   });
 });

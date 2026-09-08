@@ -1799,6 +1799,7 @@ const ko = {
       sharedTask: '태스크를 공유했습니다',
       sharedDocument: '문서를 공유했습니다',
       sharedIssue: '이슈를 공유했습니다',
+      sharedAttachment: '첨부를 보냈습니다',
       newMessage: '새 메시지',
       someone: '누군가',
     },

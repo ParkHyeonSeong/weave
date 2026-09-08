@@ -122,3 +122,80 @@ async def test_actor_never_notifies_themselves(db_session, monkeypatch):
     await notification_service.notify(
         actor, 'mention', actor, 'chatMention', None, 'chat_room', 1, db_session, actor='self')
     assert await noti_model.find_by_user(actor, 10, 0, db_session) == []
+
+
+# ---------------------------------------------------------------------------
+# 오프라인 채팅 Web Push — 본문이 없는 메시지의 폴백도 수신자 언어로
+# ---------------------------------------------------------------------------
+
+def test_chat_fallback_key_distinguishes_what_was_shared():
+    """텍스트가 없어도 무엇이 왔는지 구분한다(ws_chat이 허용하는 네 가지 + 일반)."""
+    k = notification_service.chat_fallback_key
+    assert k(task_ref={'task_id': 1}) == 'chat.sharedTask'
+    assert k(doc_ref={'page_id': 1}) == 'chat.sharedDocument'
+    assert k(issue_ref={'issue_id': 1}) == 'chat.sharedIssue'
+    assert k(attachments=[{'file_name': 'a.png'}]) == 'chat.sharedAttachment'
+    assert k() == 'chat.newMessage'
+
+
+async def _chat_room(db, suffix):
+    """보낸 사람 + en/ko 수신자가 있는 방 하나."""
+    sender = await _make_user(db, f'chat-sender-{suffix}@test.local', f'Ann{suffix}')
+    en_user = await _make_user(
+        db, f'chat-en-{suffix}@test.local', f'chat-en-{suffix}',
+        '{"language_region": {"locale": "en", "time_zone": "America/New_York"}}')
+    ko_user = await _make_user(
+        db, f'chat-ko-{suffix}@test.local', f'chat-ko-{suffix}',
+        '{"language_region": {"locale": "ko", "time_zone": "Asia/Seoul"}}')
+    room_id = (await db.execute(text("""
+        INSERT INTO chat_room (room_type, created_by) VALUES ('group', :u) RETURNING room_id
+    """), {"u": sender})).scalar_one()
+    for uid in (sender, en_user, ko_user):
+        await db.execute(text("""
+            INSERT INTO chat_room_member (room_id, user_id) VALUES (:r, :u)
+        """), {"r": room_id, "u": uid})
+    return room_id, sender, en_user, ko_user
+
+
+def _capture_push(monkeypatch):
+    sent = []
+
+    async def fake_push(user_id, title, link, db_):
+        sent.append((user_id, title))
+
+    monkeypatch.setattr(notification_service, '_send_web_push', fake_push)
+    # 모든 멤버를 '오프라인'으로 둔다 — active_connections에 없으면 push 대상이다.
+    monkeypatch.setattr(notification_service.manager, 'active_connections', {})
+    return sent
+
+
+async def test_offline_chat_push_without_text_uses_each_recipients_language(db_session, monkeypatch):
+    """첨부·참조만 있는 메시지도 영어 한 문장으로 굳지 않는다."""
+    cases = [
+        ({'task_ref': {'task_id': 1}}, 'Shared a task', '태스크를 공유했습니다'),
+        ({'doc_ref': {'page_id': 1}}, 'Shared a document', '문서를 공유했습니다'),
+        ({'issue_ref': {'issue_id': 1}}, 'Shared an issue', '이슈를 공유했습니다'),
+        ({'attachments': [{'file_name': 'a.png'}]}, 'Sent an attachment', '첨부를 보냈습니다'),
+        ({}, 'New message', '새 메시지'),
+    ]
+    for i, (structure, en_text, ko_text) in enumerate(cases):
+        sent = _capture_push(monkeypatch)
+        room_id, sender, en_user, ko_user = await _chat_room(db_session, f'{i}')
+        await notification_service.push_chat_to_offline(
+            room_id, sender, 'Ann', '', db_session, **structure)
+        bodies = dict(sent)
+        assert bodies[en_user] == f'Ann: {en_text}', structure
+        assert bodies[ko_user] == f'Ann: {ko_text}', structure
+        assert sender not in bodies, '보낸 사람에게는 push하지 않는다'
+
+
+async def test_offline_chat_push_never_translates_user_content(db_session, monkeypatch):
+    """사용자가 입력한 내용은 언어와 무관하게 그대로 나간다(번역·변형 금지)."""
+    sent = _capture_push(monkeypatch)
+    room_id, sender, en_user, ko_user = await _chat_room(db_session, 'content')
+    await notification_service.push_chat_to_offline(
+        room_id, sender, 'Ann', '안녕하세요 deploy 갑니다', db_session,
+        attachments=[{'file_name': 'a.png'}])
+    bodies = dict(sent)
+    assert bodies[en_user] == 'Ann: 안녕하세요 deploy 갑니다'
+    assert bodies[ko_user] == 'Ann: 안녕하세요 deploy 갑니다'

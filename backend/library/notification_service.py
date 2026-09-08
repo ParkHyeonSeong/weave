@@ -132,9 +132,32 @@ async def notify_bulk(user_ids: list[int], ntype: str, actor_id: int, message_ke
         await notify(uid, ntype, actor_id, message_key, link, entity_type, entity_id, db, **params)
 
 
+def chat_fallback_key(*, task_ref=None, doc_ref=None, issue_ref=None, attachments=None) -> str:
+    """본문이 빈 메시지의 폴백 문구 키. 무엇을 공유했는지만 구분한다.
+
+    ws_chat은 텍스트가 없어도 ref나 첨부가 있으면 정상 메시지로 받으므로, 그 경우
+    '새 메시지'보다 무엇이 왔는지 알려주는 편이 낫다.
+    """
+    if task_ref:
+        return 'chat.sharedTask'
+    if doc_ref:
+        return 'chat.sharedDocument'
+    if issue_ref:
+        return 'chat.sharedIssue'
+    if attachments:
+        return 'chat.sharedAttachment'
+    return 'chat.newMessage'
+
+
 async def push_chat_to_offline(room_id: int, sender_id: int, sender_name: str,
-                                content: str, db: AsyncSession):
-    """오프라인 채팅방 멤버에게 Web Push 전송 (DB 알림 저장 없이 push만)"""
+                               content: str, db: AsyncSession,
+                               task_ref=None, doc_ref=None, issue_ref=None, attachments=None):
+    """오프라인 채팅방 멤버에게 Web Push 전송 (DB 알림 저장 없이 push만).
+
+    본문이 있으면 **사용자가 입력한 내용 그대로** 보낸다(번역·변형 금지).
+    본문이 없을 때만 수신자 언어의 폴백 문구를 쓴다 — 예전엔 영어 한 문장으로 굳어 있어
+    한국어 사용자가 첨부·참조만 받으면 영어 push를 봤다.
+    """
     from sqlalchemy import text
 
     result = await db.execute(text("""
@@ -142,7 +165,8 @@ async def push_chat_to_offline(room_id: int, sender_id: int, sender_name: str,
     """), {'room_id': room_id})
     member_ids = [row[0] for row in result.fetchall()]
 
-    body = f'{sender_name}: {content}' if content else f'{sender_name}: new message'
+    fallback_key = None if content else chat_fallback_key(
+        task_ref=task_ref, doc_ref=doc_ref, issue_ref=issue_ref, attachments=attachments)
 
     for uid in member_ids:
         if uid == sender_id:
@@ -150,6 +174,11 @@ async def push_chat_to_offline(room_id: int, sender_id: int, sender_name: str,
         # WebSocket 연결이 없는 멤버에게만 push
         if uid not in manager.active_connections:
             try:
+                if fallback_key is None:
+                    body = f'{sender_name}: {content}'
+                else:
+                    locale = await recipient_locale(uid, db)
+                    body = f'{sender_name}: {messages.render(locale, fallback_key)}'
                 await _send_web_push(uid, body, None, db)
             except Exception as e:
                 logger.warning(f"Chat push failed for user {uid}: {e}")

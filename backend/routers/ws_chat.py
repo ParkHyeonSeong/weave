@@ -211,7 +211,9 @@ async def websocket_chat(ws: WebSocket):
 
                     # 오프라인 멤버에게 Web Push
                     await notification_service.push_chat_to_offline(
-                        room_id, user_id, username, content, session
+                        room_id, user_id, username, content, session,
+                        task_ref=task_ref, doc_ref=doc_ref, issue_ref=issue_ref,
+                        attachments=saved_attachments,
                     )
 
             elif action == 'mark_read':

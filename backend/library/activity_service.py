@@ -3,6 +3,8 @@ from datetime import date, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.model import activity_log as log_model
+from core.model import task_type_config as type_model
+from core.model import workflow_status as status_model
 
 # Task에서 추적할 스칼라 필드
 TASK_TRACKED_FIELDS = [
@@ -133,13 +135,32 @@ async def log_task_created(task_id: int, branch_id: int, actor_id: int,
     )
 
 
+async def _status_labels(branch_id: int, db: AsyncSession) -> dict:
+    """status key → 사용자에게 보이는 라벨. 워크스페이스가 직접 만든 이름이라 번역하지 않는다."""
+    return {s['key']: s['label'] for s in await status_model.find_by_branch(branch_id, db)}
+
+
+async def _type_labels(branch_id: int, db: AsyncSession) -> dict:
+    """task_type key → 표시 이름(사용자 정의)."""
+    return {t['type_key']: t['type_name'] for t in await type_model.find_by_branch(branch_id, db)}
+
+
 async def log_task_change(task_id: int, branch_id: int, actor_id: int,
                           old_task: dict, new_fields: dict,
                           updated_task: dict, db: AsyncSession):
-    """Task 필드 변경 로그"""
+    """Task 필드 변경 로그.
+
+    status·task_type은 DB에 **내부 key**로 저장되므로(todo, bug …) 기록 시점의 표시 라벨을
+    old_label/new_label로 함께 남긴다. 그래야 활동 이력이 내부 키를 그대로 보여주지 않고,
+    나중에 라벨이 바뀌어도 "그때 보이던 이름"이 유지된다(sprint/epic 이름과 같은 규칙).
+    """
     changes = _compute_diffs(old_task, new_fields, TASK_TRACKED_FIELDS)
 
-    # sprint/epic 이름 보강
+    fields_changed = {ch['field'] for ch in changes}
+    status_labels = await _status_labels(branch_id, db) if 'status' in fields_changed else {}
+    type_labels = await _type_labels(branch_id, db) if 'task_type' in fields_changed else {}
+
+    # sprint/epic 이름 + status/task_type 라벨 보강
     for ch in changes:
         if ch['field'] == 'sprint_id':
             ch['old_label'] = old_task.get('sprint_name')
@@ -147,6 +168,12 @@ async def log_task_change(task_id: int, branch_id: int, actor_id: int,
         elif ch['field'] == 'epic_id':
             ch['old_label'] = old_task.get('epic_name')
             ch['new_label'] = updated_task.get('epic_name')
+        elif ch['field'] == 'status':
+            ch['old_label'] = status_labels.get(ch.get('old'))
+            ch['new_label'] = status_labels.get(ch.get('new'))
+        elif ch['field'] == 'task_type':
+            ch['old_label'] = type_labels.get(ch.get('old'))
+            ch['new_label'] = type_labels.get(ch.get('new'))
 
     if not changes:
         return

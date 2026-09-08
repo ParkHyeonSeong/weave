@@ -42,6 +42,14 @@ MESSAGES = {
         'notifications.issueReopened': '{actor} reopened issue “{issue}”',
         'notifications.issueReopenedWithComment': '{actor} reopened issue “{issue}” with a comment',
         'notifications.chatMention': '{actor} mentioned you in chat',
+        # -- 채팅 Web Push (본문이 비어 있는 메시지의 폴백) ---------------------
+        # 사용자가 입력한 실제 내용은 절대 번역·변형하지 않는다 — 내용이 없을 때만 쓴다.
+        # 문구는 프런트의 layout.chatNotification.* 와 같아야 한다(포그라운드 알림과 같은 화면).
+        'chat.sharedTask': 'Shared a task',
+        'chat.sharedDocument': 'Shared a document',
+        'chat.sharedIssue': 'Shared an issue',
+        'chat.sharedAttachment': 'Sent an attachment',
+        'chat.newMessage': 'New message',
         # -- 이메일 -------------------------------------------------------------
         'email.passwordReset.subject': 'Weave — Reset your password',
         'email.passwordReset.heading': 'Password reset',
@@ -79,6 +87,12 @@ MESSAGES = {
         'notifications.issueReopened': '{actor}님이 이슈 “{issue}”를 다시 열었습니다',
         'notifications.issueReopenedWithComment': '{actor}님이 댓글과 함께 이슈 “{issue}”를 다시 열었습니다',
         'notifications.chatMention': '{actor}님이 채팅에서 회원님을 멘션했습니다',
+        # -- 채팅 Web Push (본문이 비어 있는 메시지의 폴백) ---------------------
+        'chat.sharedTask': '태스크를 공유했습니다',
+        'chat.sharedDocument': '문서를 공유했습니다',
+        'chat.sharedIssue': '이슈를 공유했습니다',
+        'chat.sharedAttachment': '첨부를 보냈습니다',
+        'chat.newMessage': '새 메시지',
         # -- 이메일 -------------------------------------------------------------
         'email.passwordReset.subject': 'Weave — 비밀번호 재설정',
         'email.passwordReset.heading': '비밀번호 재설정',

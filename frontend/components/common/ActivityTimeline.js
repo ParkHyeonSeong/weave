@@ -5,7 +5,7 @@ import Avatar from '@/components/common/Avatar';
 import { useTranslation } from 'react-i18next';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { addDaysToDateOnly, dateOnlyInTimeZone, todayInTimeZone } from '@/library/formatDateTime';
-import { activitySummary } from '@/library/activitySummary';
+import { activitySummary, changeValueText } from '@/library/activitySummary';
 
 /**
  * ActivityTimeline - Task/Canvas 페이지의 활동 이력 타임라인
@@ -125,9 +125,11 @@ export default function ActivityTimeline({ apiUrl, expanded = false }) {
 function ActivityItem({ activity }) {
   const { t } = useTranslation();
   const { formatRelative } = useDateFormat();
+  const { formatDateOnly } = useDateFormat();
   const { actor_id, actor_name, actor_avatar, actor_avatar_color, changes, created_at } = activity;
   // 요약은 action·changes에서 **읽는 시점의 언어**로 만든다(저장된 summary는 구버전 행 폴백).
-  const summary = activitySummary(activity, t);
+  // 값 포매터(changeValueText)를 아래 ChangeDetail과 공유해 요약과 펼친 상세가 같은 표기를 쓴다.
+  const summary = activitySummary(activity, t, { formatDateOnly });
 
   return (
     <div className="ActivityTimeline__Item">
@@ -159,12 +161,17 @@ function ActivityItem({ activity }) {
 
 
 function ChangeDetail({ change }) {
-  const { field, old: oldVal, new: newVal, added, removed, changed } = change;
+  const { t } = useTranslation();
+  const { formatDateOnly } = useDateFormat();
+  const { field, added, removed, changed } = change;
 
   // content 변경 (메타데이터만)
   if (changed) {
     return null; // summary에 이미 표시됨
   }
+
+  // 담당자 role 전이 — old/new 쌍이 아니라 요약 한 문장이 전부다(요약에 이미 나온다).
+  if (field === 'assignee_role') return null;
 
   // 집합형 (assignees, labels)
   if (added || removed) {
@@ -211,9 +218,9 @@ function ChangeDetail({ change }) {
   // description은 diff가 너무 김 -> 생략
   if (field === 'description') return null;
 
-  // 스칼라 필드
-  const displayOld = change.old_label || formatValue(oldVal);
-  const displayNew = change.new_label || formatValue(newVal);
+  // 스칼라 필드 — 요약 문장과 **같은 포매터**를 쓴다(priority 라벨·date-only locale 표기 포함).
+  const displayOld = truncate(changeValueText(change, 'old', { t, formatDateOnly }));
+  const displayNew = truncate(changeValueText(change, 'new', { t, formatDateOnly }));
 
   return (
     <div className="ActivityTimeline__ChangeRow">
@@ -225,10 +232,10 @@ function ChangeDetail({ change }) {
 }
 
 
-function formatValue(val) {
-  if (val === null || val === undefined) return '-';
-  if (typeof val === 'string' && val.length > 50) return val.slice(0, 50) + '...';
-  return String(val);
+/** 긴 값은 잘라 한 줄에 맞춘다(표시 전용 — 값 해석은 changeValueText가 한다). */
+function truncate(text) {
+  const s = String(text ?? '');
+  return s.length > 50 ? `${s.slice(0, 50)}...` : s;
 }
 
 

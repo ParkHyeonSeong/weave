@@ -12,7 +12,7 @@ import CreateCanvas from '@/components/modal/CreateCanvas';
 import CreateTrack from '@/components/modal/CreateTrack';
 import CreateScrumBoard from '@/components/modal/CreateScrumBoard';
 import CommandPalette from '@/components/modal/CommandPalette';
-import { requestNotificationPermission, showNotification, playNotificationSound } from '@/library/notification';
+import { requestNotificationPermission, showNotification, playNotificationSound, chatMessagePreview } from '@/library/notification';
 import { subscribeToPush } from '@/library/pushSubscription';
 import { getWsBaseURL, refreshAccessToken } from '@/library/_axios';
 import { sumChatUnread } from '@/library/chatUnread';
@@ -365,16 +365,11 @@ export default function Layout({ children }) {
 
               if (!isViewingRoom) {
                 setChatUnreadCount((prev) => prev + 1);
-                // Chrome 알림
-                const notiContent = data.message.content
-                  || (data.message.task_ref ? tRef.current('layout.chatNotification.sharedTask') : null)
-                  || (data.message.doc_ref ? tRef.current('layout.chatNotification.sharedDocument') : null)
-                  || (data.message.issue_ref ? tRef.current('layout.chatNotification.sharedIssue') : null)
-                  || '';
+                // Chrome 알림 — 본문 폴백은 공용 함수 하나로(토스트와 같은 문구·같은 언어)
+                const notiContent = chatMessagePreview(data.message, tRef.current);
                 showNotification(
-                  data.message.sender_name || tRef.current('layout.chatNotification.newMessage'),
+                  data.message.sender_name || tRef.current('layout.chatNotification.someone'),
                   notiContent,
-                  data.message
                 );
                 showToast(`${data.message.sender_name || tRef.current('layout.chatNotification.someone')}: ${notiContent}`, 'info');
                 playNotificationSound();

@@ -1801,6 +1801,7 @@ const en = {
       sharedTask: 'Shared a task',
       sharedDocument: 'Shared a document',
       sharedIssue: 'Shared an issue',
+      sharedAttachment: 'Sent an attachment',
       newMessage: 'New Message',
       someone: 'Someone',
     },
