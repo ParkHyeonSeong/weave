@@ -266,6 +266,8 @@ const ko = {
     integrations: '연동 — Weave',
     trackArchive: '보관함 · Track',
     track: 'Track · Weave',
+    notFound: '페이지를 찾을 수 없음 — Weave',
+    serverError: '서버 오류 — Weave',
     resetPassword: 'Weave — 비밀번호 재설정',
   },
   scrum: {
@@ -704,6 +706,19 @@ const ko = {
     conflict: '이미 처리됐거나 충돌이 있어요.',
     rate_limited: '요청이 많아요. 잠시 후 다시 시도해 주세요.',
     server: '일시적인 오류예요. 잠시 후 다시 시도해 주세요.',
+  },
+  // 프레임워크 오류 화면(pages/404.js·500.js). ErrorBoundary와 형제 문구다.
+  errorPages: {
+    notFound: {
+      title: '페이지를 찾을 수 없습니다',
+      message: '주소가 잘못되었거나, 페이지가 이동되었거나 삭제되었을 수 있습니다.',
+    },
+    serverError: {
+      title: '서버에서 문제가 발생했습니다',
+      message: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주시거나, 문제가 계속되면 관리자에게 문의해 주세요.',
+    },
+    goHome: '홈으로 가기',
+    retry: '다시 시도',
   },
   account: {
     alerts: {

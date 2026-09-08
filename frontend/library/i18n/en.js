@@ -268,6 +268,8 @@ const en = {
     integrations: 'Integrations — Weave',
     trackArchive: 'Archive · Track',
     track: 'Track · Weave',
+    notFound: 'Page Not Found — Weave',
+    serverError: 'Server Error — Weave',
     resetPassword: 'Weave — Reset Password',
   },
   scrum: {
@@ -706,6 +708,19 @@ const en = {
     conflict: 'This was already handled, or there is a conflict.',
     rate_limited: 'Too many requests. Please try again shortly.',
     server: 'A temporary error occurred. Please try again shortly.',
+  },
+  // 프레임워크 오류 화면(pages/404.js·500.js). ErrorBoundary와 형제 문구다.
+  errorPages: {
+    notFound: {
+      title: 'Page not found',
+      message: 'The address may be wrong, or the page may have been moved or removed.',
+    },
+    serverError: {
+      title: 'Something went wrong on the server',
+      message: 'We could not complete your request. Please try again in a moment, or contact an administrator if the problem continues.',
+    },
+    goHome: 'Go to home',
+    retry: 'Try again',
   },
   account: {
     alerts: {

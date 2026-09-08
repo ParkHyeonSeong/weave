@@ -118,6 +118,7 @@ import "@/styles/components/scrum/scrum.scss";
 import "@/styles/components/shared/refPanelPageLayout.scss";
 import "@/styles/components/shared/linkHoverPopover.scss";
 import "@/styles/components/common/lightbox.scss";
+import "@/styles/components/layout/errorPage.scss";
 import "@/styles/components/layout/errorBoundary.scss";
 // 저장색 다크 보정은 캐스케이드 최후단이어야 한다 — 항상 마지막 @/styles import로 둔다.
 import "@/styles/components/common/storedColor.scss";
