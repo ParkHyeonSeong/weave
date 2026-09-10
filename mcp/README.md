@@ -40,6 +40,8 @@ modified. Each tool acts as the token's owner; `?` marks optional arguments.
 
 **Tasks**
 - `list_branch_tasks(branch_id, sprint_id?, limit?, offset?)` — all tasks in a branch
+- `query_tasks(filter?, branch_id?, scope?, group_by?, sort?, limit?, offset?, saved_view_id?)` — structured query with a FilterSpec (boolean tree of conditions on status, priority, assignee, labels, epic/sprint, dates with `$today±Nd`, text, custom fields); with `branch_id` → that branch only, without → cross-branch (`scope`: my | all); `group_by` aggregates server-side for status/priority/task_type/epic/sprint; `saved_view_id` loads a saved view's filter/group/sort instead of the args
+- `list_saved_views(scope_branch_id?)` — saved task views you can use: your personal (cross-branch) views by default, or a branch's views with `scope_branch_id`; pass a `view_id` to `query_tasks(saved_view_id=...)`
 - `get_task(branch_id, task_id, format?)` — full task detail; `format`: html (default) | markdown — rich-text fields (description) converted
 - `create_task(branch_id, title, description?, priority?, status?, task_type?, due_date?, start_date?, sprint_id?, epic_id?, parent_task_id?, assignee_main?, assignee_sub?, label_ids?, custom_fields?)` — create a task
 - `update_task(branch_id, task_id, title?, description?, status?, priority?, task_type?, sprint_id?, epic_id?, start_date?, due_date?, assignee_main?, assignee_sub?, label_ids?, custom_fields?, dry_run?)` — update a task (label/assignee/custom_fields는 REPLACE; 하나만 추가/제거하려면 아래 전용 도구. dry_run=true면 쓰기 없이 변경 diff만 반환)
@@ -155,7 +157,7 @@ Requires [`uv`](https://docs.astral.sh/uv/). Add this to your MCP client's `.mcp
   "mcpServers": {
     "weave": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/ParkHyeonseong/weave#subdirectory=mcp", "weave-mcp"],
+      "args": ["--from", "git+https://github.com/ParkHyeonSeong/weave#subdirectory=mcp", "weave-mcp"],
       "env": {
         "WEAVE_BASE_URL": "https://weave.example.com",
         "WEAVE_API_TOKEN": "${WEAVE_API_TOKEN}"
