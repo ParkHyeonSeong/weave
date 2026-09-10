@@ -5,124 +5,189 @@
 <h1 align="center">Weave</h1>
 
 <p align="center">
-  Open-source work platform — self-hostable project management, docs, chat, and AI in one place.
+  Self-hosted project management, documentation, chat and weekly scrum in one web app.
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> · <a href="#quick-start">Quick Start</a> · <a href="#weave-mcp-server">MCP Server</a> · <a href="#tech-stack">Tech Stack</a> · <a href="#contributing">Contributing</a>
+  <a href="README.md">English</a> · <a href="README.ko.md">한국어</a>
 </p>
 
 ---
 
-## Why Weave?
+## What is Weave?
 
-Most teams stitch together Jira for tasks, Confluence for docs, and Slack for chat — three tools, three logins, three places to lose context. Weave combines **project management, real-time documentation, team chat, and an AI assistant** into a single self-hosted platform that you fully own.
+Weave is a web application you run on your own server as a single Docker Compose stack. A team signs in to one place to plan work, write documents, chat, and keep a weekly scrum. It is organised into five apps that share the same users, notifications and search:
 
-- **No per-seat pricing.** Host it yourself, invite your whole team.
-- **All-in-one.** Tasks, docs, chat, and AI in one place — no more context switching.
-- **Yours to own.** Your data stays on your server. One `make up-build` and you're running.
+| App | What it is |
+|---|---|
+| **Branch** | A project. Holds tasks, a board, sprints, epics and the project's own settings (statuses, task types, labels, custom fields). |
+| **Canvas** | A documentation space. Pages that several people can edit at the same time. |
+| **Track** | A cross-project view. Pulls tasks from several Branches into one timeline or dependency graph. |
+| **Schedule** | A calendar for a Branch. Events can be linked to tasks, and sprints are drawn on it. |
+| **Scrum** | A weekly board. Each member writes a short daily-scrum note; the team writes a retrospective on a schedule you choose. |
+
+Around them: a **Messenger** for direct and group chat, a **Home** page with widgets, an optional in-app **AI assistant**, and an optional **MCP server** so tools like Claude can read and change things in Weave.
 
 ## Features
 
-### 📋 Task Management
-Organize work with a flexible task system inspired by Linear, scoped per project ("branch").
+### Branch (tasks)
+- Kanban board, list and timeline (epics over weeks, months or quarters) views, plus a flow view of task dependencies
+- Sprints (start, complete, carry over unfinished work), epics, labels, priorities
+- Statuses, task types and custom fields defined per Branch
+- Dependencies between tasks (blocking / relates-to), also across Branches
+- Subtasks (one level below a task) and issues (a bug or sub-issue thread under a task)
+- Threaded comments and a full activity history on every task; task descriptions, issues and comments can be edited as raw markdown
+- Filters that can be saved as views; a personal "My Tasks" page across all Branches
+- GitHub: write `WV-123` in a pull request and the task's status follows the PR (see [GitHub App integration](#github-app-integration))
+- Import a project from a Jira CSV export
 
-- **Kanban Board** — drag-and-drop cards across custom workflow columns
-- **Sprints** — plan iterations, activate, and complete (carrying over unfinished work)
-- **Epics & Timeline** — Gantt-style roadmap across weeks, months, or quarters, with sprints overlaid
-- **Flow View** — visualize tasks and their dependencies as an interactive node graph
-- **Custom Task Types, Fields & Statuses** — define your own per project
-- **Labels, Priorities & Dependencies** — categorize, prioritize, and link tasks (blocking/relates-to, even across projects)
-- **GitHub PR Sync** — link pull requests to tasks with `WV-123` references and auto-transition status when PRs open, merge, or close
-- **Issues** — track sub-issues/bugs under a task, each with its own thread
-- **Comments & Activity Log** — rich threaded comments plus a full audit trail of every change
-- **Filtering & My Tasks** — filter by status, assignee, label, priority, type; personal cross-project task view
-- **Archive** — completed and cancelled tasks kept out of the way but searchable
+### Canvas (docs)
+- Real-time co-editing with presence, based on Yjs (CRDT)
+- Rich text with tables, code blocks, math (KaTeX), Mermaid diagrams, callouts and images; paste a URL to get a preview card
+- Typst documents with PDF export
+- Markdown both ways: paste markdown into a page, copy any page as markdown
+- Inline references to tasks, docs and issues with hover previews; comment threads anchored to selected text
+- Nested pages with drag-and-drop ordering and per-page history
 
-### 🔗 Tracks
-A higher-order view that pulls tasks from **multiple projects** into one shared workflow — perfect for cross-team initiatives and release trains.
+### Track
+- Flow (dependency graph), Timeline (Gantt grouped by Branch) and Tree (outline by due date) views
+- Add tasks in bulk by epic, sprint or filter; subtasks come along with their parent
 
-- **Flow** — cross-branch dependency graph
-- **Timeline** — Gantt chart grouped by project
-- **Tree** — hierarchical outline sorted by due date
-- **Bulk Add** — pull in tasks by epic, sprint, or filter in one go
+### Schedule
+- Calendar per Branch with sprint bars; link events to tasks
 
-### 📝 Canvas (Documentation)
-A real-time collaborative knowledge base built on TipTap + Yjs, replacing Confluence.
+### Scrum
+- Weekly grid — one cell per member per weekday — for daily-scrum notes
+- Retrospectives (Keep / Problem / Try) created weekly, every N weeks, monthly, or by hand
 
-- **Live Collaboration** — multiple people edit the same page simultaneously, with presence avatars (CRDT-based, native Python Yjs server)
-- **Rich Text Editor** — headings, tables (with cell colors), code blocks with syntax highlighting, math (KaTeX), callouts, multicolor text/highlight
-- **Mermaid Diagrams** — write diagrams-as-code with live preview
-- **Typst Editor** — author and render Typst documents, export to PDF
-- **Bookmarks & Link Previews** — paste a URL to get a rich preview card
-- **Inline References** — link tasks, docs, and issues inline with live hover previews
-- **Inline Annotations** — highlight text and leave anchored comment threads
-- **Markdown Paste** — paste markdown and it auto-converts to rich text
-- **Page Hierarchy** — nested pages with drag-and-drop reordering and per-page activity history
-- **Images** — paste, drag-and-drop, or upload (validated by magic bytes)
+### Messenger
+- Direct and group chat with history, `@mentions`, file attachments, read receipts and presence
+- Attach tasks, docs and issues with `/` commands; pop the chat out into a floating window
 
-### 💬 Messenger (Real-time Chat)
-Built-in team communication over WebSocket.
+### Everywhere
+- Light, dark or system theme
+- English and Korean interface; a time zone per user, plus a workspace time zone for shared dates such as the scrum week
+- Notifications in the app, and as Web Push when the browser is closed
+- `⌘K` command palette to jump to or create anything; stars and recent items
+- Home page with widgets (My Tasks, active sprints, recent, starred) whose layout is saved per user
+- Public or private Branches and Canvases; browse and join the public ones
+- Archive instead of delete in every app; archived items can be restored or permanently deleted from the archive page
+- Installable as a PWA; usable on phone-width screens
 
-- **Direct & Group Messages** with full, paginated history
-- **Mentions & References** — `@mention` people; attach tasks, docs, and issues via `/` commands
-- **File Attachments** — images and documents (up to 10 files / 10 MB each)
-- **Read Receipts & Presence** — see who's read messages and who's online
-- **Picture-in-Picture** — pop the messenger out into a floating window
+### AI assistant (optional)
+- In-app chat with streaming answers that knows your current tasks
+- Anthropic or OpenAI, configured by an admin; the API key is stored encrypted
 
-### 🏠 Home & Launchpad
-A personal landing page that adapts to how you work.
+### Administration
+- First-run setup wizard: workspace name, admin account, registration policy (open or approval-based)
+- Approve or reject sign-ups, assign roles, send password resets
+- Workspace time zone; integrations for the AI provider, SMTP and the GitHub App
 
-- **Customizable Widgets** — My Tasks, Active Sprints, Recent, Starred — drag to add, remove, and reorder (saved locally)
-- **Launchpad & Quick Create** — jump into Branches, Canvases, and Tracks, or create anything from anywhere
+## Quick Start
 
-### 🤖 AI Assistant
-An in-app AI chat that knows your work.
+You need [Docker](https://docs.docker.com/get-docker/) (Engine 24+ with Compose v2). Nothing else is installed on your machine — Node and Python run inside the containers.
 
-- **Conversational assistant** with streaming responses and saved conversation history
-- **Task-aware** — the assistant is given a live summary of your tasks
-- **Pluggable providers** — Anthropic (Claude) or OpenAI, configured by an admin (API key stored encrypted)
-- See also the [Weave MCP Server](#weave-mcp-server) to drive Weave from Claude itself
+```bash
+git clone https://github.com/ParkHyeonSeong/weave.git
+cd weave
+cp .env.example .env
+make up-build        # builds the images, starts everything, runs DB migrations
+```
 
-### 📅 Schedule
-A project calendar for planning and tracking.
+Open [http://localhost:3000](http://localhost:3000) and follow the setup wizard to create the workspace and the first admin account.
 
-- **Calendar View** with sprint bars overlaid across weeks
-- **Event–Task Linking** — connect meetings and milestones to tasks
+Optional — background push notifications:
 
-### ⚡ Productivity & Platform
-- **PWA** — install Weave as a native-feeling app on desktop and mobile, with an offline page
-- **Notifications** — real-time in-app feed plus background **Web Push** (works when the browser is closed)
-- **Command Palette** — `⌘K` to navigate, create, or search tasks/docs/issues/people at once
-- **Stars & Recents** — bookmark items and jump back to recent activity
-- **Browse & Discover** — find and join public projects and canvases
-- **Jira Migration** — import projects from a Jira CSV export with user mapping
+```bash
+make generate-vapid  # prints VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY
+# paste them into .env, then re-create the containers so they pick the values up:
+make up
+```
 
-### 🔧 Administration
-- **Setup Wizard** — guided first-run config (workspace name, registration policy, admin account)
-- **User Management** — approve/reject registrations, assign roles, force password resets
-- **Registration Policies** — open signup or invite-only (admin approval)
-- **Integrations** — configure the AI provider, SMTP email, and GitHub App repository links from admin settings
+Everyday commands:
+
+```bash
+make up            # start
+make down          # stop
+make logs          # tail all logs (also: make logs-backend / logs-frontend / logs-db)
+make db-shell      # psql into the database
+make clean         # stop and delete all data (volumes)
+make help          # list every target
+```
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8000 |
+| API docs (Swagger) | http://localhost:8000/api/docs — development only (`DEBUG=true`) |
+| PostgreSQL | localhost:5432 |
+
+Ports are set in `.env`. That file also says which values the development stack actually reads: the database credentials, `DEBUG` and `LOG_LEVEL` are fixed inside `docker-compose.yml` and only matter in production.
+
+## Production deployment
+
+On a real server the stack is different: an Nginx container is the only exposed port, `DEBUG` is off, and the backend refuses to start without real secrets.
+
+```bash
+cp .env.production.example .env.production
+# set JWT_SECRET_KEY, ENCRYPT_KEY, POSTGRES_PASSWORD (+ DATABASE_URL), ALLOWED_ORIGINS, DOMAIN
+make prod-build      # build and start
+make ssl-init        # once, after DNS points at the host
+```
+
+The full walkthrough (SSL, updates, push notifications) is in [DEPLOY.md](DEPLOY.md) (Korean). A reference config for a host-level reverse proxy is in [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example).
+
+Minimum: 2 CPU cores, 2 GB RAM, 10 GB disk, Docker 24+.
+
+What is on by default:
+
+- The backend fails to start in production if `JWT_SECRET_KEY`, `ENCRYPT_KEY` or the database password is missing or still the example placeholder
+- Rate limits on login, registration and the expensive endpoints; CORS restricted to `ALLOWED_ORIGINS`
+- User-submitted HTML is sanitised server-side; uploads are checked by content, not file extension
+- URL previews resolve DNS and block private or internal addresses (SSRF)
+- SMTP and AI credentials are encrypted at rest; GitHub webhooks are signature-checked
+- Security headers and a CSP are set by the Nginx container
+
+## GitHub App integration
+
+Optional. When on, Weave receives pull-request webhooks from a GitHub App and links PRs to tasks.
+
+- Mention a task in the PR title, body or branch name as `<branch key>-<number>`, e.g. `WV-123`.
+- PR opened / reopened / ready for review → the task moves to the Branch's *in progress* status.
+- PR merged → *done*. PR closed without merge → back to *todo*, unless another open PR is still linked.
+- Branch admins can also add repository links and link PR URLs by hand from a task.
+
+Setup:
+
+1. Create a GitHub App for your organisation with permissions **Metadata: read**, **Pull requests: read**, **Contents: read**, subscribed to **Pull request** events.
+2. Set its webhook URL to `https://<your-weave-host>/api/github/webhook`.
+3. Put the App ID, webhook secret and private key into `.env` / `.env.production`. The key is the PEM file as one base64 line:
+
+```bash
+base64 -w0 your-app.private-key.pem                 # Linux
+base64 -i your-app.private-key.pem | tr -d '\n'     # macOS
+```
+
+```env
+GITHUB_APP_ID=123456
+GITHUB_APP_PRIVATE_KEY=<base64 PEM>
+GITHUB_WEBHOOK_SECRET=<webhook secret>
+```
+
+Leave all three empty to keep the integration off; webhook requests are then rejected and the backend logs a warning at startup.
 
 ## Weave MCP Server
 
-Weave ships an optional **[MCP (Model Context Protocol)](https://modelcontextprotocol.io) server** so you can drive Weave from AI clients like Claude — manage tasks, sprints, epics, issues, dependencies, and docs straight from a chat session.
+[`mcp/`](mcp/) contains an [MCP](https://modelcontextprotocol.io) server that lets an AI client such as Claude work in Weave — read and change tasks, sprints, epics, issues, docs, tracks, scrum boards and more — through Weave's REST API. It runs locally over stdio and authenticates with a Personal Access Token you create in your profile. No backend changes are needed.
 
-- **184 tools** across branches, canvases, tracks & scrum boards — full container lifecycle (create/update/archive/restore/leave, plus join for public branches/canvases) and members (invite/role/remove) on every app — plus tasks (assignees, archive, page links), comments, issues (+ comments), dependencies (task & epic), sprints, epics, branch config CRUD (statuses, types, labels, custom fields), Canvas docs (pages & annotations), tracks (items & links), schedule (events, calendar tasks/epics, task links), scrum (daily/retro cells), activity feeds, recent views, search, stars, identity, home KPIs, and notifications — see [`mcp/README.md`](mcp/README.md) for the full list
-- Ships a top-level usage guide (FastMCP `instructions`) so the model knows the entry points, per-branch enums, and error contract
-- Accepts branch keys directly for most `branch_id` arguments (`"WV"` works when the token is already a member of that branch)
-- Talks to Weave over its REST API only — **no backend changes required**
-- Runs locally over stdio; authenticates with a Weave Personal Access Token (Bearer)
-
-Quickest way for a teammate to add it (requires [`uv`](https://docs.astral.sh/uv/)):
+With [`uv`](https://docs.astral.sh/uv/) installed, add this to your MCP client's `.mcp.json`:
 
 ```jsonc
-// .mcp.json
 {
   "mcpServers": {
     "weave": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/your-org/Weave#subdirectory=mcp", "weave-mcp"],
+      "args": ["--from", "git+https://github.com/ParkHyeonSeong/weave#subdirectory=mcp", "weave-mcp"],
       "env": {
         "WEAVE_BASE_URL": "https://weave.example.com",
         "WEAVE_API_TOKEN": "wv_your_token_here"
@@ -132,174 +197,50 @@ Quickest way for a teammate to add it (requires [`uv`](https://docs.astral.sh/uv
 }
 ```
 
-See [`mcp/README.md`](mcp/README.md) for setup, the auth model, and local development.
+The tool list (184 tools), the auth model and local development notes are in [mcp/README.md](mcp/README.md).
 
-## Quick Start
+## Development
 
-### Prerequisites
+```
+backend/    FastAPI app, SQLAlchemy models, Alembic migrations, pytest suite
+frontend/   Next.js (Pages Router) app, SCSS, vitest suite
+mcp/        MCP server (FastMCP) with its own pytest suite
+nginx/      Nginx config for the production container, plus a host-proxy example
+```
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Docker Engine 24+ with Compose V2)
+The development stack (`make up-build`) mounts `backend/` and `frontend/` into the containers with hot reload, so edits show up without a rebuild. Run `make up-build` again after changing dependencies.
 
-### Setup
+Running the tests:
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-org/Weave.git
-cd Weave
+# backend — the image ships runtime dependencies only, so install pytest once per container
+docker compose exec -T backend pip install pytest pytest-asyncio
+docker compose exec -T backend python -m pytest tests/ -q
 
-# 2. Create environment file
-cp .env.example .env
+# frontend — on the host with Node 22 (a few parity tests read backend sources and call git,
+# which the frontend container does not have)
+(cd frontend && npm ci --legacy-peer-deps && npm test)
 
-# 3. Build and start (migrations run automatically)
-make up-build
-
-# 4. (Optional) Generate VAPID keys for push notifications
-make generate-vapid
-# Add the output to your .env file, then restart:
-make restart
+# mcp
+(cd mcp && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pytest)
 ```
 
-That's it. Open [http://localhost:3000](http://localhost:3000) and follow the setup wizard.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and the pull-request checklist, and [frontend/README.md](frontend/README.md) (Korean) for frontend details.
 
-### Useful Commands
+## Tech stack
 
-```bash
-make up             # Start all services
-make down           # Stop all services
-make logs           # Tail all logs
-make logs-backend   # Tail backend logs only
-make db-shell       # Open PostgreSQL shell
-make clean          # Stop and remove all data
-make help           # Show all available commands
-```
-
-### Services
-
-| Service    | Default URL                            |
-|------------|----------------------------------------|
-| Frontend   | http://localhost:3000                  |
-| Backend    | http://localhost:8000                  |
-| API Docs   | http://localhost:8000/api/docs (dev only) |
-| PostgreSQL | localhost:5432                         |
-
-> Ports are configurable via `.env`. API Docs (Swagger UI) is only available when `DEBUG=true`.
-
-### Optional: GitHub App Integration
-
-Weave can receive GitHub App webhooks and link pull requests to tasks automatically.
-
-- Reference tasks in a PR title, body, or branch name with a branch key and display number, for example `WV-123`.
-- PR opened/reopened/ready-for-review moves eligible tasks to the branch's `in_progress` status category.
-- PR merged moves eligible tasks to `done`.
-- PR closed without merge moves eligible tasks back to `todo`, unless another active PR is still linked.
-- Branch admins can also add repository links in Branch Settings -> GitHub and manually link PR URLs from a task panel.
-
-To enable it:
-
-1. Create a GitHub App for your organization.
-2. Give it **Metadata: read**, **Pull requests: read**, and **Contents: read** permissions.
-3. Subscribe it to **Pull request** events.
-4. Set its webhook URL to `https://<your-weave-host>/api/github/webhook`.
-5. Copy the App ID, webhook secret, and private key into `.env` or `.env.production`.
-6. Base64-encode the PEM private key as a single line:
-
-```bash
-# Linux
-base64 -w0 your-app.private-key.pem
-
-# macOS
-base64 -i your-app.private-key.pem | tr -d '\n'
-```
-
-Set:
-
-```env
-GITHUB_APP_ID=123456
-GITHUB_APP_PRIVATE_KEY=<base64 encoded PEM>
-GITHUB_WEBHOOK_SECRET=<webhook secret>
-```
-
-If these values are blank, the integration stays off safely: webhook requests fail closed and the backend logs a startup warning.
-
-## Security
-
-Weave includes the following built-in security measures:
-
-- **SSRF Protection** — URL metadata fetching validates DNS-resolved IPs at every redirect hop, blocking internal networks and cloud metadata endpoints
-- **Rate Limiting** — login, registration, and API endpoints are rate-limited per IP
-- **XSS Prevention** — user-generated HTML is sanitized before rendering; SVG uploads are sanitized
-- **File Upload Validation** — image uploads are verified by magic bytes, not just file extension
-- **Encrypted Secrets at Rest** — SMTP and AI provider credentials are encrypted (Fernet)
-- **GitHub Webhook Verification** — GitHub App webhooks require `X-Hub-Signature-256` HMAC validation and are staged idempotently before processing
-- **HTTP Security Headers** — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, CSP via Nginx
-- **CORS Restriction** — production allows only the configured `ALLOWED_ORIGINS`; dev restricts to LAN
-
-## Production Deployment
-
-For deploying to a server (IDC, VPS, etc.) behind a reverse proxy:
-
-```bash
-# 1. Clone and configure
-git clone https://github.com/your-org/Weave.git
-cd Weave
-cp .env.production.example .env.production
-# Edit .env.production — set JWT_SECRET_KEY, POSTGRES_PASSWORD, ALLOWED_ORIGINS, ports,
-# and optional integration secrets such as GITHUB_APP_*.
-
-# 2. Build and start (Nginx exposes a single port)
-make prod-build
-
-# 3. (One-time) Issue an SSL certificate once DNS points at the host
-make ssl-init
-
-# 4. Update (when a new version is available)
-git pull && make prod-build
-```
-
-In production, only the Nginx container's port is exposed; the backend, frontend, and database stay on an internal network. Point your host's reverse proxy at it — see [`nginx/host-nginx.conf.example`](nginx/host-nginx.conf.example) for a reference config.
-
-### Minimum Requirements
-
-| Resource | Recommended |
-|----------|-------------|
-| CPU      | 2 cores     |
-| RAM      | 2 GB        |
-| Disk     | 10 GB       |
-| Docker   | 24+         |
-
-### Production Commands
-
-```bash
-make prod-build   # Build and start production services
-make prod-down    # Stop production services
-make prod-logs    # Tail production logs
-make ssl-renew    # Renew the SSL certificate
-```
-
-## Tech Stack
-
-| Layer        | Technology                                              |
-|--------------|---------------------------------------------------------|
-| Frontend     | Next.js 16, React 19, SCSS, TipTap, Typst, dnd-kit, React Flow |
-| Backend      | Python 3.13, FastAPI, SQLAlchemy (async), Alembic       |
-| Database     | PostgreSQL 17                                            |
-| Auth         | JWT (httpOnly cookie) + bcrypt                          |
-| Real-time    | WebSocket; collaborative editing via Yjs CRDT (pycrdt)  |
-| AI           | Anthropic / OpenAI (streaming)                          |
-| Notifications| Web Push (VAPID)                                        |
-| Integrations | GitHub App webhooks, Jira CSV import                    |
-| Infra        | Docker Compose, Nginx                                   |
-| AI access    | MCP server (stdio) — see [`mcp/`](mcp/)                 |
-
-## Contributing
-
-Contributions are welcome! Whether it's bug reports, feature requests, or pull requests — all input is appreciated.
-
-1. Fork the repository
-2. Create your branch (`git checkout -b feat/amazing-feature`)
-3. Commit your changes
-4. Push and open a Pull Request
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16 (Pages Router), React 19, SCSS, TipTap 3, Yjs, CodeMirror 6, dnd-kit, React Flow, i18next |
+| Editor extras | KaTeX + MathJax (math), Mermaid (diagrams), Typst (documents / PDF), marked + `@tiptap/markdown` (markdown) |
+| Backend | Python 3.13, FastAPI, SQLAlchemy (async), Alembic, pycrdt (Yjs server) |
+| Database | PostgreSQL 17 |
+| Auth | JWT in httpOnly cookies (short-lived access + refresh), bcrypt; Personal Access Tokens for the MCP server |
+| Real-time | WebSocket for chat, notifications and collaborative editing |
+| Notifications | In-app + Web Push (VAPID) |
+| Integrations | GitHub App webhooks, Jira CSV import, Anthropic / OpenAI |
+| Infra | Docker Compose, Nginx (production); Node 22 and Python 3.13 images |
 
 ## License
 
-[MIT](LICENSE) © Weave Contributors
+[MIT](LICENSE). Third-party licenses are listed in [THIRD-PARTY-LICENSES.md](THIRD-PARTY-LICENSES.md).
