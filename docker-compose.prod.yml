@@ -3,8 +3,12 @@ services:
   nginx:
     image: nginx:alpine
     container_name: weave-nginx
+    # 기본은 127.0.0.1에만 바인딩 — 같은 서버의 nginx(TLS 종단)만 이 포트에 닿는다. 그래야
+    # default.conf의 set_real_ip_from(172.16/12 = 도커 브리지)이 "서버 nginx가 넘긴 연결"과 같아져
+    # X-Forwarded-For 신뢰가 외부에서 악용될 수 없다. 다른 호스트의 프록시가 붙어야 하면
+    # .env.production에서 EXPOSE_BIND=0.0.0.0 으로 열고 방화벽으로 13000을 제한할 것.
     ports:
-      - "${EXPOSE_PORT:-13000}:80"
+      - "${EXPOSE_BIND:-127.0.0.1}:${EXPOSE_PORT:-13000}:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:

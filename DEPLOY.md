@@ -13,7 +13,7 @@ Docker와 Docker Compose가 설치된 리눅스 서버라면 어디서든 배포
                                                                └─ db (PostgreSQL) — 내부 네트워크 전용
 ```
 
-- `make prod-build`가 띄우는 컴포즈 스택은 **HTTP 포트 하나**(`EXPOSE_PORT`, 기본 13000)만 로컬에 엽니다. 백엔드·프론트엔드·DB는 외부에서 직접 닿지 않습니다.
+- `make prod-build`가 띄우는 컴포즈 스택은 **HTTP 포트 하나**(`EXPOSE_PORT`, 기본 13000)만, 그것도 기본으로 `127.0.0.1`에만(`EXPOSE_BIND`) 엽니다. 백엔드·프론트엔드·DB는 외부에서 직접 닿지 않습니다.
 - HTTPS는 **서버에 설치한 nginx**가 맡고, 인증서는 서버의 certbot이 발급·갱신합니다. 컴포즈 안에는 certbot이 없습니다(4단계).
 
 ## 사전 요구사항
@@ -155,7 +155,7 @@ make prod-build     # 이미지 다시 빌드 + 컨테이너 재생성. 마이�
 - **요청 제한**: 로그인·회원가입·비밀번호 재설정 같은 인증 경로와 AI 채팅·집계 엔드포인트에 기본 적용됩니다.
 - **보안 헤더**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`는 컨테이너 nginx가, Content-Security-Policy는 Next.js 미들웨어가 요청마다 nonce와 함께 붙입니다. HSTS는 서버 nginx에서 추가하세요(예제 파일 참고).
 - **CORS**: `ALLOWED_ORIGINS`에 적은 origin만 허용합니다. 쉼표로 여러 개 지정할 수 있습니다.
-- **신뢰 프록시**: 백엔드는 같은 스택의 nginx(도커 브리지 대역)가 전달한 클라이언트 IP만 믿습니다. 구성이 다르면 `.env.production`의 `TRUSTED_PROXIES`를 실제 프록시 대역으로 좁혀서 명시하세요.
+- **신뢰 프록시**: 컨테이너 nginx는 도커 브리지 대역(`set_real_ip_from 172.16.0.0/12`, [nginx/default.conf](nginx/default.conf))에서 온 연결 — 즉 서버 nginx — 의 `X-Forwarded-For`로 실제 클라이언트 IP를 복원하고, 백엔드는 같은 대역(`TRUSTED_PROXIES`)의 nginx가 전달한 IP만 믿습니다. 그래서 서버 nginx 뒤에서도 로그인 요청 제한과 로그인 로그가 사용자별로 동작합니다. 13000이 기본으로 `127.0.0.1`에만 열리기 때문에 이 신뢰를 외부에서 악용할 수 없습니다 — `EXPOSE_BIND`를 넓히면 방화벽으로 13000을 막고, 프록시 대역이 172.16/12가 아니면 두 곳을 함께 바꾸세요.
 
 ## 문제 해결
 

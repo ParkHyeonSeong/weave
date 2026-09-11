@@ -13,7 +13,7 @@ browser ──https :443──▶ host nginx ──http──▶ 127.0.0.1:13000
                                                                └─ db (PostgreSQL) — internal network only
 ```
 
-- The compose stack started by `make prod-build` opens **one HTTP port on localhost** (`EXPOSE_PORT`, default 13000). The backend, frontend and database are not reachable from outside.
+- The compose stack started by `make prod-build` opens **one HTTP port** (`EXPOSE_PORT`, default 13000), bound to `127.0.0.1` by default (`EXPOSE_BIND`). The backend, frontend and database are not reachable from outside.
 - HTTPS is handled by an **nginx installed on the host**; its certificate is issued and renewed by certbot on the host. There is no certbot inside the compose stack (step 4).
 
 ## Prerequisites
@@ -155,7 +155,7 @@ make prod-build     # rebuilds the images and re-creates the containers; migrati
 - **Rate limits** apply by default to the auth endpoints (login, sign-up, password reset) and to the AI chat and aggregation endpoints.
 - **Security headers**: `X-Content-Type-Options`, `X-Frame-Options` and `Referrer-Policy` are set by the container nginx; the Content-Security-Policy is set per request, with a nonce, by the Next.js middleware. Add HSTS in the host nginx (see the example file).
 - **CORS**: only the origins listed in `ALLOWED_ORIGINS` are allowed. Separate several with commas.
-- **Trusted proxies**: the backend only believes client IPs forwarded by the nginx in the same stack (the Docker bridge range). If your layout differs, narrow `TRUSTED_PROXIES` in `.env.production` to your real proxy range.
+- **Trusted proxies**: the container nginx restores the real client IP from `X-Forwarded-For` for connections arriving from the Docker bridge range (`set_real_ip_from 172.16.0.0/12` in [nginx/default.conf](nginx/default.conf)) — that is, from the host nginx — and the backend only believes IPs forwarded by an nginx in that same range (`TRUSTED_PROXIES`). So per-IP login rate limits and login logs work per user even behind the host nginx. Because 13000 is bound to `127.0.0.1` by default, that trust cannot be abused from outside — if you widen `EXPOSE_BIND`, firewall port 13000, and if your proxy range is not 172.16/12, change both places together.
 
 ## Troubleshooting
 
