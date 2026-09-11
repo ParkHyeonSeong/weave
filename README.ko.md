@@ -126,16 +126,15 @@ make help          # 모든 명령 보기
 
 ## 프로덕션 배포
 
-실제 서버에서는 구성이 다릅니다: Nginx 컨테이너만 포트를 노출하고, `DEBUG`는 꺼지며, 백엔드는 제대로 된 시크릿이 없으면 시작을 거부합니다.
+실제 서버에서는 구성이 다릅니다: 스택은 **로컬의 HTTP 포트 하나**(`EXPOSE_PORT`, 기본 13000)만 열고, `DEBUG`는 꺼지며, 백엔드는 제대로 된 시크릿이 없으면 시작을 거부합니다. HTTPS는 그 앞에 두는 서버의 nginx가 맡고, 인증서는 certbot이 발급합니다.
 
 ```bash
 cp .env.production.example .env.production
-# JWT_SECRET_KEY, ENCRYPT_KEY, POSTGRES_PASSWORD (+ DATABASE_URL), ALLOWED_ORIGINS, DOMAIN 설정
-make prod-build      # 빌드 후 시작
-make ssl-init        # DNS가 서버를 가리킨 뒤 한 번
+# POSTGRES_PASSWORD (+ DATABASE_URL), JWT_SECRET_KEY, ENCRYPT_KEY, ALLOWED_ORIGINS, NEXT_PUBLIC_API_URL 설정
+make prod-build      # 빌드 후 시작; http://127.0.0.1:13000 에서 대기
 ```
 
-전체 절차(SSL, 업데이트, 푸시 알림)는 [DEPLOY.md](DEPLOY.md)에 있습니다. 호스트 리버스 프록시용 참고 설정은 [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example)입니다.
+그다음 서버 nginx를 앞에 두고 인증서를 받습니다. 단계별 절차 — nginx 블록, `certbot`, 업데이트, 푸시 알림 — 는 [DEPLOY.md](DEPLOY.md)(English: [DEPLOY.en.md](DEPLOY.en.md))에 있고, 완성된 nginx 설정의 모양은 [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example)입니다.
 
 최소 사양: CPU 2코어, RAM 2 GB, 디스크 10 GB, Docker 24+.
 
@@ -146,7 +145,7 @@ make ssl-init        # DNS가 서버를 가리킨 뒤 한 번
 - 사용자가 올린 HTML은 서버에서 정화; 업로드는 확장자가 아니라 내용으로 검사
 - URL 미리보기는 DNS를 해석해 사설·내부 주소를 차단(SSRF)
 - SMTP·AI 자격 증명은 암호화 저장; GitHub 웹훅은 서명 검증
-- 보안 헤더와 CSP는 Nginx 컨테이너가 설정
+- 보안 헤더는 Nginx 컨테이너가, 요청마다 붙는 Content-Security-Policy는 Next.js 미들웨어가 설정
 
 ## GitHub App 연동
 
@@ -213,16 +212,10 @@ nginx/      프로덕션 컨테이너용 Nginx 설정과 호스트 프록시 예
 테스트 실행:
 
 ```bash
-# 백엔드 — 이미지에는 런타임 의존성만 있으므로 컨테이너마다 한 번 pytest를 설치합니다
-docker compose exec -T backend pip install pytest pytest-asyncio
-docker compose exec -T backend python -m pytest tests/ -q
-
-# 프론트엔드 — 호스트에서 Node 22로 (일부 패리티 테스트가 백엔드 소스를 읽고 git을 호출하는데,
-# 프론트엔드 컨테이너에는 둘 다 없습니다)
-(cd frontend && npm ci --legacy-peer-deps && npm test)
-
-# mcp
-(cd mcp && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pytest)
+make test-backend    # 백엔드 컨테이너 안에서 pytest (처음 한 번 pytest를 컨테이너에 설치)
+make test-frontend   # 호스트에서 vitest — Node 22 필요 (일부 패리티 테스트가 백엔드 소스와 git을 읽는데 컨테이너엔 없음)
+make test-mcp        # mcp/.venv 에서 pytest (없으면 생성, pyproject.toml이 바뀌면 재설치)
+make check-docs      # 문서 ↔ 코드 드리프트: MCP 도구 목록, 라이선스, 영/한 구조, 링크
 ```
 
 규약과 풀 리퀘스트 체크리스트는 [CONTRIBUTING.md](CONTRIBUTING.md)(영어), 프론트엔드 세부 내용은 [frontend/README.md](frontend/README.md)를 보세요.

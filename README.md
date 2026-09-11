@@ -126,16 +126,15 @@ Ports are set in `.env`. That file also says which values the development stack 
 
 ## Production deployment
 
-On a real server the stack is different: an Nginx container is the only exposed port, `DEBUG` is off, and the backend refuses to start without real secrets.
+On a real server the stack is different: it opens **one HTTP port on localhost** (`EXPOSE_PORT`, default 13000), `DEBUG` is off, and the backend refuses to start without real secrets. HTTPS is handled by an nginx on the host in front of it, with a certificate from certbot.
 
 ```bash
 cp .env.production.example .env.production
-# set JWT_SECRET_KEY, ENCRYPT_KEY, POSTGRES_PASSWORD (+ DATABASE_URL), ALLOWED_ORIGINS, DOMAIN
-make prod-build      # build and start
-make ssl-init        # once, after DNS points at the host
+# set POSTGRES_PASSWORD (+ DATABASE_URL), JWT_SECRET_KEY, ENCRYPT_KEY, ALLOWED_ORIGINS, NEXT_PUBLIC_API_URL
+make prod-build      # build and start; listens on http://127.0.0.1:13000
 ```
 
-The full walkthrough (SSL, updates, push notifications) is in [DEPLOY.md](DEPLOY.md) (Korean). A reference config for a host-level reverse proxy is in [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example).
+Then put the host nginx in front of it and get a certificate. The step-by-step guide — the nginx block, `certbot`, updates, push notifications — is [DEPLOY.en.md](DEPLOY.en.md) (한국어: [DEPLOY.md](DEPLOY.md)); the finished nginx config looks like [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example).
 
 Minimum: 2 CPU cores, 2 GB RAM, 10 GB disk, Docker 24+.
 
@@ -146,7 +145,7 @@ What is on by default:
 - User-submitted HTML is sanitised server-side; uploads are checked by content, not file extension
 - URL previews resolve DNS and block private or internal addresses (SSRF)
 - SMTP and AI credentials are encrypted at rest; GitHub webhooks are signature-checked
-- Security headers and a CSP are set by the Nginx container
+- Security headers are set by the Nginx container, and a per-request Content-Security-Policy by the Next.js middleware
 
 ## GitHub App integration
 
@@ -213,16 +212,10 @@ The development stack (`make up-build`) mounts `backend/` and `frontend/` into t
 Running the tests:
 
 ```bash
-# backend — the image ships runtime dependencies only, so install pytest once per container
-docker compose exec -T backend pip install pytest pytest-asyncio
-docker compose exec -T backend python -m pytest tests/ -q
-
-# frontend — on the host with Node 22 (a few parity tests read backend sources and call git,
-# which the frontend container does not have)
-(cd frontend && npm ci --legacy-peer-deps && npm test)
-
-# mcp
-(cd mcp && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pytest)
+make test-backend    # pytest inside the backend container (installs pytest there on first use)
+make test-frontend   # vitest on the host — needs Node 22 (a few parity tests read backend sources and call git, which the container lacks)
+make test-mcp        # pytest in mcp/.venv (created, and refreshed when pyproject.toml changes)
+make check-docs      # docs ↔ code drift: MCP tool list, licenses, en/ko structure, links
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and the pull-request checklist, and [frontend/README.md](frontend/README.md) (Korean) for frontend details.

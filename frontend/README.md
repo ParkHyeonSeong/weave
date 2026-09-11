@@ -22,7 +22,7 @@ npm test             # vitest run
 npm run test:watch
 ```
 
-**호스트에서 실행하는 것을 권장합니다** (Node 22, `npm ci --legacy-peer-deps` 후). 리포 전체가 필요합니다 — 여러 패리티 테스트가 `backend/tests/fixtures`의 골든 픽스처와 백엔드 소스(`backend/library/messages.py` 등)를 직접 읽고, 일부는 `git`을 호출합니다. 컨테이너 안에서(`docker compose exec -T frontend npm test`) 돌리면 그 3개 파일이 실패합니다: 컨테이너에는 `backend/tests/fixtures`만 마운트돼 있고 `node:22-alpine` 이미지에 git이 없기 때문입니다. 테스트 파일은 대상 모듈 옆에 `*.test.js`로 둡니다.
+루트에서 `make test-frontend`를 실행하면 아래를 그대로 해 줍니다(`package-lock.json`이 바뀌었으면 `npm ci`부터). **호스트에서 실행하는 것을 권장합니다** (Node 22, `npm ci --legacy-peer-deps` 후). 리포 전체가 필요합니다 — 여러 패리티 테스트가 `backend/tests/fixtures`의 골든 픽스처와 백엔드 소스(`backend/library/messages.py` 등)를 직접 읽고, 일부는 `git`을 호출합니다. 컨테이너 안에서(`docker compose exec -T frontend npm test`) 돌리면 그 3개 파일이 실패합니다: 컨테이너에는 `backend/tests/fixtures`만 마운트돼 있고 `node:22-alpine` 이미지에 git이 없기 때문입니다. 테스트 파일은 대상 모듈 옆에 `*.test.js`로 둡니다.
 
 ## 디렉터리
 

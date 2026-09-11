@@ -10,9 +10,9 @@
 
 | Package | License | Link |
 |---------|---------|------|
-| @codemirror/commands, lang-markdown, language, state, theme-one-dark, view · codemirror | MIT | https://github.com/codemirror |
-| @dnd-kit/core, sortable, utilities | MIT | https://github.com/clauderic/dnd-kit |
-| @myriaddreamin/typst.ts, typst-ts-renderer, typst-ts-web-compiler | **Apache-2.0** | https://github.com/Myriad-Dreamin/typst.ts |
+| @codemirror/commands, @codemirror/lang-markdown, @codemirror/language, @codemirror/state, @codemirror/theme-one-dark, @codemirror/view, codemirror | MIT | https://github.com/codemirror |
+| @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities | MIT | https://github.com/clauderic/dnd-kit |
+| @myriaddreamin/typst.ts, @myriaddreamin/typst-ts-renderer, @myriaddreamin/typst-ts-web-compiler | **Apache-2.0** | https://github.com/Myriad-Dreamin/typst.ts |
 | @tiptap/react, @tiptap/starter-kit, @tiptap/markdown, @tiptap/extension-* | MIT | https://github.com/ueberdosis/tiptap |
 | @tiptap/y-tiptap | MIT | https://github.com/ueberdosis/y-tiptap |
 | @xyflow/react | MIT | https://github.com/xyflow/xyflow |

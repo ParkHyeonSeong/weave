@@ -18,16 +18,18 @@ nginx/      Nginx config for the production container, plus a host-proxy example
 Run the suite for whatever you touched:
 
 ```bash
-docker compose exec -T backend python -m pytest tests/ -q     # backend
-(cd frontend && npm test)                                      # frontend (vitest), on the host
-(cd mcp && .venv/bin/pytest)                                   # mcp
+make test-backend    # pytest inside the backend container
+make test-frontend   # vitest on the host (Node 22)
+make test-mcp        # pytest in mcp/.venv
+make test            # all three
+make check-docs      # docs ↔ code drift: MCP tool list, licenses, en/ko structure, links
 ```
 
-One-time setup for each:
+What the targets do, in case you need the commands themselves:
 
-- **backend** — the image has runtime dependencies only: `docker compose exec -T backend pip install pytest pytest-asyncio`. Repeat after the container is re-created (`make up-build`).
-- **frontend** — Node 22 on the host, then `cd frontend && npm ci --legacy-peer-deps`. Run the suite on the host: a few parity tests read backend sources and call `git`, which the frontend container does not have.
-- **mcp** — `cd mcp && python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"`. Always call `.venv/bin/pytest` explicitly — a bare `pytest` can resolve to a system Python that does not have `fastmcp`.
+- **backend** — the image has runtime dependencies only, so the target installs `pytest pytest-asyncio` into the running container on first use (again after the container is re-created), then runs `python -m pytest tests/ -q` there.
+- **frontend** — runs `npm ci --legacy-peer-deps` whenever `package-lock.json` is newer than the last install, then `npm test`, **on the host**: a few parity tests read backend sources and call `git`, which the frontend container does not have.
+- **mcp** — creates `mcp/.venv` with `pip install -e ".[dev]"` (and reinstalls when `pyproject.toml` changed) and runs its `pytest`. If you run it by hand, call `.venv/bin/pytest` explicitly — a bare `pytest` can resolve to a system Python without `fastmcp`.
 
 New behaviour comes with a test next to the existing ones: `backend/tests/`, a `*.test.js` beside the frontend module, `mcp/tests/`.
 
@@ -39,11 +41,12 @@ New behaviour comes with a test next to the existing ones: `backend/tests/`, a `
 - **SCSS** — do not use the global `darken()` / `lighten()` / `saturate()` functions (deprecated in Dart Sass). Use the `sass:color` module: `@use 'sass:color';` then `color.adjust($c, $lightness: -8%)`. Colours come from the CSS variables in `frontend/styles/_themes.scss` so that light and dark themes both work.
 - **Frontend error messages** — API errors are rendered through the shared helpers in `frontend/library/` (`getErrorCode` / `getError` / `errorText`), not through ad-hoc message maps in components.
 - **User-facing text** — goes through i18n: add the key to both `frontend/library/i18n/en.js` and `ko.js`.
+- **Docs stay in sync** — `make check-docs` must pass. When you add an MCP tool, a dependency, or a section to README/DEPLOY, update `mcp/README.md`, `THIRD-PARTY-LICENSES.md` or the other language's file in the same change.
 - **MCP tools** — when a REST endpoint should be reachable from AI clients, add a tool in `mcp/weave_mcp/tools/` and a line in `mcp/README.md`. A parameter that takes a branch must be named `branch_id` so that branch keys such as `"WV"` resolve.
 
 ## Pull requests
 
 1. Branch from `main` and keep the change focused on one thing.
 2. Make sure the relevant test suite passes, and add tests for new behaviour.
-3. If you changed configuration, dependencies or user-visible behaviour, update the docs that describe it: `README.md` and `README.ko.md`, `.env.example` / `.env.production.example`, `THIRD-PARTY-LICENSES.md`, `mcp/README.md`.
+3. If you changed configuration, dependencies or user-visible behaviour, update the docs that describe it: `README.md` and `README.ko.md`, `DEPLOY.md` and `DEPLOY.en.md`, `.env.example` / `.env.production.example`, `THIRD-PARTY-LICENSES.md`, `mcp/README.md` — and run `make check-docs`.
 4. Describe what changed and why. The pull-request template asks which test commands you ran.

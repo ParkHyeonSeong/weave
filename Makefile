@@ -1,5 +1,9 @@
-.PHONY: up down build restart logs logs-backend logs-frontend ps clean reset db-shell \
-       prod prod-build prod-down prod-logs prod-ps ssl-init ssl-renew
+.PHONY: up up-build down restart build logs logs-backend logs-frontend logs-db ps health \
+        shell-backend shell-frontend db-shell \
+        prod prod-build prod-down prod-logs prod-ps \
+        generate-vapid prod-generate-vapid \
+        test test-backend test-frontend test-mcp check-docs \
+        clean clean-all reset help
 
 # -- Primary commands ------------------------------------------------------
 
@@ -12,7 +16,7 @@ up-build:              ## Build and start all services (renews node_modules volu
 down:                  ## Stop all services
 	docker compose down
 
-restart:               ## Restart all services
+restart:               ## Restart all services (does NOT re-read .env — use `make up` for that)
 	docker compose restart
 
 build:                 ## Build all images
@@ -51,11 +55,35 @@ shell-frontend:        ## Open shell in frontend container
 db-shell:              ## Open psql shell
 	docker compose exec db psql -U weave -d weave
 
+# -- Tests -----------------------------------------------------------------
+# The backend image ships runtime dependencies only, so pytest is installed into the
+# running container on first use (again after the container is re-created). It is
+# installed by name: `pip install ".[dev]"` fails inside the runtime container because
+# /app has several top-level packages (flat-layout).
+test-backend:          ## Run backend tests inside the container (installs pytest there on first use)
+	docker compose exec -T backend sh -c '{ python -c "import pytest, pytest_asyncio" 2>/dev/null || pip install -q pytest pytest-asyncio; } && python -m pytest tests/ -q'
+
+# Frontend tests run on the host: a few parity tests read backend/ sources and call git,
+# neither of which exists in the frontend container. `npm ci` runs when the lockfile is
+# newer than npm's own install stamp (node_modules/.package-lock.json), so a pulled
+# dependency bump is picked up instead of testing against a stale node_modules.
+test-frontend:         ## Run frontend tests on the host (Node 22; npm ci when package-lock.json changed)
+	cd frontend && if [ ! node_modules/.package-lock.json -nt package-lock.json ]; then npm ci --legacy-peer-deps; fi && npm test
+
+# Same idea for the MCP venv: reinstall when pyproject.toml is newer than the install stamp.
+test-mcp:              ## Run MCP server tests (creates/refreshes mcp/.venv when pyproject.toml changed)
+	cd mcp && if [ ! .venv/.installed -nt pyproject.toml ]; then python3 -m venv .venv && .venv/bin/pip install -q -e ".[dev]" && touch .venv/.installed; fi && .venv/bin/pytest -q
+
+test: test-backend test-frontend test-mcp  ## Run all three test suites (make -j3 test runs them in parallel)
+
+check-docs:            ## Check that the docs match the code (MCP tool list, licenses, en/ko structure, links)
+	@python3 scripts/check_docs.py
+
 # -- Production ------------------------------------------------------------
 
 PROD_COMPOSE = docker compose --env-file .env.production -f docker-compose.prod.yml
 
-prod:                  ## Start production services
+prod:                  ## Start production services (re-creates containers whose config changed)
 	$(PROD_COMPOSE) up -d
 
 prod-build:            ## Build and start production services
@@ -70,27 +98,17 @@ prod-logs:             ## Tail production logs
 prod-ps:               ## Show production service status
 	$(PROD_COMPOSE) ps
 
-ssl-init:              ## Issue SSL certificate (run once after domain DNS is set)
-	$(PROD_COMPOSE) run --rm certbot certonly \
-		--webroot --webroot-path=/var/www/certbot \
-		--email $${CERTBOT_EMAIL} --agree-tos --no-eff-email \
-		-d $${DOMAIN}
-
-ssl-renew:             ## Renew SSL certificate
-	$(PROD_COMPOSE) run --rm certbot renew
-
 # -- Utilities -------------------------------------------------------------
 
-generate-vapid:        ## Generate VAPID key pair for Web Push
-	@docker compose exec backend python -c "\
-from py_vapid import Vapid; import base64; \
-v = Vapid(); v.generate_keys(); \
-raw = v.private_key.private_numbers().private_value.to_bytes(32, 'big'); \
-pub = v.private_key.public_key().public_numbers(); \
-x = pub.x.to_bytes(32, 'big'); y = pub.y.to_bytes(32, 'big'); \
-print(f'VAPID_PRIVATE_KEY={base64.urlsafe_b64encode(raw).decode().rstrip(chr(61))}'); \
-print(f'VAPID_PUBLIC_KEY={base64.urlsafe_b64encode(b\"\\x04\"+x+y).decode().rstrip(chr(61))}')"
-	@echo "Add the above values to your .env file"
+# The key script runs inside the backend container (py_vapid lives there) and is piped
+# over stdin, so it does not have to exist in the image.
+generate-vapid:        ## Generate VAPID key pair for Web Push (dev stack must be running)
+	@docker compose exec -T backend python < scripts/generate-vapid-keys.py
+	@echo "Add the above values to .env, then run: make up"
+
+prod-generate-vapid:   ## Generate VAPID key pair on the production stack
+	@$(PROD_COMPOSE) exec -T backend python < scripts/generate-vapid-keys.py
+	@echo "Add the above values to .env.production, then run: make prod"
 
 # -- Cleanup ---------------------------------------------------------------
 
