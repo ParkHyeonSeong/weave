@@ -1703,6 +1703,8 @@ const en = {
         empty: 'No active sprints',
         myTasks_one: '{{count}} my task',
         myTasks_other: '{{count}} my tasks',
+        myTasksLeft_one: '{{count}} left',
+        myTasksLeft_other: '{{count}} left',
       },
       recent: {
         title: 'Recent Items',

@@ -38,6 +38,7 @@ export default function ActiveSprints() {
                 done: countRes.data.all_done_count,
                 total: countRes.data.all_total_count,
                 my_count: countRes.data.my_count,
+                my_incomplete_count: countRes.data.my_incomplete_count,
               });
             }
           }
@@ -92,6 +93,7 @@ export default function ActiveSprints() {
                       {sprint.my_count > 0 && (
                         <span className="HChip HChip--mine">
                           {t('home.widgets.activeSprints.myTasks', { count: sprint.my_count })}
+                          {' · '}{t('home.widgets.activeSprints.myTasksLeft', { count: sprint.my_incomplete_count })}
                         </span>
                       )}
                     </div>

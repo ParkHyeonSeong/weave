@@ -804,8 +804,8 @@ async def count_by_sprint_for_user(sprint_id: int, branch_id: int, user_id: int,
     """task-counts 응답용 한 번 조회.
 
     done_count/incomplete_count는 count_by_sprint_status와 같은 상위 태스크 기준이고,
-    all_*·my_count는 하위태스크 포함(my_count = main/sub 담당). 하위태스크는 sprint_id가
-    NULL로 저장되고 부모의 sprint를 따르므로 상위 태스크를 먼저 고른 뒤 그 자식을 붙인다
+    all_*·my_*는 하위태스크 포함(my_* = main/sub 담당, my_incomplete_count = 그중 미완료).
+    하위태스크는 sprint_id가 NULL로 저장되고 부모의 sprint를 따르므로 상위 태스크를 먼저 고른 뒤 그 자식을 붙인다
     (idx_task_branch_sprint → idx_task_parent).
     """
     result = await db.execute(text("""
@@ -817,18 +817,23 @@ async def count_by_sprint_for_user(sprint_id: int, branch_id: int, user_id: int,
             UNION ALL
             SELECT c.task_id, c.branch_id, c.status, FALSE FROM task c
             JOIN top ON c.parent_task_id = top.task_id
+        ), flagged AS (
+            -- task_assignee PK(task_id, user_id)라 LEFT JOIN은 행을 늘리지 않는다
+            SELECT s.is_top,
+                   COALESCE(ws.category, 'done') IN ('done', 'cancelled') AS closed,
+                   ta.task_id IS NOT NULL AS mine
+            FROM scoped s
+            LEFT JOIN workflow_status ws ON s.branch_id = ws.branch_id AND s.status = ws.key
+            LEFT JOIN task_assignee ta ON ta.task_id = s.task_id AND ta.user_id = :user_id
         )
         SELECT
-            COUNT(*) FILTER (WHERE s.is_top AND COALESCE(ws.category, 'done') IN ('done', 'cancelled')) AS done_count,
-            COUNT(*) FILTER (WHERE s.is_top AND COALESCE(ws.category, 'done') NOT IN ('done', 'cancelled')) AS incomplete_count,
-            COUNT(*) FILTER (WHERE COALESCE(ws.category, 'done') IN ('done', 'cancelled')) AS all_done_count,
+            COUNT(*) FILTER (WHERE is_top AND closed) AS done_count,
+            COUNT(*) FILTER (WHERE is_top AND NOT closed) AS incomplete_count,
+            COUNT(*) FILTER (WHERE closed) AS all_done_count,
             COUNT(*) AS all_total_count,
-            COUNT(*) FILTER (WHERE EXISTS (
-                SELECT 1 FROM task_assignee ta
-                WHERE ta.task_id = s.task_id AND ta.user_id = :user_id
-            )) AS my_count
-        FROM scoped s
-        LEFT JOIN workflow_status ws ON s.branch_id = ws.branch_id AND s.status = ws.key
+            COUNT(*) FILTER (WHERE mine) AS my_count,
+            COUNT(*) FILTER (WHERE mine AND NOT closed) AS my_incomplete_count
+        FROM flagged
     """), {'sprint_id': sprint_id, 'branch_id': branch_id, 'user_id': user_id})
     return dict(result.fetchone()._mapping)
 

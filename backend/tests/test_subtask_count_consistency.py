@@ -145,13 +145,15 @@ async def test_sprint_counts_with_subtasks_follow_parent_sprint(db_session):
     await _assign(db_session, parent, owner, "main")
     await _assign(db_session, sub_todo, owner, "sub")
     await _assign(db_session, sub_done, other, "main")
+    await _assign(db_session, sub_done, owner, "sub")
     await _assign(db_session, solo, other, "main")
     await _assign(db_session, elsewhere, owner, "main")
 
     counts = await task_model.count_by_sprint_for_user(sid, bid, owner, db_session)
     assert counts["all_total_count"] == 4       # parent + 2 subtasks + solo
     assert counts["all_done_count"] == 2        # done subtask + cancelled solo
-    assert counts["my_count"] == 2              # main on parent + sub on subtask
+    assert counts["my_count"] == 3              # main on parent + sub on both subtasks
+    assert counts["my_incomplete_count"] == 2   # the done subtask is not remaining
 
     # 상위 태스크 기준 수치는 기존 count_by_sprint_status와 같다
     top_only = await task_model.count_by_sprint_status(sid, db_session)
