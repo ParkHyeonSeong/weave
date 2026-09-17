@@ -104,7 +104,11 @@ async def reorder_sprints(branch_id: BranchRef, sprint_ids: list[int]) -> Any:
 
 @mcp.tool
 async def get_sprint_task_counts(branch_id: BranchRef, sprint_id: int) -> Any:
-    """Get a sprint's task counts / progress summary without listing every task."""
+    """Get a sprint's task counts / progress summary without listing every task.
+
+    done_count/incomplete_count count top-level tasks only; all_done_count/all_total_count
+    include subtasks; my_count is the tasks (incl. subtasks) assigned to the token's owner.
+    """
     return await get_client().call_json(
         "GET", f"/api/branches/{branch_id}/sprints/{sprint_id}/task-counts"
     )

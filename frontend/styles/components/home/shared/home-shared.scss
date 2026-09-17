@@ -593,6 +593,12 @@
     color: $color-text-secondary;
   }
 
+  // assigned to me
+  &--mine {
+    background: $color-primary-subtle;
+    color: $color-primary;
+  }
+
   // canvas document
   &--doc {
     background: $color-ref-doc-bg;

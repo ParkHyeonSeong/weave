@@ -1699,6 +1699,8 @@ const ko = {
       activeSprints: {
         title: '진행 중 스프린트',
         empty: '진행 중인 스프린트가 없어요',
+        myTasks_one: '내 태스크 {{count}}개',
+        myTasks_other: '내 태스크 {{count}}개',
       },
       recent: {
         title: '최근 항목',

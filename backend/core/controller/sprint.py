@@ -155,10 +155,10 @@ async def reorder(body, branch_id: int, request: Request, db: AsyncSession):
 
 
 async def get_task_counts(sprint_id: int, branch_id: int, request: Request, db: AsyncSession):
-    """Sprint 내 완료/미완료 task 수 조회"""
+    """Sprint task 수 조회: done/incomplete는 상위 태스크만, all_*·my_count는 하위태스크 포함"""
     user_id = request.state.payload.get('user_id')
     if not await member_model.is_member(branch_id, user_id, db):
         return error_response(ErrorCode.NOT_BRANCH_MEMBER)
 
-    counts = await task_model.count_by_sprint_status(sprint_id, db)
+    counts = await task_model.count_by_sprint_for_user(sprint_id, branch_id, user_id, db)
     return {'status': True, **counts}

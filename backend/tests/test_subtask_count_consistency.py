@@ -117,6 +117,53 @@ async def test_sprint_burndown_excludes_subtasks(db_session):
     assert counts["incomplete_count"] == 1      # only the top-level todo parent
 
 
+async def _assign(db, task_id, user_id, role):
+    await db.execute(text("""
+        INSERT INTO task_assignee (task_id, user_id, role) VALUES (:t, :u, :r)
+    """), {"t": task_id, "u": user_id, "r": role})
+
+
+async def test_sprint_counts_with_subtasks_follow_parent_sprint(db_session):
+    owner = await _make_user(db_session, "sprintall@count.test", "sprintallowner")
+    other = await _make_user(db_session, "sprintother@count.test", "sprintother")
+    bid = await _make_branch(db_session, owner, name="SprintAll", key="SA")
+    await _add_member(db_session, bid, owner, "admin")
+    await _add_member(db_session, bid, other, "member")
+    sid = await _make_sprint(db_session, bid, owner, name="S1", status="active")
+    other_sid = await _make_sprint(db_session, bid, owner, name="S2", status="active")
+
+    parent = await _make_task(db_session, bid, owner, status="todo", sprint_id=sid)
+    # 실제 저장 형태: 하위태스크 sprint_id는 NULL, 부모 sprint를 따른다
+    sub_done = await _make_task(db_session, bid, owner, status="done", parent_task_id=parent)
+    sub_todo = await _make_task(db_session, bid, owner, status="todo", parent_task_id=parent)
+    solo = await _make_task(db_session, bid, owner, status="cancelled", sprint_id=sid)
+    # 다른 스프린트 / 백로그 태스크는 제외
+    elsewhere = await _make_task(db_session, bid, owner, status="todo", sprint_id=other_sid)
+    await _make_task(db_session, bid, owner, status="todo", parent_task_id=elsewhere)
+    await _make_task(db_session, bid, owner, status="todo")
+
+    await _assign(db_session, parent, owner, "main")
+    await _assign(db_session, sub_todo, owner, "sub")
+    await _assign(db_session, sub_done, other, "main")
+    await _assign(db_session, solo, other, "main")
+    await _assign(db_session, elsewhere, owner, "main")
+
+    counts = await task_model.count_by_sprint_for_user(sid, bid, owner, db_session)
+    assert counts["all_total_count"] == 4       # parent + 2 subtasks + solo
+    assert counts["all_done_count"] == 2        # done subtask + cancelled solo
+    assert counts["my_count"] == 2              # main on parent + sub on subtask
+
+    # 상위 태스크 기준 수치는 기존 count_by_sprint_status와 같다
+    top_only = await task_model.count_by_sprint_status(sid, db_session)
+    assert top_only == {"done_count": 1, "incomplete_count": 1}
+    assert {k: counts[k] for k in top_only} == top_only
+
+    # 다른 브랜치 id로는 이 스프린트를 세지 않는다
+    other_bid = await _make_branch(db_session, owner, name="Other", key="OT")
+    miss = await task_model.count_by_sprint_for_user(sid, other_bid, owner, db_session)
+    assert miss["all_total_count"] == 0
+
+
 # ---------------------------------------------------------------------------
 # (c) Home KPI — model/branch.py home_stats
 # ---------------------------------------------------------------------------

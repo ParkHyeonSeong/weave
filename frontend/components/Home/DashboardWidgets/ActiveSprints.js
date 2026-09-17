@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { Zap } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
+import { sortActiveSprints } from '@/library/activeSprintOrder';
+import { formatSprintRange } from '@/library/formatTime';
 
 export default function ActiveSprints() {
   const { t } = useTranslation();
@@ -33,14 +35,15 @@ export default function ActiveSprints() {
                 branch_id: branch.branch_id,
                 branch_name: branch.branch_name,
                 branch_key: branch.key,
-                done: countRes.data.done_count,
-                total: countRes.data.done_count + countRes.data.incomplete_count,
+                done: countRes.data.all_done_count,
+                total: countRes.data.all_total_count,
+                my_count: countRes.data.my_count,
               });
             }
           }
         }
       }
-      setSprints(allSprints);
+      setSprints(sortActiveSprints(allSprints));
     } catch {
       // silently fail
     } finally {
@@ -81,7 +84,17 @@ export default function ActiveSprints() {
                 <div className="ActiveSprints__SprintInfo">
                   <div>
                     <div className="ActiveSprints__SprintName">{sprint.sprint_name}</div>
-                    <div className="ActiveSprints__SprintBranch">{sprint.branch_name}</div>
+                    <div className="ActiveSprints__SprintMeta">
+                      <span className="ActiveSprints__SprintBranch">
+                        {sprint.branch_name}
+                        {(sprint.start_date || sprint.end_date) && ` · ${formatSprintRange(sprint.start_date, sprint.end_date)}`}
+                      </span>
+                      {sprint.my_count > 0 && (
+                        <span className="HChip HChip--mine">
+                          {t('home.widgets.activeSprints.myTasks', { count: sprint.my_count })}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className="ActiveSprints__SprintCount">
                     {sprint.done} / {sprint.total}

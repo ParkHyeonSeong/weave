@@ -60,6 +60,13 @@
     color: $color-text;
   }
 
+  &__SprintMeta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $space-2;
+  }
+
   &__SprintBranch {
     font-size: $font-size-xs;
     color: $color-text-tertiary;

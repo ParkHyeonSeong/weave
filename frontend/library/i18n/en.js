@@ -1701,6 +1701,8 @@ const en = {
       activeSprints: {
         title: 'Active Sprints',
         empty: 'No active sprints',
+        myTasks_one: '{{count}} my task',
+        myTasks_other: '{{count}} my tasks',
       },
       recent: {
         title: 'Recent Items',
