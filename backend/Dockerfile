@@ -7,9 +7,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
+# Install Python dependencies — exact versions from constraints.txt (its header says how to update them)
+COPY pyproject.toml constraints.txt ./
+RUN pip install --no-cache-dir -c constraints.txt .
 
 # Copy application code
 COPY . .
