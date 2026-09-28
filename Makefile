@@ -1,6 +1,6 @@
 .PHONY: up up-build down restart build logs logs-backend logs-frontend logs-db ps health \
         shell-backend shell-frontend db-shell \
-        prod prod-build prod-down prod-logs prod-ps \
+        prod prod-build prod-verify prod-deploy prod-down prod-logs prod-ps \
         generate-vapid prod-generate-vapid \
         test test-backend test-frontend test-mcp check-docs \
         clean clean-all reset help
@@ -88,6 +88,19 @@ prod:                  ## Start production services (re-creates containers whose
 
 prod-build:            ## Build and start production services
 	$(PROD_COMPOSE) up -d --build
+
+prod-verify:           ## Build production images (running containers untouched), then smoke-test the backend on a throwaway Postgres; on failure the image tags go back to the running images
+	PROD_COMPOSE="$(PROD_COMPOSE)" scripts/prod-verify.sh
+
+prod-deploy: prod-verify  ## prod-verify, then switch to the verified images without rebuilding (previous backend image kept as :previous)
+	@img="$$($(PROD_COMPOSE) config --images | grep -- '-backend$$')"; \
+	want="$$(docker image inspect -f '{{.Id}}' "$$img")"; \
+	prev="$$(docker image inspect -f '{{.Id}}' "$$img:pre-verify" 2>/dev/null || true)"; \
+	if [ -n "$$prev" ] && [ "$$prev" != "$$want" ]; then docker tag "$$img:pre-verify" "$$img:previous" && echo "previous backend image kept as $$img:previous"; fi; \
+	$(PROD_COMPOSE) up -d || exit 1; \
+	got="$$(docker inspect -f '{{.Image}}' weave-backend)"; \
+	if [ "$$got" = "$$want" ]; then echo "OK: weave-backend runs the verified image $$want"; \
+	else echo "MISMATCH: weave-backend runs $$got, verified $$want" >&2; exit 1; fi
 
 prod-down:             ## Stop production services
 	$(PROD_COMPOSE) down

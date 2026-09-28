@@ -1,0 +1,10 @@
+# scripts/prod-smoke.sh 전용 덮어쓰기. docker-compose.prod.yml의 db·backend 정의(명령·entrypoint·healthcheck·
+# 환경변수 키)를 그대로 쓰고, 실행 중인 운영 컨테이너와 겹치지 않게 이름만 바꾸며, 검증할 이미지를 고정한다.
+services:
+  db:
+    container_name: weave-smoke-db
+  backend:
+    container_name: weave-smoke-backend
+    image: ${SMOKE_BACKEND_IMAGE:?SMOKE_BACKEND_IMAGE is required}
+    pull_policy: never
+    restart: "no"  # 시작 실패를 재시작 반복 대신 바로 드러낸다

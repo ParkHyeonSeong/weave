@@ -132,14 +132,18 @@ To link pull requests to tasks, create a GitHub App as described in README → [
 ```bash
 cd /opt/weave
 git pull
-make prod-build     # rebuilds the images and re-creates the containers; migrations run automatically
+make prod-deploy    # build → start the backend on a throwaway database → switch to that image if it passed
 ```
+
+`make prod-deploy` builds the images first and leaves the running containers alone. It then starts a backend with the production settings against a throwaway Postgres and checks migrations, startup, the healthcheck and a database-backed response. If that fails, nothing is replaced, and the image tags the build moved are pointed back at the images the service runs now (so a later `make prod` keeps the current version). If it passes, the stack switches to the verified image without rebuilding, and the previous backend image is kept as `weave-backend:previous`.
 
 ## Everyday commands
 
 | Command | What it does |
 |--------|------|
-| `make prod-build` | Build the images and start — first time, and after every code update |
+| `make prod-build` | Build the images and start — first install (use `make prod-deploy` for updates) |
+| `make prod-deploy` | Update — build, check that the backend starts on a throwaway database, switch to the image that passed |
+| `make prod-verify` | Build and check the backend start only — running services are left alone (on failure the image tags are restored too) |
 | `make prod` | Start — after changing settings only (re-creates just the containers whose config changed) |
 | `make prod-down` | Stop (data volumes are kept) |
 | `make prod-logs` | Logs |
@@ -165,3 +169,6 @@ make prod-build     # rebuilds the images and re-creates the containers; migrati
 | `curl 127.0.0.1:13000` works but the domain does not open | `sudo nginx -t`, the DNS A record, firewall ports 80/443 |
 | Pages load but chat and collaborative editing do not work | The `Upgrade` / `Connection "upgrade"` headers in the host nginx block (step 4) |
 | Users keep getting logged out | Make sure the stack is not running with `DEBUG=true` (see the startup warning in `make prod-logs`) |
+| `make prod-deploy` stops with `SMOKE FAIL` / `VERIFY FAIL` | Nothing in production changed, and the image tags point at the running images again. Read the backend log it printed (for example an `ImportError`), fix it and run it again |
+| `RESTORE FAILED` is printed | The image tags may still point at the unverified build. Do not run `make prod`; run the printed `docker tag …` commands, then check that `docker image inspect -f '{{.Id}}' weave-backend` equals `docker inspect -f '{{.Image}}' weave-backend` |
+| Something breaks after the switch | `docker tag weave-backend:previous weave-backend && make prod` — returns to the previous backend image without rebuilding (only if the release added no database migration) |

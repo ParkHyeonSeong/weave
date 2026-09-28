@@ -132,14 +132,18 @@ PR과 태스크를 연결하려면 README의 [GitHub App 연동](README.ko.md#gi
 ```bash
 cd /opt/weave
 git pull
-make prod-build     # 이미지 다시 빌드 + 컨테이너 재생성. 마이그레이션은 자동
+make prod-deploy    # 이미지 빌드 → 일회용 DB로 백엔드 시작 확인 → 통과하면 그 이미지로 교체
 ```
+
+`make prod-deploy`는 실행 중인 컨테이너를 그대로 둔 채 이미지를 먼저 빌드합니다. 그다음 운영과 같은 설정의 백엔드를 일회용 Postgres로 띄워 마이그레이션·시작·healthcheck·DB 응답을 확인합니다. 여기서 실패하면 아무것도 교체하지 않고, 빌드가 옮긴 이미지 태그도 지금 실행 중인 이미지로 되돌립니다(그래서 이어서 `make prod`를 실행해도 현재 버전이 그대로 쓰입니다). 통과하면 다시 빌드하지 않고 검증한 이미지로 교체하며, 직전 백엔드 이미지는 `weave-backend:previous`로 남깁니다.
 
 ## 자주 쓰는 명령
 
 | 명령어 | 설명 |
 |--------|------|
-| `make prod-build` | 이미지 빌드 후 시작 — 처음, 그리고 코드 업데이트 후 |
+| `make prod-build` | 이미지 빌드 후 시작 — 처음 설치할 때 (업데이트는 `make prod-deploy`) |
+| `make prod-deploy` | 업데이트 — 빌드, 일회용 DB로 백엔드 시작 확인, 통과한 이미지로 교체 |
+| `make prod-verify` | 빌드와 백엔드 시작 확인만 — 실행 중인 서비스는 그대로 (실패하면 이미지 태그도 되돌림) |
 | `make prod` | 시작 — 설정만 바꿨을 때 (바뀐 컨테이너만 재생성) |
 | `make prod-down` | 중지 (데이터 볼륨은 유지) |
 | `make prod-logs` | 로그 |
@@ -165,3 +169,6 @@ make prod-build     # 이미지 다시 빌드 + 컨테이너 재생성. 마이�
 | `curl 127.0.0.1:13000`은 되는데 도메인으로는 안 열림 | `sudo nginx -t`, DNS A 레코드, 방화벽 80/443 |
 | 페이지는 뜨는데 채팅·문서 동시 편집이 안 됨 | 서버 nginx 블록의 `Upgrade` / `Connection "upgrade"` 헤더(4단계) |
 | 로그인이 자꾸 풀림 | `DEBUG=true`로 떠 있지 않은지 (`make prod-logs`의 시작 경고) |
+| `make prod-deploy`가 `SMOKE FAIL`·`VERIFY FAIL`로 멈춤 | 운영 서비스와 이미지 태그는 그대로입니다(빌드가 옮긴 태그를 실행 중 이미지로 되돌림). 출력된 백엔드 로그(예: `ImportError`)를 보고 고친 뒤 다시 실행 |
+| `RESTORE FAILED`가 나옴 | 이미지 태그가 검증되지 않은 빌드를 가리킬 수 있습니다. `make prod`를 실행하지 말고, 출력된 `docker tag …` 명령으로 되돌린 뒤 `docker image inspect -f '{{.Id}}' weave-backend`가 `docker inspect -f '{{.Image}}' weave-backend`와 같은지 확인 |
+| 교체 뒤 문제가 생김 | `docker tag weave-backend:previous weave-backend && make prod` — 다시 빌드하지 않고 직전 백엔드 이미지로 되돌립니다 (새 DB 마이그레이션이 없었던 배포만) |
