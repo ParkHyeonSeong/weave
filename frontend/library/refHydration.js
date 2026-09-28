@@ -289,6 +289,16 @@ export async function hydrateEditor(editor) {
   return hydrateDom(editor.view.dom);
 }
 
+// 붙여넣기처럼 '지금 값'이 필요한 경로용: TTL 캐시를 건너뛰고 서버에 다시 묻는다.
+// 받은 값은 캐시에도 넣어 뒤이은 하이드레이션이 같은 최신값을 쓰게 한다.
+export async function fetchFreshRefStatus({ task_ids = [], issue_ids = [] }) {
+  const res = await axios.post('/ref-status', { task_ids, issue_ids });
+  if (!res.data?.status) return { tasks: {}, issues: {} };
+  cacheSet('tasks', res.data.tasks);
+  cacheSet('issues', res.data.issues);
+  return { tasks: res.data.tasks || {}, issues: res.data.issues || {} };
+}
+
 // task:updated 등 이벤트 구동 재해석 시 TTL 캐시가 stale을 되돌려주지 않게 비운다.
 // 멤버십 캐시도 함께 비워 브랜치 탈퇴 직후 30초간 '삭제 확정' 오표기를 막는다.
 function invalidateRefCache() {

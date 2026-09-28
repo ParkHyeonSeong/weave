@@ -10,6 +10,7 @@ import DocRefNode from '@/components/Canvas/extensions/DocRefExtension';
 import MentionNode from '@/components/Canvas/extensions/MentionExtension';
 import SlashCommandsExtension from '@/components/Canvas/extensions/SlashCommandsExtension';
 import { BookmarkPasteExtension } from '@/components/Canvas/extensions/BookmarkPastePlugin';
+import { RefPasteRefreshExtension } from '@/components/Canvas/extensions/RefPasteRefreshExtension';
 import { mathExtensions } from '@/components/Canvas/extensions/mathExtensions';
 import { createMarkdownPastePlugin } from '@/components/Canvas/extensions/MarkdownPastePlugin';
 
@@ -33,6 +34,7 @@ export function buildScrumCellExtensions({ placeholder, members } = {}) {
     MentionNode.configure({ members }),
     SlashCommandsExtension.configure({ enabled: ['/t', '/ta', '/d', '/m'] }),
     BookmarkPasteExtension,
+    RefPasteRefreshExtension, // 붙여넣은 칩 상태를 서버 현재값으로 갱신
     ...mathExtensions(),
     Extension.create({
       name: 'markdownPaste',

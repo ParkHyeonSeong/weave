@@ -28,6 +28,7 @@ import { ResizableImage } from './extensions/ResizableImageExtension';
 import { createImageUploadPlugin } from './extensions/ImageUploadPlugin';
 import BookmarkNode from './extensions/BookmarkExtension';
 import { BookmarkPasteExtension } from './extensions/BookmarkPastePlugin';
+import { RefPasteRefreshExtension } from './extensions/RefPasteRefreshExtension';
 import { createMarkdownPastePlugin } from './extensions/MarkdownPastePlugin';
 import MermaidExtension from './extensions/MermaidExtension';
 
@@ -66,6 +67,7 @@ export function buildCanvasEditorExtensions({ canvasId } = {}) {
     SlashCommandsExtension.configure({ enabled: ['/t', '/ta', '/d', '/i', '/m'] }),
     BookmarkNode,
     BookmarkPasteExtension,
+    RefPasteRefreshExtension, // 붙여넣은 칩 상태를 서버 현재값으로 갱신
     Extension.create({
       name: 'markdownPaste',
       addProseMirrorPlugins() { return [createMarkdownPastePlugin()]; },
