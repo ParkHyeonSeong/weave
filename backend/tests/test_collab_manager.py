@@ -1,3 +1,7 @@
+import asyncio
+import contextlib
+import types
+
 from pycrdt import Doc, Text, XmlElement, XmlFragment, XmlText
 
 from library import ws_collab_manager as cm
@@ -110,3 +114,349 @@ async def test_snapshot_state_falls_back_to_store():
     mgr = cm.CollabManager(FakeStore(initial=seed.get_update()))
     snap = await mgr.snapshot_state(9, db_session=None)
     assert snap is not None
+
+
+# -- 입장·퇴장·저장 경합과 awareness 에코 (스크럼 "혼자 세션"·저장 유실 회귀) ----------------
+
+class TxStore:
+    """store + transactional_session 대역. 쓰기는 커밋 때만 반영되고, 저장·커밋을 기다리는 중에
+    취소되면 반영되지 않는다(롤백). load/save/commit 각각에서 멈추고, hold_each_save() 뒤에는 save
+    호출마다 전용 gate에서 멈춰 await 끼어들기를 결정적으로 재현한다."""
+
+    def __init__(self):
+        self.state = None
+        self.load_gate = asyncio.Event()
+        self.save_gate = asyncio.Event()
+        self.commit_gate = asyncio.Event()
+        self.held = None  # hold_each_save() 뒤에는 save 호출마다 전용 gate가 호출 순서대로 쌓인다
+        self._held_changed = asyncio.Condition()
+        self.open_all()
+        self.saving = asyncio.Event()
+        self.committing = asyncio.Event()
+        self.commits = 0  # 실제로 반영된 커밋 수
+
+    def open_all(self):
+        for gate in (self.load_gate, self.save_gate, self.commit_gate, *(self.held or [])):
+            gate.set()
+
+    def hold_each_save(self):
+        self.held = []
+
+    async def wait_held(self, n):
+        async with self._held_changed:
+            await self._held_changed.wait_for(lambda: len(self.held) >= n)
+
+    async def get_yjs_state(self, room_id, db):
+        await self.load_gate.wait()
+        return self.state
+
+    async def save_yjs_state(self, room_id, state, db):
+        self.saving.set()
+        await self.save_gate.wait()
+        if self.held is not None:
+            gate = asyncio.Event()
+            async with self._held_changed:
+                self.held.append(gate)
+                self._held_changed.notify_all()
+            await gate.wait()
+        db.staged = state
+
+    @contextlib.asynccontextmanager
+    async def session(self):
+        tx = types.SimpleNamespace(staged=None)
+        yield tx
+        self.committing.set()
+        await self.commit_gate.wait()
+        if tx.staged is not None:
+            self.state = tx.staged
+            self.commits += 1
+
+
+async def _settle(mgr, store, *tasks):
+    """gate를 모두 열고 테스트가 만든 task와 방들의 debounce task를 끝까지 정리한다(실패해도 매달리지 않게)."""
+    store.open_all()
+    pending = [t for t in tasks if t is not None]
+    pending += [room.persist_task for room in mgr.rooms.values() if room.persist_task is not None]
+    for task in pending:
+        task.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
+
+
+async def _finish_newest_first(store, *tasks):
+    """멈춘 save를 가장 나중 것부터 푼다 — 같은 방 저장 순서가 보장되지 않으면 옛 저장이 나중에 커밋된다."""
+    while not all(t.done() for t in tasks):
+        waiting = [gate for gate in store.held if not gate.is_set()]
+        if waiting:
+            waiting[-1].set()
+        await asyncio.sleep(0)
+
+
+def _update_frame(text):
+    """클라이언트가 보내는 SYNC_UPDATE 프레임 — 셀 'c'에 문단 하나를 더한다."""
+    d = Doc()
+    frag = d.get("c", type=XmlFragment)
+    para = XmlElement("paragraph")
+    frag.children.append(para)
+    para.children.append(XmlText(text))
+    update = d.get_update()
+    return bytes([cm.MSG_SYNC, cm.SYNC_UPDATE]) + cm._write_var_uint(len(update)) + update
+
+
+def _text(state):
+    d = Doc()
+    if state:
+        d.apply_update(state)
+    return str(d.get("c", type=XmlFragment))
+
+
+def _awareness_frame(client_id):
+    """[MSG_AWARENESS, len, count=1, clientID, clock=1, state] — 서버 파서가 clientID까지 읽는 형식."""
+    state = b'{"user":{"name":"a"}}'
+    body = (cm._write_var_uint(1) + cm._write_var_uint(client_id) + cm._write_var_uint(1)
+            + cm._write_var_uint(len(state)) + state)
+    return bytes([cm.MSG_AWARENESS]) + cm._write_var_uint(len(body)) + body
+
+
+async def test_concurrent_join_shares_one_room():
+    # 빈 방에 두 연결이 동시에 들어와 DB 로드를 함께 기다려도 같은 방에 있어야 서로의 편집을 받는다.
+    store = TxStore()
+    mgr = cm.CollabManager(store)
+    a, b = FakeWS(), FakeWS()
+    store.load_gate.clear()
+    joining = [asyncio.create_task(mgr.join(1, 1, a, None)),
+               asyncio.create_task(mgr.join(1, 2, b, None))]
+    try:
+        await asyncio.sleep(0)
+        store.load_gate.set()
+        room_a, room_b = await asyncio.wait_for(asyncio.gather(*joining), 1)
+        assert room_a is room_b is mgr.rooms[1]
+        await mgr.handle_message(1, b, _update_frame("b의 글"))
+        assert a.sent, "먼저 들어온 연결도 상대 편집을 받아야 함"
+    finally:
+        await _settle(mgr, store, *joining)
+
+
+async def test_join_and_edit_during_leave_save_are_kept(monkeypatch):
+    # 마지막 연결이 나가며 저장하는 사이 새 연결이 들어와 편집하면, 방도 그 편집도 남아야 한다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, c = FakeWS(), FakeWS()
+    await mgr.join(2, 1, a, None)
+    await mgr.handle_message(2, a, _update_frame("a의 글"))
+    store.save_gate.clear()
+    leaving = asyncio.create_task(mgr.leave(2, 1, a))
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)
+        await mgr.join(2, 3, c, None)
+        await mgr.handle_message(2, c, _update_frame("c가 저장 중에 쓴 글"))
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        room = mgr.rooms.get(2)
+        assert room is not None and any(w is c for _, w in room.connections)
+        assert room.dirty is True  # 저장 스냅샷에 없는 편집이 남아 있다
+        await asyncio.wait_for(mgr.leave(2, 3, c), 1)
+        assert "c가 저장 중에 쓴 글" in _text(store.state)
+    finally:
+        await _settle(mgr, store, leaving)
+
+
+async def test_debounced_save_persists_and_marks_clean(monkeypatch):
+    # 정상 저장: debounce 저장이 끝나면 내용이 저장되고 dirty가 내려간다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    monkeypatch.setattr(cm, "PERSIST_DEBOUNCE_SECS", 0)
+    mgr = cm.CollabManager(store)
+    a = FakeWS()
+    room = await mgr.join(3, 1, a, None)
+    try:
+        await mgr.handle_message(3, a, _update_frame("평소 편집"))
+        await asyncio.wait_for(room.persist_task, 1)
+        assert room.dirty is False
+        assert "평소 편집" in _text(store.state)
+    finally:
+        await _settle(mgr, store)
+
+
+async def test_leave_during_debounced_save_keeps_edit(monkeypatch):
+    # 편집 → debounce 저장 시작 → save 대기 → 마지막 연결 퇴장(저장 작업 취소) → 방을 다시 열면 편집이 있어야 한다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    monkeypatch.setattr(cm, "PERSIST_DEBOUNCE_SECS", 0)
+    mgr = cm.CollabManager(store)
+    a = FakeWS()
+    await mgr.join(4, 1, a, None)
+    store.save_gate.clear()
+    await mgr.handle_message(4, a, _update_frame("퇴장 직전 편집"))
+    debounce = mgr.rooms[4].persist_task
+    leaving = None
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)   # debounce 저장이 save 대기에 들어감
+        leaving = asyncio.create_task(mgr.leave(4, 1, a))
+        await asyncio.sleep(0)                           # leave가 debounce 저장을 취소한다
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        await asyncio.gather(debounce, return_exceptions=True)
+        assert store.commits == 1  # 중단된 debounce 저장은 반영되지 않고 leave의 마지막 저장만 커밋됐다
+        reopened = await mgr.join(4, 2, FakeWS(), None)
+        assert "퇴장 직전 편집" in str(reopened.doc.get("c", type=XmlFragment))
+    finally:
+        await _settle(mgr, store, leaving, debounce)
+
+
+async def test_leave_during_debounced_commit_keeps_edit(monkeypatch):
+    # 같은 순서에서 debounce 저장이 커밋을 기다리는 중에 마지막 연결이 나가도 편집이 남아야 한다
+    # (커밋 전에 dirty를 내리면 취소된 커밋과 함께 마지막 편집이 사라진다).
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    monkeypatch.setattr(cm, "PERSIST_DEBOUNCE_SECS", 0)
+    mgr = cm.CollabManager(store)
+    a = FakeWS()
+    await mgr.join(5, 1, a, None)
+    store.commit_gate.clear()
+    await mgr.handle_message(5, a, _update_frame("커밋 직전 편집"))
+    debounce = mgr.rooms[5].persist_task
+    leaving = None
+    try:
+        await asyncio.wait_for(store.committing.wait(), 1)   # debounce 저장이 커밋 대기에 들어감
+        leaving = asyncio.create_task(mgr.leave(5, 1, a))
+        await asyncio.sleep(0)
+        store.commit_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        await asyncio.gather(debounce, return_exceptions=True)
+        assert store.commits == 1  # 중단된 debounce 저장은 반영되지 않고 leave의 마지막 저장만 커밋됐다
+        reopened = await mgr.join(5, 2, FakeWS(), None)
+        assert "커밋 직전 편집" in str(reopened.doc.get("c", type=XmlFragment))
+    finally:
+        await _settle(mgr, store, leaving, debounce)
+
+
+async def test_overlapping_leave_saves_keep_latest(monkeypatch):
+    # A의 마지막 퇴장 저장이 스냅샷을 뜬 뒤 UPDATE 전에 멈춘 사이 B가 들어와 편집하고 나간다. B의 A+B 저장이
+    # 먼저, 옛 A 저장이 나중에 커밋되면 DB가 A로 되돌아간다 — 방을 다시 열면 A·B 편집이 모두 있어야 한다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, b = FakeWS(), FakeWS()
+    await mgr.join(7, 1, a, None)
+    await mgr.handle_message(7, a, _update_frame("A의 글"))
+    store.hold_each_save()
+    leave_a = asyncio.create_task(mgr.leave(7, 1, a))
+    leave_b = None
+    try:
+        await asyncio.wait_for(store.wait_held(1), 1)   # A 저장이 스냅샷을 뜨고 UPDATE 전에 멈춤
+        await mgr.join(7, 2, b, None)
+        await mgr.handle_message(7, b, _update_frame("B의 글"))
+        leave_b = asyncio.create_task(mgr.leave(7, 2, b))
+        for _ in range(3):
+            await asyncio.sleep(0)                      # B 저장이 갈 수 있는 데까지 가게 한다
+        await asyncio.wait_for(_finish_newest_first(store, leave_a, leave_b), 1)
+        reopened = await mgr.join(7, 3, FakeWS(), None)
+        text = str(reopened.doc.get("c", type=XmlFragment))
+        assert "A의 글" in text and "B의 글" in text
+    finally:
+        await _settle(mgr, store, leave_a, leave_b)
+
+
+async def test_room_kept_while_later_save_pending(monkeypatch):
+    # 같은 순서에서 A 저장이 먼저 끝나도 B 저장이 남아 있으면 방을 지우면 안 된다. 그 사이 들어온 C는
+    # DB의 옛 상태(A)로 새 방을 열지 않고 B 편집이 든 같은 방에 합류해야 한다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, b, c = FakeWS(), FakeWS(), FakeWS()
+    await mgr.join(8, 1, a, None)
+    await mgr.handle_message(8, a, _update_frame("A의 글"))
+    store.hold_each_save()
+    leave_a = asyncio.create_task(mgr.leave(8, 1, a))
+    leave_b = None
+    try:
+        await asyncio.wait_for(store.wait_held(1), 1)
+        await mgr.join(8, 2, b, None)
+        await mgr.handle_message(8, b, _update_frame("B의 글"))
+        leave_b = asyncio.create_task(mgr.leave(8, 2, b))
+        for _ in range(3):
+            await asyncio.sleep(0)
+        store.held[0].set()                              # A 저장만 먼저 끝낸다
+        await asyncio.wait_for(leave_a, 1)
+        await asyncio.wait_for(store.wait_held(2), 1)    # B 저장이 UPDATE 전에 멈춰 있다
+        room_c = await mgr.join(8, 3, c, None)           # B 커밋 전에 C가 들어온다
+        assert "B의 글" in str(room_c.doc.get("c", type=XmlFragment))
+        store.held[1].set()
+        await asyncio.wait_for(leave_b, 1)
+        assert "A의 글" in _text(store.state) and "B의 글" in _text(store.state)
+    finally:
+        await _settle(mgr, store, leave_a, leave_b)
+
+
+async def test_rest_write_during_last_leave_save_is_kept(monkeypatch):
+    # 마지막 퇴장 저장이 스냅샷을 뜨고 save를 기다리는 사이, 새 연결 C가 들어와 있고 REST 쓰기
+    # (apply_external_mutation)가 라이브 방에 적용된다. 이 쓰기가 버전을 올리지 않으면 저장이 끝날 때 dirty가
+    # 내려가고, C가 30초 안에 나가면 REST가 걸어 둔 debounce도 취소돼 마지막 저장을 건너뛰어 사라진다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, c = FakeWS(), FakeWS()
+    await mgr.join(9, 1, a, None)
+    await mgr.handle_message(9, a, _update_frame("a의 글"))
+    store.save_gate.clear()
+    leaving = asyncio.create_task(mgr.leave(9, 1, a))
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)   # 퇴장 저장이 스냅샷을 뜨고 save 대기
+        room = await mgr.join(9, 3, c, None)
+        await mgr.apply_external_mutation(9, _write_hi, db_session=None)
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        assert room.dirty is True  # 저장 스냅샷에 없는 REST 쓰기가 남아 있다
+        await asyncio.wait_for(mgr.leave(9, 3, c), 1)
+        assert "hi" in _text(store.state)
+    finally:
+        await _settle(mgr, store, leaving)
+
+
+async def test_persist_all_waits_for_inflight_save_and_keeps_latest(monkeypatch):
+    # 서버 종료 저장(persist_all)이 진행 중인 퇴장 저장과 겹친다. 마지막 퇴장 저장이 옛 스냅샷으로 UPDATE를
+    # 기다리는 사이 새 연결 C가 편집했고, 그때 서버가 종료된다. persist_all이 방 락(_save)을 거치지 않으면 C 편집이
+    # 든 새 스냅샷이 먼저, 옛 퇴장 저장이 나중에 커밋돼 C 편집이 사라진다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, c = FakeWS(), FakeWS()
+    await mgr.join(10, 1, a, None)
+    await mgr.handle_message(10, a, _update_frame("a의 글"))
+    store.hold_each_save()
+    leaving = asyncio.create_task(mgr.leave(10, 1, a))
+    persisting = None
+    try:
+        await asyncio.wait_for(store.wait_held(1), 1)   # 퇴장 저장이 옛 스냅샷으로 UPDATE 전에 멈춤
+        room = await mgr.join(10, 3, c, None)
+        await mgr.handle_message(10, c, _update_frame("c의 글"))
+        persisting = asyncio.create_task(mgr.persist_all())
+        for _ in range(3):
+            await asyncio.sleep(0)                      # persist_all 저장이 갈 수 있는 데까지 가게 한다
+        await asyncio.wait_for(_finish_newest_first(store, leaving, persisting), 1)
+        assert "a의 글" in _text(store.state) and "c의 글" in _text(store.state)
+        assert room.dirty is False  # persist_all도 _save를 거쳐 커밋 뒤 dirty를 내린다
+    finally:
+        await _settle(mgr, store, leaving, persisting)
+
+
+async def test_awareness_is_echoed_to_sender():
+    # y-websocket은 30초간 아무것도 못 받으면 스스로 끊는다 — 혼자여도 자기 awareness는 돌려받아야 한다.
+    mgr = cm.CollabManager(FakeStore())
+    a = FakeWS()
+    await mgr.join(6, 1, a, None)
+    frame = _awareness_frame(111)
+    await mgr.handle_message(6, a, frame)
+    assert a.sent == [frame]
+
+
+async def test_awareness_not_echoed_outside_room():
+    # 방에서 빠진 연결에는 돌려주지 않는다 — 계속 조용해야 30초 뒤 스스로 재연결해 복구된다.
+    mgr = cm.CollabManager(FakeStore())
+    a, ghost = FakeWS(), FakeWS()
+    await mgr.join(6, 1, a, None)
+    frame = _awareness_frame(222)
+    await mgr.handle_message(6, ghost, frame)
+    assert ghost.sent == []
+    assert a.sent == [frame]

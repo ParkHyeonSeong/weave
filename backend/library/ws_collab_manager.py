@@ -62,7 +62,7 @@ def _encode_update(doc: Doc, sv: bytes = None) -> bytes:
 
 class Room:
     __slots__ = ('room_id', 'doc', 'connections', 'awareness_states',
-                 'persist_task', 'dirty')
+                 'persist_task', 'dirty', 'version', 'save_lock', 'saves_pending')
 
     def __init__(self, room_id: int, doc: Doc):
         self.room_id = room_id
@@ -71,6 +71,9 @@ class Room:
         self.awareness_states: dict[int, bytes] = {}
         self.persist_task: asyncio.Task | None = None
         self.dirty = False
+        self.version = 0  # 편집마다 1씩 오른다 — 저장 도중 편집이 있었는지 _save가 판별한다
+        self.save_lock = asyncio.Lock()  # 같은 방 저장을 한 번에 하나씩 돌린다(스냅샷 순서 = 커밋 순서)
+        self.saves_pending = 0  # 락을 기다리거나 저장 중인 _save 수 — 0이 아니면 leave가 방을 지우지 않는다
 
 
 class CollabManager:
@@ -86,10 +89,13 @@ class CollabManager:
         """방 입장: YDoc 로드, 클라이언트 등록"""
         if room_id not in self.rooms:
             yjs_state = await self.store.get_yjs_state(room_id, db_session)
-            doc = Doc()
-            if yjs_state:
-                doc.apply_update(yjs_state)
-            self.rooms[room_id] = Room(room_id, doc)
+            # 로드를 기다리는 사이 같은 방에 먼저 들어온 연결이 방을 만들었을 수 있다 — 덮어쓰면 그
+            # 연결이 dict에서 빠진 방에 남아 상대 편집을 못 받는다(apply_external_mutation과 같은 재확인).
+            if room_id not in self.rooms:
+                doc = Doc()
+                if yjs_state:
+                    doc.apply_update(yjs_state)
+                self.rooms[room_id] = Room(room_id, doc)
 
         room = self.rooms[room_id]
         room.connections.append((user_id, ws))
@@ -118,10 +124,16 @@ class CollabManager:
             if room.persist_task and not room.persist_task.done():
                 room.persist_task.cancel()
 
+            # 취소한 debounce 저장이 저장·커밋 도중이었어도 _save는 커밋이 끝난 뒤에만 dirty를
+            # 내리므로 dirty가 남아 있다 — 여기서 마지막으로 저장한다.
             if room.dirty:
-                async with db.transactional_session() as session:
-                    await self._persist(room, session)
+                await self._save(room)
 
+            # 저장을 기다리는 사이 새 연결이 들어왔거나 뒤이은 저장(다른 leave 등)이 아직 남아 있으면
+            # 방을 살려 둔다 — 지우면 그 연결의 편집이 버려지거나, 그 저장이 커밋되기 전에 들어온 연결이
+            # DB의 옛 상태로 새 방을 열어 덮어쓴다. 같은 방의 다른 leave가 이미 지웠을 수도 있다.
+            if room.connections or room.saves_pending or self.rooms.get(room_id) is not room:
+                return
             del self.rooms[room_id]
             logger.info("Room %d closed", room_id)
 
@@ -170,6 +182,7 @@ class CollabManager:
                 update = data[offset:offset + update_len]
                 room.doc.apply_update(update)
                 room.dirty = True
+                room.version += 1
                 self._schedule_persist(room)
             except Exception as e:
                 logger.warning("Failed to apply update to room %d: %s",
@@ -180,7 +193,13 @@ class CollabManager:
 
     async def _handle_awareness(self, room: Room, sender_ws: WebSocket,
                                 data: bytes):
-        """Awareness update relay + storage"""
+        """Awareness update relay + storage.
+
+        보낸 연결에게도 돌려준다(y-websocket 표준 서버와 같은 동작). y-websocket 클라이언트는
+        30초간 아무 메시지도 못 받으면 끊고 재연결하는데, 방에 혼자면 받을 것이 15초마다 갱신되는
+        자기 awareness뿐이다. room.connections 기준으로 보내므로 방에서 빠진 연결은 계속 조용해
+        스스로 재연결해 복구된다.
+        """
         try:
             if len(data) > 2:
                 _, offset = _read_var_uint(data, 1)
@@ -191,7 +210,7 @@ class CollabManager:
         except Exception:
             pass
 
-        await self._broadcast(room, sender_ws, data)
+        await self._broadcast(room, None, data)
 
     async def _send_raw(self, ws: WebSocket, data: bytes):
         try:
@@ -201,7 +220,7 @@ class CollabManager:
 
     async def _broadcast(self, room: Room, sender_ws: WebSocket,
                          data: bytes):
-        """발신자 제외 broadcast"""
+        """sender_ws를 제외하고 broadcast(None이면 방 전원)"""
         dead = []
         for uid, ws in room.connections:
             if ws == sender_ws:
@@ -225,29 +244,45 @@ class CollabManager:
     async def _debounced_persist(self, room: Room):
         try:
             await asyncio.sleep(PERSIST_DEBOUNCE_SECS)
-            async with db.transactional_session() as session:
-                await self._persist(room, session)
+            await self._save(room)
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error("Failed to persist room %d: %s", room.room_id, e)
 
-    async def _persist(self, room: Room, db_session):
+    async def _save(self, room: Room):
+        """room을 자기 트랜잭션으로 저장한다. 같은 방 저장은 save_lock으로 한 번에 하나씩 돌고
+        스냅샷을 락 안에서 뜨므로, 나중에 시작한 저장이 더 최신 스냅샷을 나중에 커밋한다.
+        dirty는 커밋까지 끝났고 그 사이 새 편집이 없었을 때만 내린다. 저장·커밋 도중 취소(leave,
+        새 편집의 debounce 재예약)되거나 _persist가 실패하면 dirty를 그대로 둔다."""
+        room.saves_pending += 1
+        try:
+            async with room.save_lock:
+                async with db.transactional_session() as session:
+                    version = room.version
+                    saved = await self._persist(room, session)
+                if saved and room.version == version:
+                    room.dirty = False
+        finally:
+            room.saves_pending -= 1
+
+    async def _persist(self, room: Room, db_session) -> bool:
+        """현재 doc 전체를 저장한다. dirty는 건드리지 않는다(_save가 커밋 뒤에 판단)."""
         try:
             state = room.doc.get_update()
             await self.store.save_yjs_state(room.room_id, state, db_session)
-            room.dirty = False
             logger.info("Persisted room %d (%d bytes)", room.room_id, len(state))
+            return True
         except Exception as e:
             logger.error("Persist failed for room %d: %s", room.room_id, e)
+            return False
 
     async def persist_all(self):
         """서버 종료 시 모든 활성 room 영속화"""
         for room_id, room in list(self.rooms.items()):
             if room.dirty:
                 try:
-                    async with db.transactional_session() as session:
-                        await self._persist(room, session)
+                    await self._save(room)
                 except Exception as e:
                     logger.error("Shutdown persist failed for room %d: %s",
                                  room_id, e)
@@ -278,6 +313,7 @@ class CollabManager:
         msg = _encode_update(room.doc, before)
         await self._broadcast(room, None, msg)
         room.dirty = True
+        room.version += 1
         self._schedule_persist(room)
 
     async def snapshot_state(self, room_id: int, db_session) -> bytes | None:
