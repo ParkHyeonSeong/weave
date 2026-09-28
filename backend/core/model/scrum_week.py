@@ -46,9 +46,12 @@ async def find_by_id(week_id: int, db: AsyncSession):
     return dict(row._mapping) if row else None
 
 
-async def get_yjs_state(week_id: int, db: AsyncSession) -> bytes | None:
-    result = await db.execute(text("""
-        SELECT yjs_state FROM scrum_week WHERE week_id = :week_id
+async def get_yjs_state(week_id: int, db: AsyncSession, for_update: bool = False) -> bytes | None:
+    # for_update: 협업 방 입장과 방 없는 REST 쓰기가 이 행을 잠그고 읽는다 — 앞선 쓰기가 커밋될 때까지 기다렸다가
+    # 그 결과를 읽어 서로의 쓰기를 덮지 않는다(library/ws_collab_manager.py). 잠금은 호출 세션의 커밋 때 풀린다.
+    lock = " FOR UPDATE" if for_update else ""
+    result = await db.execute(text(f"""
+        SELECT yjs_state FROM scrum_week WHERE week_id = :week_id{lock}
     """), {'week_id': week_id})
     row = result.fetchone()
     return row[0] if row else None

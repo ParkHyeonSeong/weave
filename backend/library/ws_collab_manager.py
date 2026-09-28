@@ -77,7 +77,7 @@ class Room:
 
 
 class CollabManager:
-    """Yjs 협업 룸 매니저. store는 async get_yjs_state(room_id, db) /
+    """Yjs 협업 룸 매니저. store는 async get_yjs_state(room_id, db, for_update=False) /
     save_yjs_state(room_id, state, db)를 제공한다. 매니저마다 rooms가 격리됨."""
 
     def __init__(self, store):
@@ -88,7 +88,10 @@ class CollabManager:
                    db_session) -> Room:
         """방 입장: YDoc 로드, 클라이언트 등록"""
         if room_id not in self.rooms:
-            yjs_state = await self.store.get_yjs_state(room_id, db_session)
+            # 행을 잠그고 읽는다: 방이 없을 때의 REST 쓰기(apply_external_mutation)가 아직 커밋 전이면 그 커밋을
+            # 기다렸다가 결과를 읽는다 — 커밋 전 상태로 방을 열면 이 방이 저장될 때 그 쓰기를 덮는다. 잠금은 호출부
+            # 세션이 커밋할 때(입장 직후) 풀린다.
+            yjs_state = await self.store.get_yjs_state(room_id, db_session, for_update=True)
             # 로드를 기다리는 사이 같은 방에 먼저 들어온 연결이 방을 만들었을 수 있다 — 덮어쓰면 그
             # 연결이 dict에서 빠진 방에 남아 상대 편집을 못 받는다(apply_external_mutation과 같은 재확인).
             if room_id not in self.rooms:
@@ -121,13 +124,22 @@ class CollabManager:
                      user_id, room_id, len(room.connections))
 
         if not room.connections:
-            if room.persist_task and not room.persist_task.done():
-                room.persist_task.cancel()
-
-            # 취소한 debounce 저장이 저장·커밋 도중이었어도 _save는 커밋이 끝난 뒤에만 dirty를
-            # 내리므로 dirty가 남아 있다 — 여기서 마지막으로 저장한다.
-            if room.dirty:
+            # 연결이 없는 동안 걸린 debounce를 끊고 dirty면 저장한다. 취소한 debounce 저장이 저장·커밋 도중이었어도
+            # _save는 커밋이 끝난 뒤에만 dirty를 내리므로 dirty가 남아 있다. 저장을 기다리는 사이 REST 쓰기
+            # (apply_external_mutation)가 이 방에 들어오면 dirty가 다시 서고 debounce가 새로 걸리므로 그것까지
+            # 저장한다 — 남겨 두면 닫힌 방의 debounce만 그 쓰기를 들고 있다가, 서버가 먼저 내려가면 사라지거나
+            # 나중에 옛 문서로 저장해 그사이 새로 열린 방의 편집을 덮는다.
+            while not room.connections:
+                if room.persist_task and not room.persist_task.done():
+                    room.persist_task.cancel()
+                if not room.dirty:
+                    break
+                version = room.version
                 await self._save(room)
+                if room.saves_pending:
+                    break  # 뒤이은 저장(보통 다른 leave)이 더 새 스냅샷으로 저장하고, 그 leave가 이어서 판단한다
+                if room.dirty and room.version == version:
+                    break  # 저장 실패(DB 장애) — 지금처럼 다시 시도하지 않는다
 
             # 저장을 기다리는 사이 새 연결이 들어왔거나 뒤이은 저장(다른 leave 등)이 아직 남아 있으면
             # 방을 살려 둔다 — 지우면 그 연결의 편집이 버려지거나, 그 저장이 커밋되기 전에 들어온 연결이
@@ -296,10 +308,12 @@ class CollabManager:
         """
         room = self.rooms.get(room_id)
         if room is None:
-            # 활성 룸 없음: DB state 로드 → 변경 → 저장. get_yjs_state await 동안 WS
-            # 클라이언트가 join해 룸이 생길 수 있으므로, 저장 직전 다시 확인해 그 경우
-            # 라이브 경로로 합류시킨다(전체 doc 덮어쓰기로 인한 WS 편집 유실 방지).
-            state = await self.store.get_yjs_state(room_id, db_session)
+            # 활성 룸 없음: DB state 로드 → 변경 → 저장. 로드는 행을 잠근다. 잠금은 요청 세션이 커밋할 때(라우트)
+            # 풀리므로, 같은 문서의 다른 REST 쓰기나 방 입장은 이 쓰기가 커밋된 뒤의 상태를 읽는다 — 동시에 온 쓰기
+            # 두 개가 같은 옛 상태 위에 써서 나중 커밋이 앞 쓰기를 덮지 않는다. 로드 await 동안 WS 클라이언트가 join해
+            # 룸이 생길 수 있으므로, 저장 직전 다시 확인해 그 경우 라이브 경로로 합류시킨다(전체 doc 덮어쓰기로 인한
+            # WS 편집 유실 방지).
+            state = await self.store.get_yjs_state(room_id, db_session, for_update=True)
             room = self.rooms.get(room_id)
             if room is None:
                 doc = Doc()
@@ -310,11 +324,14 @@ class CollabManager:
                 return
         before = room.doc.get_state()
         mutate(room.doc)
-        msg = _encode_update(room.doc, before)
-        await self._broadcast(room, None, msg)
+        # 문서를 바꾼 직후, 첫 await(전송) 전에 dirty·버전·저장 예약을 처리한다(_handle_sync와 같은 순서). 느린 연결로
+        # 전송을 기다리는 사이 마지막 연결이 나가면 leave가 dirty를 보고 이 변경까지 저장한 뒤 방을 닫고, 옛 스냅샷으로
+        # 진행 중이던 저장은 버전이 바뀐 것을 보고 dirty를 내리지 않는다. 전송 뒤에는 방을 건드리지 않으므로, 그사이
+        # 닫힌 방 객체에 늦은 저장 예약이 생기지 않는다.
         room.dirty = True
         room.version += 1
         self._schedule_persist(room)
+        await self._broadcast(room, None, _encode_update(room.doc, before))
 
     async def snapshot_state(self, room_id: int, db_session) -> bytes | None:
         """현재 yjs_state: 활성 룸이면 인메모리 doc(최신), 아니면 DB."""
@@ -326,7 +343,8 @@ class CollabManager:
 
 class CanvasPageStore:
     """캔버스 페이지 yjs_state store (기존 동작 보존)."""
-    async def get_yjs_state(self, room_id, db_session):
+    async def get_yjs_state(self, room_id, db_session, for_update=False):
+        # 캔버스는 방 밖에서 yjs_state를 쓰는 경로(REST)가 없어 행을 잠그지 않는다.
         return await canvas_page_model.get_yjs_state(room_id, db_session)
 
     async def save_yjs_state(self, room_id, state, db_session):
@@ -335,8 +353,8 @@ class CanvasPageStore:
 
 class ScrumWeekStore:
     """스크럼 주(週) yjs_state store."""
-    async def get_yjs_state(self, room_id, db_session):
-        return await scrum_week_model.get_yjs_state(room_id, db_session)
+    async def get_yjs_state(self, room_id, db_session, for_update=False):
+        return await scrum_week_model.get_yjs_state(room_id, db_session, for_update)
 
     async def save_yjs_state(self, room_id, state, db_session):
         await scrum_week_model.save_yjs_state(room_id, state, db_session)
@@ -344,8 +362,8 @@ class ScrumWeekStore:
 
 class ScrumRetroStore:
     """스크럼 회고 yjs_state store."""
-    async def get_yjs_state(self, room_id, db_session):
-        return await scrum_retro_model.get_yjs_state(room_id, db_session)
+    async def get_yjs_state(self, room_id, db_session, for_update=False):
+        return await scrum_retro_model.get_yjs_state(room_id, db_session, for_update)
 
     async def save_yjs_state(self, room_id, state, db_session):
         await scrum_retro_model.save_yjs_state(room_id, state, db_session)

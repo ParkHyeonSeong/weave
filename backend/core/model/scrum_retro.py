@@ -110,8 +110,10 @@ async def list_by_board(board_id: int, db: AsyncSession):
     return [dict(r._mapping) for r in res.fetchall()]
 
 
-async def get_yjs_state(retro_id: int, db: AsyncSession) -> bytes | None:
-    row = (await db.execute(text("SELECT yjs_state FROM scrum_retro WHERE retro_id=:r"),
+async def get_yjs_state(retro_id: int, db: AsyncSession, for_update: bool = False) -> bytes | None:
+    # for_update: scrum_week.get_yjs_state와 같다(방 입장·방 없는 REST 쓰기가 행을 잠그고 읽는다).
+    lock = " FOR UPDATE" if for_update else ""
+    row = (await db.execute(text(f"SELECT yjs_state FROM scrum_retro WHERE retro_id=:r{lock}"),
                             {'r': retro_id})).fetchone()
     return row[0] if row else None
 

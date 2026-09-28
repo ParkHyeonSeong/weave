@@ -11,7 +11,7 @@ class FakeStore:
     def __init__(self, initial=None):
         self._state = initial
         self.saved = None
-    async def get_yjs_state(self, room_id, db):
+    async def get_yjs_state(self, room_id, db, for_update=False):
         return self._state
     async def save_yjs_state(self, room_id, state, db):
         self.saved = state
@@ -146,7 +146,7 @@ class TxStore:
         async with self._held_changed:
             await self._held_changed.wait_for(lambda: len(self.held) >= n)
 
-    async def get_yjs_state(self, room_id, db):
+    async def get_yjs_state(self, room_id, db, for_update=False):
         await self.load_gate.wait()
         return self.state
 
@@ -460,3 +460,196 @@ async def test_awareness_not_echoed_outside_room():
     await mgr.handle_message(6, ghost, frame)
     assert ghost.sent == []
     assert a.sent == [frame]
+
+
+# -- REST 쓰기·방 입장의 행 잠금 계약 (실제 락 동작은 test_scrum_rest_write_lock.py) ----------------
+
+class LockRecordingStore(FakeStore):
+    def __init__(self):
+        super().__init__()
+        self.loads = []
+
+    async def get_yjs_state(self, room_id, db, for_update=False):
+        self.loads.append(for_update)
+        return self._state
+
+
+async def test_room_open_and_roomless_rest_write_lock_the_row():
+    # 방이 없을 때의 REST 쓰기는 커밋 전까지 행을 잠그고, 방 입장은 그 커밋을 기다렸다 읽어야 한다(실제 락 동작은
+    # test_scrum_rest_write_lock.py가 Postgres로 확인한다). 읽기 전용 스냅샷은 잠그지 않는다.
+    store = LockRecordingStore()
+    mgr = cm.CollabManager(store)
+    await mgr.apply_external_mutation(20, _write_hi, db_session=None)   # 방 없음
+    await mgr.snapshot_state(20, db_session=None)
+    await mgr.join(20, 1, FakeWS(), None)
+    assert store.loads == [True, False, True]
+
+
+# -- 마지막 퇴장 저장 중 REST 쓰기 (닫힌 방에 debounce가 남지 않게) ---------------------------------
+
+async def test_rest_write_during_last_leave_save_is_saved_before_room_closes(monkeypatch):
+    # 마지막 퇴장 저장이 save를 기다리는 사이 REST 쓰기가 아직 dict에 있는 방(라이브 경로)에 들어온다. 아무도 다시
+    # 들어오지 않으면 방은 닫혀야 하지만, 그 쓰기는 닫히기 전에 저장돼야 한다 — 닫힌 방의 debounce에만 남으면
+    # 30초 안에 서버가 내려갈 때(배포) 사라진다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a = FakeWS()
+    await mgr.join(11, 1, a, None)
+    await mgr.handle_message(11, a, _update_frame("a의 글"))
+    store.save_gate.clear()
+    leaving = asyncio.create_task(mgr.leave(11, 1, a))
+    closed = None
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)   # 퇴장 저장이 스냅샷을 뜨고 save 대기
+        closed = mgr.rooms[11]
+        await mgr.apply_external_mutation(11, _write_hi, db_session=None)
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        assert 11 not in mgr.rooms
+        assert "a의 글" in _text(store.state) and "hi" in _text(store.state)
+    finally:
+        await _settle(mgr, store, leaving, closed.persist_task if closed else None)
+
+
+async def test_closed_room_debounce_does_not_overwrite_next_room(monkeypatch):
+    # 같은 순서에서 방이 닫힌 뒤 B가 새 방을 열어 편집하고 나간다. 닫힌 방에 REST 쓰기의 debounce가 남아 있으면
+    # 그것이 나중에 옛 문서(a+REST)로 저장해 B 편집을 덮는다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, b = FakeWS(), FakeWS()
+    await mgr.join(12, 1, a, None)
+    await mgr.handle_message(12, a, _update_frame("a의 글"))
+    store.save_gate.clear()
+    leaving = asyncio.create_task(mgr.leave(12, 1, a))
+    closed = None
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)
+        closed = mgr.rooms[12]
+        monkeypatch.setattr(cm, "PERSIST_DEBOUNCE_SECS", 0.05)   # REST 쓰기가 거는 debounce만 짧게
+        await mgr.apply_external_mutation(12, _write_hi, db_session=None)
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)
+        room_b = await mgr.join(12, 2, b, None)
+        assert "hi" in str(room_b.doc.get("c", type=XmlFragment))   # 닫히기 전에 저장된 REST 쓰기가 보인다
+        await mgr.handle_message(12, b, _update_frame("b의 글"))
+        await asyncio.wait_for(mgr.leave(12, 2, b), 1)
+        await asyncio.sleep(0.1)                                     # 닫힌 방의 debounce가 남았다면 이때 저장한다
+        text = _text(store.state)
+        assert "a의 글" in text and "hi" in text and "b의 글" in text
+    finally:
+        await _settle(mgr, store, leaving, closed.persist_task if closed else None)
+
+
+class FailingSaveStore(TxStore):
+    async def save_yjs_state(self, room_id, state, db):
+        await asyncio.sleep(0)   # 실제 DB처럼 한 번 양보한다(재시도가 무한 반복이면 wait_for가 끊을 수 있게)
+        raise RuntimeError("db down")
+
+
+async def test_leave_does_not_retry_forever_when_save_fails(monkeypatch):
+    # DB 장애로 저장이 실패하면 leave는 지금처럼 한 번 시도하고 끝나야 한다(재저장 되풀이가 무한 반복이면 안 된다).
+    store = FailingSaveStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a = FakeWS()
+    await mgr.join(13, 1, a, None)
+    await mgr.handle_message(13, a, _update_frame("a의 글"))
+    try:
+        await asyncio.wait_for(mgr.leave(13, 1, a), 1)
+        assert 13 not in mgr.rooms
+    finally:
+        await _settle(mgr, store)
+
+
+# -- 방이 있을 때 REST 쓰기의 전송 대기 중 퇴장 (dirty·버전·예약은 첫 await 전에) --------------------------
+
+class GatedWS(FakeWS):
+    """send_bytes가 gate가 열릴 때까지 멈추는 연결(느린 소켓) — 전송 대기 중 끼어들기를 고정한다."""
+    def __init__(self):
+        super().__init__()
+        self.gate = asyncio.Event()
+        self.waiting = asyncio.Event()
+
+    async def send_bytes(self, data):
+        self.waiting.set()
+        await self.gate.wait()
+        self.sent.append(data)
+
+
+async def test_rest_write_during_broadcast_is_saved_when_last_user_leaves(monkeypatch):
+    # 깨끗한 방에 A만 있다. REST 쓰기가 문서를 바꾸고 A에게 보내는 전송이 느린 사이 A가 나간다. dirty가 전송 뒤에야
+    # 서면 leave는 저장할 것이 없다고 보고 방을 지워, 다시 연 방에 REST 쓰기가 없다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a = GatedWS()
+    await mgr.join(14, 1, a, None)
+    rest = asyncio.create_task(mgr.apply_external_mutation(14, _write_hi, db_session=None))
+    closed = None
+    try:
+        await asyncio.wait_for(a.waiting.wait(), 1)          # REST 전송이 A에게 멈춰 있다
+        closed = mgr.rooms[14]
+        await asyncio.wait_for(mgr.leave(14, 1, a), 1)
+        assert 14 not in mgr.rooms
+        reopened = await mgr.join(14, 2, FakeWS(), None)
+        assert "hi" in str(reopened.doc.get("c", type=XmlFragment))
+    finally:
+        a.gate.set()
+        await _settle(mgr, store, rest, closed.persist_task if closed else None)
+
+
+async def test_closed_room_gets_no_late_save_after_rest_broadcast(monkeypatch):
+    # 같은 순서에서 B가 새 방을 열어 B_NEW를 쓰고 나간 뒤 REST 전송이 끝난다. 전송 뒤에 저장 예약을 만들면 닫힌 방에
+    # 예약이 생기고, 그것이 옛 문서로 저장해 B_NEW를 덮는다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, b = GatedWS(), FakeWS()
+    await mgr.join(15, 1, a, None)
+    rest = asyncio.create_task(mgr.apply_external_mutation(15, _write_hi, db_session=None))
+    closed = None
+    try:
+        await asyncio.wait_for(a.waiting.wait(), 1)
+        closed = mgr.rooms[15]
+        await asyncio.wait_for(mgr.leave(15, 1, a), 1)
+        await mgr.join(15, 2, b, None)
+        await mgr.handle_message(15, b, _update_frame("B_NEW"))
+        await asyncio.wait_for(mgr.leave(15, 2, b), 1)
+        monkeypatch.setattr(cm, "PERSIST_DEBOUNCE_SECS", 0.05)   # 닫힌 방에 늦은 예약이 생기면 곧 실행되게
+        a.gate.set()
+        await asyncio.wait_for(rest, 1)
+        await asyncio.sleep(0.1)
+        text = _text(store.state)
+        assert "B_NEW" in text and "hi" in text
+    finally:
+        a.gate.set()
+        await _settle(mgr, store, rest, closed.persist_task if closed else None)
+
+
+async def test_rest_write_during_broadcast_keeps_room_dirty_past_older_save(monkeypatch):
+    # A의 마지막 퇴장 저장이 옛 스냅샷으로 진행되는 사이 C가 들어오고, REST 쓰기가 C에게 보내는 전송에서 멈춘다.
+    # 버전이 전송 뒤에야 오르면 그 저장이 끝날 때 dirty가 내려가, C가 나갈 때 REST 쓰기를 저장하지 않는다.
+    store = TxStore()
+    monkeypatch.setattr(cm.db, "transactional_session", store.session)
+    mgr = cm.CollabManager(store)
+    a, c = FakeWS(), GatedWS()
+    await mgr.join(16, 1, a, None)
+    await mgr.handle_message(16, a, _update_frame("a의 글"))
+    store.save_gate.clear()
+    leaving = asyncio.create_task(mgr.leave(16, 1, a))
+    rest = None
+    try:
+        await asyncio.wait_for(store.saving.wait(), 1)       # 퇴장 저장이 옛 스냅샷으로 save 대기
+        room = await mgr.join(16, 3, c, None)
+        rest = asyncio.create_task(mgr.apply_external_mutation(16, _write_hi, db_session=None))
+        await asyncio.wait_for(c.waiting.wait(), 1)          # REST 전송이 C에게 멈춰 있다
+        store.save_gate.set()
+        await asyncio.wait_for(leaving, 1)                   # 옛 스냅샷 저장이 커밋됐다(C가 있어 방은 유지)
+        assert room.dirty is True                            # 저장본에 없는 REST 쓰기가 남아 있다
+        await asyncio.wait_for(mgr.leave(16, 3, c), 1)       # 전송이 끝나기 전에 C가 나간다
+        assert "hi" in _text(store.state)
+    finally:
+        c.gate.set()
+        await _settle(mgr, store, leaving, rest)
