@@ -54,7 +54,10 @@ services:
     # 서로 다른 방에 갇히고(상대 편집이 안 보임) 방마다 전체 상태로 DB를 덮어써 입력이 사라진다.
     # WEB_CONCURRENCY 같은 기본값 변경에 흔들리지 않게 --workers 1을 명시한다. 늘리려면 먼저
     # 프로세스 간 동기화(예: Redis pub/sub)가 필요하다.
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    # --ws-max-size 2097152: WebSocket 메시지 한 건의 전송 계층 상한(2MB, 개발 backend/Dockerfile CMD와 같은 값).
+    # 앱도 config.WS_MAX_MESSAGE_BYTES(2MB)로 검사하지만, 이 상한이 없으면 uvicorn 기본값 16MB까지 메모리에 다 받은
+    # 뒤에야 끊는다(SEC-20). 채팅 텍스트는 문자 수가 아니라 UTF-8 바이트로 이 상한에 걸린다.
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--ws-max-size", "2097152"]
     depends_on:
       db:
         condition: service_healthy
