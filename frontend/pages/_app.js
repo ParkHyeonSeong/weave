@@ -117,6 +117,7 @@ import "@/styles/components/track/trackSettings.scss";
 import "@/styles/components/scrum/scrum.scss";
 import "@/styles/components/shared/refPanelPageLayout.scss";
 import "@/styles/components/shared/linkHoverPopover.scss";
+import "@/styles/components/shared/collabStatusBadge.scss";
 import "@/styles/components/common/lightbox.scss";
 import "@/styles/components/layout/errorPage.scss";
 import "@/styles/components/layout/errorBoundary.scss";

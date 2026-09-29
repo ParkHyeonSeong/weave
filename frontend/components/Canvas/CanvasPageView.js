@@ -8,6 +8,8 @@ import { axios } from '@/library/_axios';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import PageMoveModal from '@/components/modal/PageMoveModal';
 import useCollabProvider from '@/library/useCollabProvider';
+import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
+import { collabStatusKey } from '@/library/collabDelivery';
 import { sanitizeHtml, sanitizeSvg } from '@/library/sanitize';
 import { applyFallbackBadges, useRefHydration } from '@/library/refHydration';
 import PresenceBar from './PresenceBar';
@@ -41,11 +43,13 @@ export default function CanvasPageView({ onRefClick }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [user, setUser] = useState(null);
+  // 'saved' | 'saving' | 'error' — HTML content REST 저장(5초 debounce)만 뜻한다. 연결·전달 상태는 따로 본다
   const [saveStatus, setSaveStatus] = useState('saved');
   const titleTimerRef = useRef(null);
   const htmlRef = useRef('');
   const contentRef = useRef(null);
   const contentTimerRef = useRef(null);
+  const contentSeqRef = useRef(0);  // 마지막 content 변경 번호 — 늦게 끝난 앞 저장이 상태를 덮지 않게
   const stickyRef = useRef(null);
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -101,7 +105,7 @@ export default function CanvasPageView({ onRefClick }) {
   }, []);
 
   // Edit 모드일 때만 WebSocket 연결
-  const { ydoc, provider, status, connectedUsers } = useCollabProvider(
+  const { ydoc, provider, status, connectedUsers, connection, pending, deliveryRef } = useCollabProvider(
     isEditing && canvasId ? Number(canvasId) : null,
     isEditing && pageId ? Number(pageId) : null,
     isEditing ? user : null
@@ -144,13 +148,6 @@ export default function CanvasPageView({ onRefClick }) {
     window.addEventListener('canvas:page_updated', handlePageUpdate);
     return () => window.removeEventListener('canvas:page_updated', handlePageUpdate);
   }, [fetchPage, isEditing]);
-
-  // 연결 상태에 따른 saveStatus 업데이트
-  useEffect(() => {
-    if (!isEditing) return;
-    if (status === 'disconnected') setSaveStatus('offline');
-    else if (status === 'connected') setSaveStatus('saved');
-  }, [status, isEditing]);
 
   // 읽기 모드에서 수식 렌더링 (KaTeX 우선, 미지원 문법은 MathJax 폴백)
   useMathHydration(contentRef, [page?.content], !isEditing && page?.type !== 'typst');
@@ -269,30 +266,46 @@ export default function CanvasPageView({ onRefClick }) {
     }, 1000);
   };
 
-  // HTML content 변경 시 debounced REST PATCH
+  // HTML content 변경 시 debounced REST PATCH. 바뀐 순간부터 "저장 중" — 5초를 기다리는 동안 "저장됨"으로 두지 않는다
   const handleHtmlChange = (html) => {
     htmlRef.current = html;
+    setSaveStatus('saving');
+    const seq = ++contentSeqRef.current;
     if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
     contentTimerRef.current = setTimeout(async () => {
-      setSaveStatus('saving');
       try {
         await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: htmlRef.current });
-        setSaveStatus('saved');
+        if (seq === contentSeqRef.current) setSaveStatus('saved');   // 그사이 새 변경이 있으면 그 저장이 정한다
       } catch {
-        setSaveStatus('offline');
+        if (seq === contentSeqRef.current) setSaveStatus('error');
       }
     }, 5000);
   };
 
   // Edit 모드 종료
   const handleCloseEdit = useCallback(async () => {
-    // 남은 content 즉시 저장
-    if (htmlRef.current) {
-      try {
-        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: htmlRef.current });
-      } catch {}
+    // 서버 적용이 확인되지 않은 입력이 있으면 먼저 묻는다(취소하면 아무것도 바꾸지 않는다). 판단은 늘 추적기의 최신값
+    // (deliveryRef)으로 한다 — 이 함수는 저장을 기다린 뒤에도 이어지므로, 렌더 때 받은 pending은 그사이의 연결 끊김·
+    // 새 입력을 모른다. ⌘S도 여기로 온다.
+    const unconfirmed = () => deliveryRef.current.pending;
+    let askedAt = null;   // 확인을 받은 시점의 내용 — 그 뒤 새 입력이 생겼을 때만 파기 직전에 다시 묻는다
+    if (unconfirmed()) {
+      if (!window.confirm(t('collab.leaveConfirm'))) return;
+      askedAt = htmlRef.current;
     }
-    if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
+
+    // 남은 content 즉시 저장. 저장을 기다리는 사이 바뀐 내용은 한 번 더 저장한다(닫기 전 마지막 내용)
+    let saved = null;
+    let saveFailed = false;   // 마지막 저장 시도가 실패했나
+    for (let i = 0; i < 2 && htmlRef.current && htmlRef.current !== saved; i++) {
+      saved = htmlRef.current;
+      try {
+        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: saved });
+        saveFailed = false;
+      } catch {
+        saveFailed = true;
+      }
+    }
 
     // 남은 title 즉시 저장
     if (titleTimerRef.current) {
@@ -305,10 +318,21 @@ export default function CanvasPageView({ onRefClick }) {
       }
     }
 
+    // 문서를 파기하기 직전(이 아래로는 await가 없다)에 최신 상태로 다시 판단한다: 저장을 기다리는 사이 연결이 끊기고
+    // 확인되지 않은 새 입력이 생겼으면 묻는다. 취소하면 편집기·새 입력·그 입력의 저장 예약(debounce)을 그대로 둔다.
+    if (unconfirmed() && htmlRef.current !== askedAt && !window.confirm(t('collab.leaveConfirm'))) return;
+    if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
+    // 저장을 시도한 닫기만 다음 편집의 문구를 정한다(편집기가 들어올 때 변경을 알리지 않으면 새 입력 전까지 그대로
+    // 보인다): 성공 → saved, 실패 → error. 번호를 넘겨, 닫기 전에 날아간 저장이 늦게 끝나도 그 결과를 덮지 않게 한다.
+    // 저장 요청이 없던 닫기는 문구를 바꾸지 않는다 — 앞선 저장 실패를 "저장됨"으로 가리지 않는다.
+    if (saved !== null) {
+      contentSeqRef.current++;
+      setSaveStatus(saveFailed ? 'error' : 'saved');
+    }
     htmlRef.current = '';
     setIsEditing(false);
     fetchPage();
-  }, [canvasId, pageId, editTitle, page?.title, fetchPage]);
+  }, [canvasId, pageId, editTitle, page?.title, fetchPage, deliveryRef, t]);
 
   // 너비 모드 토글
   const toggleWideMode = async () => {
@@ -535,9 +559,14 @@ export default function CanvasPageView({ onRefClick }) {
                  status === 'connecting' ? <Loader size={14} className="CanvasPageView__StatusSpin" /> :
                  <WifiOff size={14} />}
               </span>
-              <span className="CanvasPageView__SaveStatus">
-                {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.offline')}
-              </span>
+              {/* 연결·전달이 확인되기 전에는 저장 상태를 말하지 않는다 — 연결됐다는 사실은 저장의 근거가 아니다 */}
+              {collabStatusKey(connection, pending) ? (
+                <CollabStatusBadge connection={connection} pending={pending} />
+              ) : (
+                <span className="CanvasPageView__SaveStatus">
+                  {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.saveFailed')}
+                </span>
+              )}
             </div>
             <div className="CanvasPageView__Actions">
               <PresenceBar users={connectedUsers} currentUserId={user?.user_id} />

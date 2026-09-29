@@ -16,6 +16,7 @@ import { isoWeekOfDateOnly, weekDates, getISOWeek } from '@/library/isoWeek';
 import { useWorkspaceDateFormat } from '@/hooks/useDateFormat';
 import { useWorkspaceSettings } from '@/library/workspaceSettings';
 import NavLink from '@/components/common/NavLink';
+import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
 
 const getProfile = () => {
   try { return JSON.parse(sessionStorage.getItem('profile') || '{}'); } catch { return {}; }
@@ -120,7 +121,7 @@ export default function ScrumBoardView() {
     return () => { alive = false; };
   }, [boardId, tab, anchorDate, workspaceReady]);
 
-  const { ydoc, connectedUsers, status } = useScrumWeekCollab(boardId, weekId, user);
+  const { ydoc, connectedUsers, status, connection, pending } = useScrumWeekCollab(boardId, weekId, user);
 
   if (err) return <div className="ScrumBoard__Error">{err}</div>;
   if (!board) return <div className="ScrumBoard__Loading">{t('common.state.loading')}</div>;
@@ -187,6 +188,8 @@ export default function ScrumBoardView() {
           </div>
         )}
         <div className="ScrumBoard__Presence">
+          {/* 주간 문서의 연결·전달 안내 — 끊김·전송 미확인은 편집 중인 사람이 알아야 한다(아바타만으로는 알 수 없다) */}
+          {tab === 'board' && ydoc && <CollabStatusBadge connection={connection} pending={pending} />}
           {tab === 'board' && status === 'connected' && connectedUsers.length > 0 && (
             <span className="ScrumBoard__Live">
               {connectedUsers.slice(0, 5).map((u) => (

@@ -1,0 +1,18 @@
+@use '../../variables' as *;
+
+// 협업 연결·전달 안내(components/shared/CollabStatusBadge). 처음 연결 중은 조용히, 끊김·전송 미확인은 경고색 배경.
+// 경고 배경 위 글자는 --color-warning-ink(홈 공용 배지와 같은 조합, 다크 테마 값 있음).
+.CollabStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: $font-size-xs;
+  line-height: 1.4;
+  color: $color-text-tertiary;
+
+  &--warn {
+    padding: 2px $space-2;
+    border-radius: $radius-md;
+    background: $color-warning-bg;
+    color: var(--color-warning-ink);
+  }
+}

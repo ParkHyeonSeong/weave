@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 import { getWsBaseURL } from '@/library/_axios';
 import { attachWsTokenRefresh } from '@/library/wsTokenRefresh';
+import { attachCollabDelivery } from '@/library/collabDelivery';
 import { userColor as avatarColor } from '@/library/userAvatar';
 
 /**
@@ -10,13 +11,18 @@ import { userColor as avatarColor } from '@/library/userAvatar';
  * @param {number} canvasId
  * @param {number} pageId
  * @param {object} user - { user_id, username, avatar_url?, avatar_color? }
- * @returns {{ ydoc, provider, status, connectedUsers }}
+ * @returns {{ ydoc, provider, status, connectedUsers, userColor, connection, pending, deliveryRef }}
  */
 export default function useCollabProvider(canvasId, pageId, user) {
   const [status, setStatus] = useState('connecting');
   const [connectedUsers, setConnectedUsers] = useState([]);
   const [ydoc, setYdoc] = useState(null);
   const [provider, setProvider] = useState(null);
+  // 연결 상태(처음 연결 중/연결됨/다시 연결 중)와 서버 적용이 확인되지 않은 편집 — collabDelivery 참고
+  const [delivery, setDelivery] = useState({ connection: 'connecting', pending: false });
+  // 같은 값의 최신본을 추적기가 바꾸는 즉시 담는다(렌더를 기다리지 않는다) — 캔버스 닫기처럼 await 뒤에 판단하는 코드가
+  // 렌더 때 받은 pending 대신 읽는다
+  const deliveryRef = useRef(delivery);
 
   // 색상: 공용 아바타 팔레트와 동일 (사용자 지정색 우선, 커서 caret과 아바타 색 일치)
   const userColor = useMemo(
@@ -41,6 +47,8 @@ export default function useCollabProvider(canvasId, pageId, user) {
     );
     // 토큰 만료 선제종료 시 refresh 완료 뒤 재연결(만료 쿠키 4001 회피)
     const detachTokenRefresh = attachWsTokenRefresh(prov);
+    // 확인 안 된 편집이 있으면 탭 닫기를 막는다
+    const detachDelivery = attachCollabDelivery(prov, doc, (next) => { deliveryRef.current = next; setDelivery(next); });
 
     // Awareness에 사용자 정보 설정 (사진은 프레즌스/커서 아바타에서 사용)
     // 구버전 세션은 profile에 avatar_url이 없을 수 있어 별도 키로 폴백
@@ -76,6 +84,7 @@ export default function useCollabProvider(canvasId, pageId, user) {
     setProvider(prov);
 
     return () => {
+      detachDelivery();
       detachTokenRefresh();
       prov.awareness.off('change', updateConnectedUsers);
       prov.disconnect();
@@ -93,5 +102,8 @@ export default function useCollabProvider(canvasId, pageId, user) {
     status,
     connectedUsers,
     userColor,
+    connection: delivery.connection,
+    pending: delivery.pending,
+    deliveryRef,
   };
 }

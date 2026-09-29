@@ -75,6 +75,7 @@
 .ScrumBoard__Tabs button.is-on { border-color:var(--color-accent-scrum); color:var(--color-accent-scrum); background:var(--color-accent-scrum-subtle); }
 
 .RetroView { display:flex; flex-direction:column; gap:12px; padding:14px 18px; overflow:auto; }
+.RetroView__Head { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
 .RetroView__Period { font-size:13px; font-weight:700; opacity:.75; }
 .RetroView__Loading,
 .RetroView__Empty { padding:24px 18px; font-size:13px; opacity:.7; }

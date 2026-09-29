@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import useScrumRetroCollab from '@/library/useScrumRetroCollab';
 import ScrumCell from './ScrumCell';
 import Avatar from '@/components/common/Avatar';
+import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
 
 const getProfile = () => { try { return JSON.parse(sessionStorage.getItem('profile') || '{}'); } catch { return {}; } };
 const COLS = [['keep', 'scrum.retro.colKeep'], ['problem', 'scrum.retro.colProblem'], ['try', 'scrum.retro.colTry']];
@@ -15,14 +16,17 @@ export default function RetroView({ boardId, members = [], retro = null, manual 
   const { t } = useTranslation();
   const user = useMemo(() => { const p = getProfile(); return p.user_id ? { user_id: p.user_id, username: p.username, avatar_url: p.avatar_url, avatar_color: p.avatar_color } : null; }, []);
 
-  const { ydoc } = useScrumRetroCollab(boardId, retro?.retro_id, user);
+  const { ydoc, connection, pending } = useScrumRetroCollab(boardId, retro?.retro_id, user);
 
   if (manual) return <div className="RetroView__Empty">{t('scrum.retro.manualNotice')}</div>;
   if (!retro || !ydoc) return <div className="RetroView__Loading">{t('scrum.retro.loading')}</div>;
 
   return (
     <div className="RetroView">
-      <div className="RetroView__Period">{t('scrum.retro.heading')}</div>
+      <div className="RetroView__Head">
+        <div className="RetroView__Period">{t('scrum.retro.heading')}</div>
+        <CollabStatusBadge connection={connection} pending={pending} />
+      </div>
       {members.map((m) => (
         <div key={m.user_id} className="RetroMember">
           <div className="RetroMember__Head">

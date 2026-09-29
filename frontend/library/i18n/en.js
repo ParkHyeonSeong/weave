@@ -160,6 +160,16 @@ const en = {
       removeLink: 'Remove link',
     },
   },
+  // 실시간 협업 문서(스크럼 주간·회고, 캔버스)의 연결·전달 안내 — library/collabDelivery.js collabStatusKey
+  collab: {
+    status: {
+      connecting: 'Connecting…',
+      reconnecting: 'Connection lost · Reconnecting…',
+      unconfirmed: 'Changes not yet confirmed · Keep this page open until it reconnects',
+      confirming: 'Confirming your changes…',
+    },
+    leaveConfirm: "Some changes haven't been confirmed by the server yet. If you close now, they may be lost. Close anyway?",
+  },
   notifications: {
     // 서버 알림 본문 — backend/library/messages.py의 notifications.* 와 키가 1:1이어야 한다
     // (같은 알림을 Web Push는 서버가, 목록은 프런트가 렌더하기 때문).
@@ -413,7 +423,7 @@ const en = {
     lastUpdated: 'Last updated {{date}}',
     status: {
       saved: 'Saved',
-      offline: 'Offline',
+      saveFailed: "Couldn't save",
     },
     connecting: 'Connecting…',
     emptyContent: 'No content yet. Click Edit to start writing.',

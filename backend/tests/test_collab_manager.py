@@ -653,3 +653,19 @@ async def test_rest_write_during_broadcast_keeps_room_dirty_past_older_save(monk
     finally:
         c.gate.set()
         await _settle(mgr, store, leaving, rest)
+
+
+# -- 클라이언트 전달 확인(frontend/library/collabDelivery.js)이 기대는 서버 계약 ------------------------------
+
+async def test_sync_step1_is_answered_with_step2_then_step1_to_sender_only():
+    """클라이언트는 확인용 step 1을 보낸 뒤 서버 step 1 답을 받으면, 그 전에 보낸 편집이 서버 문서에 적용됐다고 본다
+    (연결마다 메시지를 순서대로 처리하므로). 그래서 서버는 step 1마다 보낸 연결에만 step 2 → step 1 순서로 답하고,
+    step 1을 다른 연결로 중계하지 않아야 한다."""
+    mgr = cm.CollabManager(FakeStore())
+    a, b = FakeWS(), FakeWS()
+    await mgr.join(1, 1, a, db_session=None)
+    await mgr.join(1, 2, b, db_session=None)
+    sv = Doc().get_state()
+    await mgr.handle_message(1, a, bytes([cm.MSG_SYNC, cm.SYNC_STEP1]) + cm._write_var_uint(len(sv)) + sv)
+    assert [m[:2] for m in a.sent] == [bytes([cm.MSG_SYNC, cm.SYNC_STEP2]), bytes([cm.MSG_SYNC, cm.SYNC_STEP1])]
+    assert b.sent == []

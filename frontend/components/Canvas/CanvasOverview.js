@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import { Pencil, X, Wifi, WifiOff, Loader, Copy } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import useCollabProvider from '@/library/useCollabProvider';
+import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
+import { collabStatusKey } from '@/library/collabDelivery';
 import { sanitizeHtml } from '@/library/sanitize';
 import { applyFallbackBadges, useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
@@ -24,9 +26,11 @@ export default function CanvasOverview() {
   const [overview, setOverview] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState(null);
+  // 'saved' | 'saving' | 'error' — HTML content REST 저장(5초 debounce)만 뜻한다. 연결·전달 상태는 따로 본다
   const [saveStatus, setSaveStatus] = useState('saved');
   const htmlRef = useRef('');
   const contentTimerRef = useRef(null);
+  const contentSeqRef = useRef(0);  // 마지막 content 변경 번호 — 늦게 끝난 앞 저장이 상태를 덮지 않게
   const contentRef = useRef(null);
 
   // Header appearance popover
@@ -79,17 +83,11 @@ export default function CanvasOverview() {
   }, [canvasId]);
 
   // Edit 모드일 때만 WebSocket 연결
-  const { ydoc, provider, status, connectedUsers } = useCollabProvider(
+  const { ydoc, provider, status, connectedUsers, connection, pending, deliveryRef } = useCollabProvider(
     isEditing && canvasId ? Number(canvasId) : null,
     isEditing && overview?.page_id ? overview.page_id : null,
     isEditing ? user : null
   );
-
-  useEffect(() => {
-    if (!isEditing) return;
-    if (status === 'disconnected') setSaveStatus('offline');
-    else if (status === 'connected') setSaveStatus('saved');
-  }, [status, isEditing]);
 
   // 읽기 모드에서 레퍼런스 클릭 핸들러 (task, doc, issue)
   useEffect(() => {
@@ -148,17 +146,18 @@ export default function CanvasOverview() {
 
   const handleHtmlChange = (html) => {
     htmlRef.current = html;
+    setSaveStatus('saving');
+    const seq = ++contentSeqRef.current;
     if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
     contentTimerRef.current = setTimeout(async () => {
       if (!overview) return;
-      setSaveStatus('saving');
       try {
         await axios.patch(`/canvases/${canvasId}/pages/${overview.page_id}`, {
           content: htmlRef.current,
         });
-        setSaveStatus('saved');
+        if (seq === contentSeqRef.current) setSaveStatus('saved');
       } catch {
-        setSaveStatus('offline');
+        if (seq === contentSeqRef.current) setSaveStatus('error');
       }
     }, 5000);
   };
@@ -167,14 +166,35 @@ export default function CanvasOverview() {
   const handleCopyMarkdown = () => copyAsMarkdown(overview.content, buildCanvasEditorExtensions());
 
   const handleCloseEdit = async () => {
-    if (htmlRef.current) {
+    // CanvasPageView.handleCloseEdit와 같은 규칙: 확인 안 된 입력이 있으면 먼저 묻고, 남은 내용을 저장한 뒤 문서를
+    // 파기하기 직전에 추적기의 최신값(deliveryRef)으로 다시 판단한다. 취소하면 편집기·새 입력·저장 예약을 그대로 둔다.
+    const unconfirmed = () => deliveryRef.current.pending;
+    let askedAt = null;
+    if (unconfirmed()) {
+      if (!window.confirm(t('collab.leaveConfirm'))) return;
+      askedAt = htmlRef.current;
+    }
+    let saved = null;
+    let saveFailed = false;   // 마지막 저장 시도가 실패했나
+    for (let i = 0; i < 2 && htmlRef.current && htmlRef.current !== saved; i++) {
+      saved = htmlRef.current;
       try {
         await axios.patch(`/canvases/${canvasId}/pages/${overview.page_id}`, {
-          content: htmlRef.current,
+          content: saved,
         });
-      } catch {}
+        saveFailed = false;
+      } catch {
+        saveFailed = true;
+      }
     }
+    if (unconfirmed() && htmlRef.current !== askedAt && !window.confirm(t('collab.leaveConfirm'))) return;
     if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
+    // 저장을 시도한 닫기만 다음 편집의 문구를 정하고(성공 saved·실패 error), 닫기 전에 날아간 저장이 늦게 끝나도 덮지
+    // 않는다. 저장 요청이 없던 닫기는 문구를 바꾸지 않는다(CanvasPageView와 같다).
+    if (saved !== null) {
+      contentSeqRef.current++;
+      setSaveStatus(saveFailed ? 'error' : 'saved');
+    }
     htmlRef.current = '';
     setIsEditing(false);
     fetchOverview();
@@ -229,9 +249,13 @@ export default function CanvasOverview() {
                      status === 'connecting' ? <Loader size={14} className="CanvasOverview__StatusSpin" /> :
                      <WifiOff size={14} />}
                   </span>
-                  <span className="CanvasOverview__SaveStatus">
-                    {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.offline')}
-                  </span>
+                  {collabStatusKey(connection, pending) ? (
+                    <CollabStatusBadge connection={connection} pending={pending} />
+                  ) : (
+                    <span className="CanvasOverview__SaveStatus">
+                      {saveStatus === 'saved' ? t('canvas.status.saved') : saveStatus === 'saving' ? t('common.state.saving') : t('canvas.status.saveFailed')}
+                    </span>
+                  )}
                 </div>
                 <div className="CanvasOverview__OverviewActions">
                   <PresenceBar users={connectedUsers} currentUserId={user?.user_id} />

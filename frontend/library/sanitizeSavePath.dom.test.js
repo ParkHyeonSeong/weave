@@ -33,7 +33,10 @@ vi.mock('next/dynamic', () => ({
 }));
 vi.mock('@/library/useCollabProvider', () => ({
   default: (cid, pid) => ({ ydoc: cid && pid ? {} : null, provider: cid && pid ? {} : null,
-                            status: 'connected', connectedUsers: [] }),
+                            status: 'connected', connectedUsers: [],
+                            // 연결·전달 확인됨 — 닫기가 묻지 않고 저장 경로만 탄다
+                            connection: 'connected', pending: false,
+                            deliveryRef: { current: { connection: 'connected', pending: false } } }),
 }));
 vi.mock('@/library/typstCompiler', () => ({ compileToSvg: async () => '', downloadPdf: async () => {} }));
 vi.mock('@/components/Branch/Tasks/IssueEditor', async () => {

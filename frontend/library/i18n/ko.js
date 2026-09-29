@@ -158,6 +158,16 @@ const ko = {
       removeLink: '링크 삭제',
     },
   },
+  // 실시간 협업 문서(스크럼 주간·회고, 캔버스)의 연결·전달 안내 — library/collabDelivery.js collabStatusKey
+  collab: {
+    status: {
+      connecting: '연결 중…',
+      reconnecting: '연결이 끊겼어요 · 다시 연결하는 중…',
+      unconfirmed: '전송이 확인되지 않은 입력이 있어요 · 다시 연결될 때까지 이 화면을 닫지 마세요',
+      confirming: '입력 전송 확인 중…',
+    },
+    leaveConfirm: '서버가 받았는지 아직 확인되지 않은 입력이 있어요. 지금 닫으면 이 입력이 사라질 수 있어요. 그래도 닫을까요?',
+  },
   notifications: {
     // 서버 알림 본문 — backend/library/messages.py의 notifications.* 와 키가 1:1이어야 한다
     // (같은 알림을 Web Push는 서버가, 목록은 프런트가 렌더하기 때문).
@@ -411,7 +421,7 @@ const ko = {
     lastUpdated: '마지막 수정 {{date}}',
     status: {
       saved: '저장됨',
-      offline: '오프라인',
+      saveFailed: '저장 실패',
     },
     connecting: '연결 중…',
     emptyContent: '아직 내용이 없습니다. 편집을 눌러 작성해 보세요.',
