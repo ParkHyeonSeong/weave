@@ -59,6 +59,16 @@ Around them: a **Messenger** for direct and group chat, a **Home** page with wid
 ### Scrum
 - Weekly grid — one cell per member per weekday — for daily-scrum notes
 - Retrospectives (Keep / Problem / Try) created weekly, every N weeks, monthly, or by hand
+- Real-time co-editing of weekly and retrospective cells; REST and MCP cell writes also appear on an open board
+
+### Collaborative editing
+
+- Scrum and Canvas show when the connection is lost, when they are reconnecting, and when input still needs confirmation from the server. Reconnection attempts wait between retries, even if the server is down. Keep the page open until confirmation finishes
+- On desktop, unconfirmed input triggers a warning before closing or reloading the browser tab, or closing a Canvas editor with its button or `⌘S`
+- Canvas shows “Saving…” when content changes, then “Saved” or “Couldn't save” based on the save request's result. Reconnecting alone does not mark content as saved; failed saves are not automatically retried on reconnect
+- Task and issue chips pasted or dropped into Scrum cells or Canvas rich text refresh their title and status from the server. One undo removes the paste
+
+Confirmation means the server has received the collaborative edit; it is not a database-save receipt. Navigation inside the app, including switching weeks or pages, does not yet show an exit warning, so wait for confirmation before moving away. Tab-close warnings are not guaranteed on mobile, and a silent connection loss can take about 30 seconds to detect.
 
 ### Messenger
 - Direct and group chat with history, `@mentions`, file attachments, read receipts and presence
@@ -70,6 +80,7 @@ Around them: a **Messenger** for direct and group chat, a **Home** page with wid
 - Notifications in the app, and as Web Push when the browser is closed
 - `⌘K` command palette to jump to or create anything; stars and recent items
 - Home page with widgets (My Tasks, active sprints, recent, starred) whose layout is saved per user
+- Active sprints puts sprints containing your tasks first, with date ranges, your total and remaining task counts, and progress that includes subtasks
 - Public or private Branches and Canvases; browse and join the public ones
 - Archive instead of delete in every app; archived items can be restored or permanently deleted from the archive page
 - Installable as a PWA; usable on phone-width screens
@@ -131,12 +142,25 @@ On a real server the stack is different: it opens **one HTTP port on localhost**
 ```bash
 cp .env.production.example .env.production
 # set POSTGRES_PASSWORD (+ DATABASE_URL), JWT_SECRET_KEY, ENCRYPT_KEY, ALLOWED_ORIGINS, NEXT_PUBLIC_API_URL
-make prod-build      # build and start; listens on http://127.0.0.1:13000
+make prod-deploy     # build → check backend startup → deploy; listens on http://127.0.0.1:13000
 ```
+
+Use `make prod-deploy` for both the first install and updates. It includes the build and starts the new backend on a temporary database before replacing the running services. A build or startup-check failure leaves the running containers in place and restores the image tags; if restoration fails, follow the printed `RESTORE FAILED` instructions.
+
+| Command | What it does |
+|---|---|
+| `make prod-deploy` | Build, check backend startup, then deploy the images that passed |
+| `make prod-verify` | Build and check backend startup without replacing the running services |
+| `make prod-build` | Build and start directly; skips the startup check and previous-image backup steps |
+| `make prod` | Start or re-create services from the current image tags; no build or startup check |
+
+The startup check uses a temporary database and secrets. It does not test the frontend in a browser or validate production data and credentials, so check the live app after deployment.
 
 Then put the host nginx in front of it and get a certificate. The step-by-step guide — the nginx block, `certbot`, updates, push notifications — is [DEPLOY.en.md](DEPLOY.en.md) (한국어: [DEPLOY.md](DEPLOY.md)); the finished nginx config looks like [nginx/host-nginx.conf.example](nginx/host-nginx.conf.example).
 
-Minimum: 2 CPU cores, 2 GB RAM, 10 GB disk, Docker 24+.
+Minimum: 2 CPU cores, 2 GB RAM, 10 GB disk, Docker 24+ with Compose v2, and the host `openssl` command.
+
+Production uses one backend worker because collaboration rooms and live notification connections are held in process memory. Keep `--workers 1`; adding workers requires shared state between processes first. See the deployment guide for the WebSocket size limit and checks after deployment.
 
 What is on by default:
 
@@ -208,6 +232,8 @@ nginx/      Nginx config for the production container, plus a host-proxy example
 ```
 
 The development stack (`make up-build`) mounts `backend/` and `frontend/` into the containers with hot reload, so edits show up without a rebuild. Run `make up-build` again after changing dependencies.
+
+Development and production backend images install the versions pinned in [backend/constraints.txt](backend/constraints.txt). When changing dependencies, update the pins deliberately, rebuild, and test the new image. Security updates also require updating those pins. Tests run on an old development image do not validate a fresh production build; `make prod-verify` checks that the newly built backend starts.
 
 Running the tests:
 

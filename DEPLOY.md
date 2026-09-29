@@ -13,13 +13,14 @@ Docker와 Docker Compose가 설치된 리눅스 서버라면 어디서든 배포
                                                                └─ db (PostgreSQL) — 내부 네트워크 전용
 ```
 
-- `make prod-build`가 띄우는 컴포즈 스택은 **HTTP 포트 하나**(`EXPOSE_PORT`, 기본 13000)만, 그것도 기본으로 `127.0.0.1`에만(`EXPOSE_BIND`) 엽니다. 백엔드·프론트엔드·DB는 외부에서 직접 닿지 않습니다.
+- `make prod-deploy`가 띄우는 컴포즈 스택은 **HTTP 포트 하나**(`EXPOSE_PORT`, 기본 13000)만, 그것도 기본으로 `127.0.0.1`에만(`EXPOSE_BIND`) 엽니다. 백엔드·프론트엔드·DB는 외부에서 직접 닿지 않습니다.
 - HTTPS는 **서버에 설치한 nginx**가 맡고, 인증서는 서버의 certbot이 발급·갱신합니다. 컴포즈 안에는 certbot이 없습니다(4단계).
 
 ## 사전 요구사항
 
 - Linux 서버 (Ubuntu 22.04+ 권장), CPU 2코어 · RAM 2 GB · 디스크 10 GB 이상
 - Docker Engine 24+, Docker Compose v2
+- 호스트의 `openssl` 명령 — 배포 전 시작 확인에 쓸 임시 시크릿 생성용
 - 도메인 1개 — A 레코드가 서버 IP를 가리키도록 설정
 - 방화벽에서 80, 443 오픈. 13000은 열지 않습니다(서버 nginx만 접근)
 
@@ -57,12 +58,12 @@ EXPOSE_PORT=13000                                             # 서버 nginx가 
 ### 3. 스택 시작
 
 ```bash
-make prod-build
+make prod-deploy                             # 빌드 → 일회용 DB로 백엔드 시작 확인 → 배포
 make prod-ps                                 # nginx, backend, frontend, db 네 개가 Up 인지
 curl -sI http://127.0.0.1:13000 | head -1    # HTTP/1.1 200 (또는 3xx) 이면 정상
 ```
 
-DB 마이그레이션은 backend 컨테이너가 뜰 때 `alembic upgrade head`로 자동 실행됩니다.
+첫 설치와 업데이트 모두 같은 명령을 씁니다. `make prod-deploy`에 빌드가 포함되어 있으므로 `make prod-build`를 먼저 실행할 필요가 없습니다. DB 마이그레이션은 backend 컨테이너가 뜰 때 `alembic upgrade head`로 자동 실행됩니다.
 
 ### 4. 서버 nginx + HTTPS
 
@@ -131,20 +132,41 @@ PR과 태스크를 연결하려면 README의 [GitHub App 연동](README.ko.md#gi
 
 ```bash
 cd /opt/weave
-git pull
+git pull --ff-only
 make prod-deploy    # 이미지 빌드 → 일회용 DB로 백엔드 시작 확인 → 통과하면 그 이미지로 교체
+make prod-ps
 ```
 
-`make prod-deploy`는 실행 중인 컨테이너를 그대로 둔 채 이미지를 먼저 빌드합니다. 그다음 운영과 같은 설정의 백엔드를 일회용 Postgres로 띄워 마이그레이션·시작·healthcheck·DB 응답을 확인합니다. 여기서 실패하면 아무것도 교체하지 않고, 빌드가 옮긴 이미지 태그도 지금 실행 중인 이미지로 되돌립니다(그래서 이어서 `make prod`를 실행해도 현재 버전이 그대로 쓰입니다). 통과하면 다시 빌드하지 않고 검증한 이미지로 교체하며, 직전 백엔드 이미지는 `weave-backend:previous`로 남깁니다.
+`make prod-deploy`는 실행 중인 컨테이너를 그대로 둔 채 이미지를 먼저 빌드합니다. 운영 compose의 실행 명령·entrypoint·healthcheck를 사용하되, **임시 시크릿과 비어 있는 일회용 Postgres**로 백엔드를 띄워 마이그레이션·시작·DB 응답을 확인합니다. 빌드는 성공해도 필수 패키지 누락으로 서버가 시작하지 못하는 문제를 교체 전에 잡는 절차입니다.
+
+빌드나 시작 확인이 실패하면 서비스를 교체하지 않고, 빌드가 옮긴 이미지 태그도 되돌립니다. 되돌리기 자체가 실패하면 `RESTORE FAILED`와 수동 복구 명령을 출력합니다. 통과하면 다시 빌드하지 않고 검증한 이미지로 교체하고, 실제 백엔드 이미지 ID가 일치하는지 확인합니다. 기존 백엔드 이미지가 있고 새 이미지와 다르면 `weave-backend:previous`로 보관합니다.
+
+이 검사는 프론트엔드 실행, 실제 운영 시크릿·외부 연동, 기존 데이터에 대한 마이그레이션까지 검증하지는 않습니다. 업데이트 전에는 포함된 마이그레이션을 확인하고 필요한 DB 백업을 준비하세요. 운영 429 오류를 조사할 예정이라면 컨테이너 교체 전에 로그도 보관하세요. 교체 뒤에는 로그인과 실제 화면 동작을 확인합니다.
+
+## 운영 설정과 배포 뒤 확인
+
+- **백엔드 워커 1개**: 협업 방과 실시간 알림 연결은 프로세스 메모리에 있습니다. `--workers 1`을 유지하고, 워커를 늘리려면 먼저 프로세스 간 상태 공유를 설계하세요. 비밀번호의 bcrypt 계산은 별도 스레드에서 실행해 서버의 요청 처리를 붙잡지 않도록 합니다.
+- **WebSocket 메시지 상한 2 MiB**: 운영·개발 모두 `--ws-max-size 2097152`입니다. 이를 넘는 메시지는 연결 종료 코드 `1009`로 거절됩니다. 채팅도 UTF-8 바이트 수로 계산합니다.
+- **백엔드 패키지 고정**: 개발·운영 Dockerfile은 [backend/constraints.txt](backend/constraints.txt)를 사용합니다. 의존성이나 보안 패치를 갱신할 때는 목록을 수정하고 새 이미지로 테스트·시작 확인을 다시 실행하세요.
+
+`make prod-ps`에서 backend·db가 healthy인지 확인한 뒤, 두 브라우저에서 스크럼 입력이 서로 보이는지와 캔버스의 저장 중·저장 결과 표시를 확인하세요. 연결 안내와 이탈 경고의 범위는 README의 [협업 편집](README.ko.md#협업-편집)에 있습니다.
+
+서버의 저장소 루트에서 실행 명령에 `--workers 1`, `--ws-max-size 2097152`가 있는지, 고정 목록과 설치 목록의 해시가 같은지도 확인할 수 있습니다:
+
+```bash
+docker exec weave-backend cat /proc/1/cmdline | tr '\0' ' '
+grep -v '^#' backend/constraints.txt | LC_ALL=C sort | sha256sum
+docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | sha256sum
+```
 
 ## 자주 쓰는 명령
 
 | 명령어 | 설명 |
 |--------|------|
-| `make prod-build` | 이미지 빌드 후 시작 — 처음 설치할 때 (업데이트는 `make prod-deploy`) |
-| `make prod-deploy` | 업데이트 — 빌드, 일회용 DB로 백엔드 시작 확인, 통과한 이미지로 교체 |
+| `make prod-deploy` | 첫 설치·업데이트 권장 — 빌드, 일회용 DB로 백엔드 시작 확인, 통과한 이미지로 교체 |
 | `make prod-verify` | 빌드와 백엔드 시작 확인만 — 실행 중인 서비스는 그대로 (실패하면 이미지 태그도 되돌림) |
-| `make prod` | 시작 — 설정만 바꿨을 때 (바뀐 컨테이너만 재생성) |
+| `make prod-build` | 바로 빌드하고 시작 — 시작 확인과 이전 이미지 보관 절차를 건너뜀 |
+| `make prod` | 현재 이미지 태그로 시작·재생성 — 빌드·시작 확인 없음; 런타임 설정 변경 반영에 사용 |
 | `make prod-down` | 중지 (데이터 볼륨은 유지) |
 | `make prod-logs` | 로그 |
 | `make prod-ps` | 서비스 상태 |
@@ -159,16 +181,18 @@ make prod-deploy    # 이미지 빌드 → 일회용 DB로 백엔드 시작 확�
 - **요청 제한**: 로그인·회원가입·비밀번호 재설정 같은 인증 경로와 AI 채팅·집계 엔드포인트에 기본 적용됩니다.
 - **보안 헤더**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`는 컨테이너 nginx가, Content-Security-Policy는 Next.js 미들웨어가 요청마다 nonce와 함께 붙입니다. HSTS는 서버 nginx에서 추가하세요(예제 파일 참고).
 - **CORS**: `ALLOWED_ORIGINS`에 적은 origin만 허용합니다. 쉼표로 여러 개 지정할 수 있습니다.
-- **신뢰 프록시**: 컨테이너 nginx는 도커 브리지 대역(`set_real_ip_from 172.16.0.0/12`, [nginx/default.conf](nginx/default.conf))에서 온 연결 — 즉 서버 nginx — 의 `X-Forwarded-For`로 실제 클라이언트 IP를 복원하고, 백엔드는 같은 대역(`TRUSTED_PROXIES`)의 nginx가 전달한 IP만 믿습니다. 그래서 서버 nginx 뒤에서도 로그인 요청 제한과 로그인 로그가 사용자별로 동작합니다. 13000이 기본으로 `127.0.0.1`에만 열리기 때문에 이 신뢰를 외부에서 악용할 수 없습니다 — `EXPOSE_BIND`를 넓히면 방화벽으로 13000을 막고, 프록시 대역이 172.16/12가 아니면 두 곳을 함께 바꾸세요.
+- **신뢰 프록시**: 컨테이너 nginx는 도커 브리지 대역(`set_real_ip_from 172.16.0.0/12`, [nginx/default.conf](nginx/default.conf))에서 온 연결 — 즉 서버 nginx — 의 `X-Forwarded-For`로 실제 클라이언트 IP를 복원하고, 백엔드는 같은 대역(`TRUSTED_PROXIES`)의 nginx가 전달한 IP만 믿습니다. 그래서 서버 nginx 뒤에서도 실제 클라이언트 IP를 기준으로 로그인 요청 제한과 로그가 동작합니다. 사무실처럼 공인 IP를 공유하면 요청 한도도 공유하므로, 로그인 거절(429)이 생기면 IP·요청 경로별 로그를 먼저 확인하세요. 13000이 기본으로 `127.0.0.1`에만 열리기 때문에 이 신뢰를 외부에서 악용할 수 없습니다 — `EXPOSE_BIND`를 넓히면 방화벽으로 13000을 막고, 프록시 대역이 172.16/12가 아니면 두 곳을 함께 바꾸세요.
 
 ## 문제 해결
 
 | 증상 | 확인할 것 |
 |---|---|
-| `make prod-build` 직후 backend가 재시작을 반복 | `make prod-logs` — `RuntimeError: JWT_SECRET_KEY must be set` 같은 시크릿·플레이스홀더 메시지 |
+| 배포 직후 backend가 재시작을 반복 | `make prod-logs` — `RuntimeError: JWT_SECRET_KEY must be set` 같은 시크릿·플레이스홀더 메시지 |
 | `curl 127.0.0.1:13000`은 되는데 도메인으로는 안 열림 | `sudo nginx -t`, DNS A 레코드, 방화벽 80/443 |
 | 페이지는 뜨는데 채팅·문서 동시 편집이 안 됨 | 서버 nginx 블록의 `Upgrade` / `Connection "upgrade"` 헤더(4단계) |
 | 로그인이 자꾸 풀림 | `DEBUG=true`로 떠 있지 않은지 (`make prod-logs`의 시작 경고) |
 | `make prod-deploy`가 `SMOKE FAIL`·`VERIFY FAIL`로 멈춤 | 운영 서비스와 이미지 태그는 그대로입니다(빌드가 옮긴 태그를 실행 중 이미지로 되돌림). 출력된 백엔드 로그(예: `ImportError`)를 보고 고친 뒤 다시 실행 |
 | `RESTORE FAILED`가 나옴 | 이미지 태그가 검증되지 않은 빌드를 가리킬 수 있습니다. `make prod`를 실행하지 말고, 출력된 `docker tag …` 명령으로 되돌린 뒤 `docker image inspect -f '{{.Id}}' weave-backend`가 `docker inspect -f '{{.Image}}' weave-backend`와 같은지 확인 |
-| 교체 뒤 문제가 생김 | `docker tag weave-backend:previous weave-backend && make prod` — 다시 빌드하지 않고 직전 백엔드 이미지로 되돌립니다 (새 DB 마이그레이션이 없었던 배포만) |
+| 교체 뒤 문제가 생김 | `weave-backend:previous`가 원하는 복구 버전인지 확인한 뒤 `docker tag weave-backend:previous weave-backend && make prod` — 다시 빌드하지 않고 백엔드 이미지를 되돌립니다 (새 DB 마이그레이션이 없었던 배포만) |
+
+`:previous`는 백엔드 이미지가 달라질 때만 갱신되므로, 같은 이미지로 다시 배포했다면 한 번보다 더 이전 배포를 가리킬 수 있습니다. `:pre-verify`는 다음 검증 때 덮어쓰는 임시 보관 태그입니다. 위 이미지 이름은 Compose 프로젝트 이름이 `weave`일 때의 예시이며, 다른 이름을 쓰면 `docker compose --env-file .env.production -f docker-compose.prod.yml config --images`로 실제 태그를 확인하세요.
