@@ -5,6 +5,9 @@ import { Zap } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import { sortActiveSprints } from '@/library/activeSprintOrder';
 import { formatSprintRange } from '@/library/formatTime';
+import { sprintProgressSegments } from '@/library/sprintProgress';
+import { statusCategoryVar } from '@/library/themePalette';
+import NavLink from '@/components/common/NavLink';
 
 export default function ActiveSprints() {
   const { t } = useTranslation();
@@ -37,6 +40,8 @@ export default function ActiveSprints() {
                 branch_key: branch.key,
                 done: countRes.data.all_done_count,
                 total: countRes.data.all_total_count,
+                in_progress: countRes.data.all_in_progress_count,
+                cancelled: countRes.data.all_cancelled_count,
                 my_count: countRes.data.my_count,
                 my_incomplete_count: countRes.data.my_incomplete_count,
               });
@@ -79,9 +84,16 @@ export default function ActiveSprints() {
           <div className="Widget__Empty">{t('home.widgets.activeSprints.empty')}</div>
         ) : (
           visibleSprints.map((sprint) => {
-            const percent = sprint.total > 0 ? Math.round((sprint.done / sprint.total) * 100) : 0;
+            // 바는 카테고리별로 나눠 칠하고, 오른쪽 x / y는 닫힘(done+cancelled) / 전체
+            const { counts, segments } = sprintProgressSegments(sprint);
+            const breakdown = t('home.widgets.activeSprints.progressBreakdown', counts);
             return (
-              <div key={sprint.sprint_id} className="ActiveSprints__Item">
+              // 클릭 → 그 브랜치 보드 탭에서 이 스프린트 탭을 선택한 상태로 연다(BranchDetail ?sprint=)
+              <NavLink
+                key={sprint.sprint_id}
+                href={`/branch/${sprint.branch_id}?tab=board&sprint=${sprint.sprint_id}`}
+                className="ActiveSprints__Item"
+              >
                 <div className="ActiveSprints__SprintInfo">
                   <div>
                     <div className="ActiveSprints__SprintName">{sprint.sprint_name}</div>
@@ -102,13 +114,21 @@ export default function ActiveSprints() {
                     {sprint.done} / {sprint.total}
                   </span>
                 </div>
-                <div className="ActiveSprints__ProgressBar">
-                  <div
-                    className="ActiveSprints__ProgressFill"
-                    style={{ width: `${percent}%` }}
-                  />
+                <div
+                  className="ActiveSprints__ProgressBar"
+                  role="img"
+                  aria-label={breakdown}
+                  title={breakdown}
+                >
+                  {segments.map((seg) => (
+                    <div
+                      key={seg.category}
+                      className="ActiveSprints__ProgressSegment"
+                      style={{ width: `${seg.percent}%`, background: statusCategoryVar(seg.category) }}
+                    />
+                  ))}
                 </div>
-              </div>
+              </NavLink>
             );
           })
         )}

@@ -48,6 +48,8 @@ export default function BranchDetail() {
 
   // ?view= 딥링크로 저장된 뷰 1회 적용 (사이드바 핀 클릭 등)
   const [applyViewId, setApplyViewId] = useState(null);
+  // ?sprint= 딥링크로 보드의 스프린트 탭 1회 선택 (홈 Active Sprints 클릭)
+  const [applySprintId, setApplySprintId] = useState(null);
 
   // 에디터(설명·댓글) 안 칩 클릭 → 작업 패널 왼쪽에 참조 패널
   const [previewRef, setPreviewRef] = useRefPreview();
@@ -131,6 +133,17 @@ export default function BranchDetail() {
       router.replace(`/branch/${id}?tab=tasks`, undefined, { shallow: true });
     }
   }, [router.query.view, branch]);
+
+  // 쿼리 파라미터로 보드 스프린트 탭 선택 (홈 Active Sprints 클릭). ?view=와 같은 방식으로 즉시 쿼리를
+  // 지우고 applySprintId state로 BoardView에 넘긴다. 아래 탭 전환 effect는 패널만 닫으므로 이 값은 유지된다.
+  useEffect(() => {
+    const sprintId = router.query.sprint;
+    if (sprintId && branch) {
+      handleTabChange('board');
+      setApplySprintId(Number(sprintId));
+      router.replace(`/branch/${id}?tab=board`, undefined, { shallow: true });
+    }
+  }, [router.query.sprint, branch]);
 
   // 탭 전환 시 패널 닫기 (참조 패널도 함께 — 칩 발원지가 닫히는데 고아로 남기지 않음)
   useEffect(() => {
@@ -276,6 +289,8 @@ export default function BranchDetail() {
               taskTypes={taskTypes}
               workflowStatuses={workflowStatuses}
               onSelectTask={handleSelectTask}
+              applySprintId={applySprintId}
+              onSprintApplied={() => setApplySprintId(null)}
             />
           )}
           {activeTab === 'flow' && (

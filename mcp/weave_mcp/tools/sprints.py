@@ -109,6 +109,8 @@ async def get_sprint_task_counts(branch_id: BranchRef, sprint_id: int) -> Any:
     done_count/incomplete_count count top-level tasks only; all_done_count/all_total_count
     include subtasks; my_count / my_incomplete_count are the tasks (incl. subtasks) assigned
     to the token's owner, total and not yet done/cancelled.
+    all_in_progress_count / all_cancelled_count break the same subtask-inclusive set down by
+    status category (all_done_count already includes the cancelled ones).
     """
     return await get_client().call_json(
         "GET", f"/api/branches/{branch_id}/sprints/{sprint_id}/task-counts"

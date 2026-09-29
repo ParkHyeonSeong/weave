@@ -136,10 +136,11 @@ async def test_sprint_counts_with_subtasks_follow_parent_sprint(db_session):
     # 실제 저장 형태: 하위태스크 sprint_id는 NULL, 부모 sprint를 따른다
     sub_done = await _make_task(db_session, bid, owner, status="done", parent_task_id=parent)
     sub_todo = await _make_task(db_session, bid, owner, status="todo", parent_task_id=parent)
+    await _make_task(db_session, bid, owner, status="in_progress", parent_task_id=parent)
     solo = await _make_task(db_session, bid, owner, status="cancelled", sprint_id=sid)
     # 다른 스프린트 / 백로그 태스크는 제외
     elsewhere = await _make_task(db_session, bid, owner, status="todo", sprint_id=other_sid)
-    await _make_task(db_session, bid, owner, status="todo", parent_task_id=elsewhere)
+    await _make_task(db_session, bid, owner, status="in_progress", parent_task_id=elsewhere)
     await _make_task(db_session, bid, owner, status="todo")
 
     await _assign(db_session, parent, owner, "main")
@@ -150,9 +151,12 @@ async def test_sprint_counts_with_subtasks_follow_parent_sprint(db_session):
     await _assign(db_session, elsewhere, owner, "main")
 
     counts = await task_model.count_by_sprint_for_user(sid, bid, owner, db_session)
-    assert counts["all_total_count"] == 4       # parent + 2 subtasks + solo
+    assert counts["all_total_count"] == 5       # parent + 3 subtasks + solo
     assert counts["all_done_count"] == 2        # done subtask + cancelled solo
-    assert counts["my_count"] == 3              # main on parent + sub on both subtasks
+    # 카테고리별 분해(하위태스크 포함): all_done_count = done + cancelled 그대로
+    assert counts["all_in_progress_count"] == 1  # in_progress subtask (다른 스프린트 것은 제외)
+    assert counts["all_cancelled_count"] == 1    # cancelled solo
+    assert counts["my_count"] == 3              # main on parent + sub on done/todo subtasks
     assert counts["my_incomplete_count"] == 2   # the done subtask is not remaining
 
     # 상위 태스크 기준 수치는 기존 count_by_sprint_status와 같다
@@ -164,6 +168,8 @@ async def test_sprint_counts_with_subtasks_follow_parent_sprint(db_session):
     other_bid = await _make_branch(db_session, owner, name="Other", key="OT")
     miss = await task_model.count_by_sprint_for_user(sid, other_bid, owner, db_session)
     assert miss["all_total_count"] == 0
+    assert miss["all_in_progress_count"] == 0
+    assert miss["all_cancelled_count"] == 0
 
 
 # ---------------------------------------------------------------------------

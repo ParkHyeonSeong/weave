@@ -1,5 +1,5 @@
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { axios } from '@/library/_axios';
 import { LayoutGrid } from 'lucide-react';
@@ -43,12 +43,15 @@ function currentUserId() {
   }
 }
 
-export default function BoardView({ branchId, branchKey, taskTypes, workflowStatuses, onSelectTask }) {
+export default function BoardView({
+  branchId, branchKey, taskTypes, workflowStatuses, onSelectTask, applySprintId = null, onSprintApplied,
+}) {
   const { t } = useTranslation();
   const { daysUntil, today: personalToday, timeZone } = useDateFormat();
   const taskMenu = useTaskContextMenu({ branchId, onSelectTask });
   const [columns, setColumns] = useState({});
   const [activeSprints, setActiveSprints] = useState([]);
+  const [sprintsLoaded, setSprintsLoaded] = useState(false); // 활성 스프린트 목록 첫 응답 수신 여부
   const [selectedSprintId, setSelectedSprintId] = useState(null); // null = All
   const [members, setMembers] = useState([]);
   const [epics, setEpics] = useState([]);
@@ -128,6 +131,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
   }, [branchId, searchQuery, selectedUserIds, filters, filterSpec, groupBy, multiSort, initialized]);
 
   useEffect(() => {
+    setSprintsLoaded(false); // BranchDetail은 브랜치 이동에도 유지되므로 이 브랜치 목록 기준으로 다시 센다
     fetchActiveSprints();
     fetchOptions();
   }, [branchId]);
@@ -155,6 +159,7 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
     } catch {
       setLoading(false);
     }
+    setSprintsLoaded(true);
   };
 
   const fetchOptions = async () => {
@@ -198,14 +203,20 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
     }
   };
 
+  // 마지막으로 보낸 보드 조회만 반영한다. ?sprint= 딥링크는 마운트 때 나간 All 조회 직후 스프린트 조회를
+  // 보내는데, All 응답이 늦게 도착해 스프린트 보드를 덮어쓰지 않게 한다(탭 연속 클릭도 같은 경합).
+  const boardRequestSeq = useRef(0);
   const fetchBoard = async (sprintId) => {
+    const seq = ++boardRequestSeq.current;
+    let res = null;
     try {
       const params = sprintId ? { sprint_id: sprintId } : {};
-      const res = await axios.get(`/branches/${branchId}/tasks/board`, { params });
-      if (res.data.status) {
-        setColumns(res.data.columns);
-      }
+      res = await axios.get(`/branches/${branchId}/tasks/board`, { params });
     } catch {}
+    if (seq !== boardRequestSeq.current) return;
+    if (res?.data.status) {
+      setColumns(res.data.columns);
+    }
     setLoading(false);
   };
 
@@ -213,6 +224,18 @@ export default function BoardView({ branchId, branchKey, taskTypes, workflowStat
     setSelectedSprintId(sprintId);
     fetchBoard(sprintId);
   };
+
+  // ?sprint= 딥링크(홈 Active Sprints 클릭): 활성 스프린트 목록이 로드된 뒤 1회만 탭을 고르고 onSprintApplied로
+  // 부모가 applySprintId를 비운다(TaskList ?view= 패턴 미러). 그사이 완료돼 목록에 없으면 All(null)을 유지한다.
+  const appliedSprintRef = useRef(null);
+  useEffect(() => {
+    if (!applySprintId) { appliedSprintRef.current = null; return; } // 부모가 비우면 리셋
+    if (appliedSprintRef.current === applySprintId) return;          // 목록 갱신으로 재실행돼도 1회만
+    if (!sprintsLoaded) return;                                       // 아직 로드 전 → 로드 후 재시도
+    appliedSprintRef.current = applySprintId;
+    if (activeSprints.some((s) => s.sprint_id === applySprintId)) handleSprintTabClick(applySprintId);
+    onSprintApplied?.();
+  }, [applySprintId, sprintsLoaded, activeSprints]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (taskId, newStatus) => {
     try {

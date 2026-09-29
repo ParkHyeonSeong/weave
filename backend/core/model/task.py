@@ -805,6 +805,8 @@ async def count_by_sprint_for_user(sprint_id: int, branch_id: int, user_id: int,
 
     done_count/incomplete_count는 count_by_sprint_status와 같은 상위 태스크 기준이고,
     all_*·my_*는 하위태스크 포함(my_* = main/sub 담당, my_incomplete_count = 그중 미완료).
+    all_in_progress_count/all_cancelled_count는 같은 집합의 카테고리별 분해다
+    (all_done_count = done + cancelled는 그대로, 알 수 없는 status는 done 취급).
     하위태스크는 sprint_id가 NULL로 저장되고 부모의 sprint를 따르므로 상위 태스크를 먼저 고른 뒤 그 자식을 붙인다
     (idx_task_branch_sprint → idx_task_parent).
     """
@@ -821,6 +823,7 @@ async def count_by_sprint_for_user(sprint_id: int, branch_id: int, user_id: int,
             -- task_assignee PK(task_id, user_id)라 LEFT JOIN은 행을 늘리지 않는다
             SELECT s.is_top,
                    COALESCE(ws.category, 'done') IN ('done', 'cancelled') AS closed,
+                   COALESCE(ws.category, 'done') AS category,
                    ta.task_id IS NOT NULL AS mine
             FROM scoped s
             LEFT JOIN workflow_status ws ON s.branch_id = ws.branch_id AND s.status = ws.key
@@ -831,6 +834,8 @@ async def count_by_sprint_for_user(sprint_id: int, branch_id: int, user_id: int,
             COUNT(*) FILTER (WHERE is_top AND NOT closed) AS incomplete_count,
             COUNT(*) FILTER (WHERE closed) AS all_done_count,
             COUNT(*) AS all_total_count,
+            COUNT(*) FILTER (WHERE category = 'in_progress') AS all_in_progress_count,
+            COUNT(*) FILTER (WHERE category = 'cancelled') AS all_cancelled_count,
             COUNT(*) FILTER (WHERE mine) AS my_count,
             COUNT(*) FILTER (WHERE mine AND NOT closed) AS my_incomplete_count
         FROM flagged

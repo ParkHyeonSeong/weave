@@ -1715,6 +1715,7 @@ const en = {
         myTasks_other: '{{count}} my tasks',
         myTasksLeft_one: '{{count}} left',
         myTasksLeft_other: '{{count}} left',
+        progressBreakdown: 'Done {{done}} · In progress {{inProgress}} · Cancelled {{cancelled}} · To do {{todo}}',
       },
       recent: {
         title: 'Recent Items',

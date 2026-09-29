@@ -1713,6 +1713,7 @@ const ko = {
         myTasks_other: '내 태스크 {{count}}개',
         myTasksLeft_one: '{{count}}개 남음',
         myTasksLeft_other: '{{count}}개 남음',
+        progressBreakdown: '완료 {{done}} · 진행 중 {{inProgress}} · 취소 {{cancelled}} · 할 일 {{todo}}',
       },
       recent: {
         title: '최근 항목',
