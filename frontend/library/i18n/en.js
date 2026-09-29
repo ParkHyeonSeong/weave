@@ -998,6 +998,7 @@ const en = {
       noActiveSprintTitle: 'No active sprint',
       noActiveSprintDesc: 'Start a sprint from the Tasks tab to see the board.',
       noTasks: 'No tasks',
+      subtasksToggle: 'Subtasks {{progress}}',
       daysOverdue_one: '{{count}}d overdue',
       daysOverdue_other: '{{count}}d overdue',
       daysLeft_one: '{{count}}d',

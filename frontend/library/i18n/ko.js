@@ -996,6 +996,7 @@ const ko = {
       noActiveSprintTitle: '진행 중인 스프린트가 없습니다',
       noActiveSprintDesc: '태스크 탭에서 스프린트를 시작하면 보드가 표시됩니다.',
       noTasks: '태스크 없음',
+      subtasksToggle: '하위태스크 {{progress}}',
       daysOverdue_one: '{{count}}일 지남',
       daysOverdue_other: '{{count}}일 지남',
       daysLeft_one: '{{count}}일',

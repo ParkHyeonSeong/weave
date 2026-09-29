@@ -447,6 +447,7 @@ export default function BoardView({
                 color={ws.color}
                 tasks={ordered}
                 taskTypes={taskTypes}
+                workflowStatuses={workflowStatuses}
                 onCardClick={(task) => onSelectTask(task)}
                 onCardContextMenu={taskMenu.openMenu}
                 onStatusChange={handleStatusChange}
@@ -476,6 +477,7 @@ export default function BoardView({
                     color={ws.color}
                     tasks={lane.tasks.filter((t) => t.status === ws.key)}
                     taskTypes={taskTypes}
+                    workflowStatuses={workflowStatuses}
                     onCardClick={(task) => onSelectTask(task)}
                     onCardContextMenu={taskMenu.openMenu}
                     onStatusChange={handleStatusChange}

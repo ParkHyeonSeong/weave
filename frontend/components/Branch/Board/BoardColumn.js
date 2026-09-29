@@ -2,7 +2,7 @@ import { useState } from 'react';
 import BoardCard from './BoardCard';
 import { useTranslation } from 'react-i18next';
 
-export default function BoardColumn({ status, label, color, tasks, taskTypes, onCardClick, onCardContextMenu, onStatusChange }) {
+export default function BoardColumn({ status, label, color, tasks, taskTypes, workflowStatuses, onCardClick, onCardContextMenu, onStatusChange }) {
   const { t } = useTranslation();
   const [dragOver, setDragOver] = useState(false);
 
@@ -44,8 +44,10 @@ export default function BoardColumn({ status, label, color, tasks, taskTypes, on
             key={task.task_id}
             task={task}
             taskTypes={taskTypes}
+            workflowStatuses={workflowStatuses}
             onClick={() => onCardClick(task)}
             onContextMenu={(e) => onCardContextMenu?.(e, task)}
+            onSubtaskClick={onCardClick}
           />
         ))}
         {tasks.length === 0 && (
