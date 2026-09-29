@@ -103,13 +103,14 @@ async def test_existing_wrong_equals_nonexistent(db_session):
 
 async def test_bcrypt_runs_even_for_nonexistent_email(db_session, monkeypatch):
     calls = []
-    real_checkpw = auth_controller.bcrypt.checkpw
+    real_checkpw = bcrypt.checkpw
 
     def spy(pw, h):
         calls.append(h)
         return real_checkpw(pw, h)
 
-    monkeypatch.setattr(auth_controller.bcrypt, "checkpw", spy)
+    # crypto.check_password가 워커 스레드에서 부르는 모듈 함수를 바꾼다(auth.py는 bcrypt를 import하지 않는다)
+    monkeypatch.setattr(bcrypt, "checkpw", spy)
     res = await _login(db_session, "ghost2@test.local", "whatever1")
     assert res["message"] == "INVALID_CREDENTIALS"
     # 없는 계정에도 bcrypt가 정확히 1회, 더미 해시로 수행돼야 한다

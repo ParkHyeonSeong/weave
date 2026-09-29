@@ -1,7 +1,6 @@
 import os
 import uuid
 
-import bcrypt
 from fastapi import Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -74,14 +73,14 @@ async def update_password(body, request: Request, db: AsyncSession):
     stored_password = user['password']
     if isinstance(stored_password, memoryview):
         stored_password = bytes(stored_password)
-    if not bcrypt.checkpw(body.current_password.encode('utf-8'), stored_password):
+    if not await crypto.check_password(body.current_password, stored_password):
         return error_response(ErrorCode.INVALID_CURRENT_PASSWORD)
 
     # 새 비밀번호 확인 일치 검증
     if body.new_password != body.confirm_password:
         return error_response(ErrorCode.PASSWORD_MISMATCH)
 
-    new_hash = crypto.hash_password(body.new_password)
+    new_hash = await crypto.hash_password_async(body.new_password)
     await user_model.update_password(user_id, new_hash, db)
     return {'status': True}
 
@@ -102,7 +101,7 @@ async def force_change_password(body, request: Request, db: AsyncSession):
     if body.new_password != body.confirm_password:
         return error_response(ErrorCode.PASSWORD_MISMATCH)
 
-    new_hash = crypto.hash_password(body.new_password)
+    new_hash = await crypto.hash_password_async(body.new_password)
     await user_model.update_password(user_id, new_hash, db)
     return {'status': True}
 

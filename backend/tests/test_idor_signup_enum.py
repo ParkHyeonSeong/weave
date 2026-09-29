@@ -179,14 +179,14 @@ async def test_bcrypt_hash_runs_regardless_of_email_existence(db_session, monkey
     await _seed_user(db_session, "existing@test.local", status="active")
 
     calls = {"n": 0}
-    import core.controller.auth as auth_mod
-    real_hashpw = auth_mod.bcrypt.hashpw
+    import bcrypt   # crypto.hash_password_async가 워커 스레드에서 부르는 모듈 함수(auth.py는 bcrypt를 import하지 않는다)
+    real_hashpw = bcrypt.hashpw
 
     def counting_hashpw(pw, salt):
         calls["n"] += 1
         return real_hashpw(pw, salt)
 
-    monkeypatch.setattr(auth_mod.bcrypt, "hashpw", counting_hashpw)
+    monkeypatch.setattr(bcrypt, "hashpw", counting_hashpw)
 
     await auth_controller.register(
         _body("existing@test.local"), _req(), Response(), db_session)

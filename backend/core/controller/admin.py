@@ -40,7 +40,7 @@ async def create_user(body, request: Request, db: AsyncSession):
     if existing:
         return {'status': False, 'message': 'EMAIL_ALREADY_EXISTS'}
 
-    password_hash = crypto.hash_password(body.password)
+    password_hash = await crypto.hash_password_async(body.password)
     user_id = await user_model.create(body.email, password_hash, body.username, db)
 
     if body.role == 'admin':

@@ -1,5 +1,4 @@
 import secrets
-import bcrypt
 import jwt
 from datetime import datetime, timezone, timedelta
 from fastapi import Request, Response
@@ -105,7 +104,7 @@ async def register(body, request: Request, response: Response, db: AsyncSession)
 
     # 존재 여부와 무관하게 항상 해싱 수행(타이밍 사이드채널 제거). 기존 이메일이면
     # 해시는 사용하지 않고 버린다(계정 미생성).
-    password_hash = crypto.hash_password(body.password)
+    password_hash = await crypto.hash_password_async(body.password)
 
     # private 모드: 승인 대기. 신규/기존 모두 동일한 중립 응답.
     if settings['registration_policy'] == 'private':
@@ -132,7 +131,7 @@ async def login(body, request: Request, response: Response, db: AsyncSession):
     stored_password = user['password'] if user else _DUMMY_HASH
     if user and isinstance(stored_password, memoryview):
         stored_password = bytes(stored_password)
-    password_correct = bcrypt.checkpw(body.password.encode('utf-8'), stored_password)
+    password_correct = await crypto.check_password(body.password, stored_password)
 
     # 존재하지 않거나 비밀번호가 틀리면 동일 응답 — 존재·상태를 노출하지 않는다(SEC-13-B).
     if not user or not password_correct:
@@ -238,7 +237,7 @@ async def reset_password(body, db: AsyncSession):
     if not claimed:
         return {'status': False, 'message': 'INVALID_OR_EXPIRED_TOKEN'}
 
-    new_hash = crypto.hash_password(body.new_password)
+    new_hash = await crypto.hash_password_async(body.new_password)
     await user_model.update_password(row['user_id'], new_hash, db)
     # 비밀번호 재설정 시 기존 모든 세션 무효화(SEC-29) — 탈취 세션 강제 종료
     await refresh_token_model.delete_all_for_user(row['user_id'], db)

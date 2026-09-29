@@ -2,6 +2,7 @@
 Fernet 대칭 암호화 유틸리티
 ENCRYPT_KEY 환경변수 기반으로 민감 데이터(SMTP 비밀번호 등) 암호화/복호화
 """
+import asyncio
 import base64
 import bcrypt
 import hashlib
@@ -69,3 +70,15 @@ def hash_password(plain: str, rounds: int = 12) -> bytes:
     기존 cost=10 해시는 checkpw가 해시에 embed된 cost로 그대로 검증하므로 호환된다 —
     신규 비밀번호만 cost=12로 점진 강화한다. cost 조정이 필요하면 이 함수 한 곳만 바꾸면 된다."""
     return bcrypt.hashpw(plain.encode('utf-8'), bcrypt.gensalt(rounds=rounds))
+
+
+async def check_password(plain: str, hashed: bytes) -> bool:
+    """bcrypt 검증을 워커 스레드에서 한다. bcrypt는 계산하는 동안 GIL을 놓으므로 그동안 이벤트 루프(다른 요청·
+    실시간 편집 전달)가 계속 돈다 — 루프에서 bcrypt.checkpw를 직접 부르면 1회(cost 12) 약 170ms 동안 전부 멈춘다.
+    오류(잘못된 해시 등)는 지금처럼 호출부로 그대로 올라간다."""
+    return await asyncio.to_thread(bcrypt.checkpw, plain.encode('utf-8'), hashed)
+
+
+async def hash_password_async(plain: str) -> bytes:
+    """요청 처리 중의 비밀번호 해싱 — hash_password(cost=12)를 워커 스레드에서 돌린다(check_password와 같은 이유)."""
+    return await asyncio.to_thread(hash_password, plain)

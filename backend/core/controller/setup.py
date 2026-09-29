@@ -46,7 +46,7 @@ async def initialize(body, request: Request, response: Response, db: AsyncSessio
         return {'status': False, 'message': 'EMAIL_ALREADY_EXISTS'}
 
     # 관리자 계정 생성
-    password_hash = crypto.hash_password(body.password)
+    password_hash = await crypto.hash_password_async(body.password)
     user_id = await user_model.create(body.email, password_hash, body.username, db)
 
     # admin 역할 부여
