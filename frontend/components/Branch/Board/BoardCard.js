@@ -35,6 +35,13 @@ export default function BoardCard({ task, taskTypes, workflowStatuses, onClick, 
   // 하위태스크 영역의 클릭·우클릭은 카드(부모 태스크 열기·부모 메뉴)로 번지지 않게 이 경계에서 막는다
   // — 하위태스크 줄에서 부모 메뉴의 '삭제'가 뜨면 부모를 지우게 된다
   const stopAtBlock = (e) => e.stopPropagation();
+  // 이 영역에서 시작한 드래그는 부모 카드 드래그가 아니다. 브라우저는 누른 지점에서 가장 가까운
+  // draggable 조상을 원천으로 고르므로(제목이면 카드 자체) stopPropagation만으로는 못 막는다 —
+  // 영역을 draggable로 두어 원천을 가로챈 뒤 취소한다. 사진(<img>, 기본 draggable)의 dragstart도 여기서 멈춘다.
+  const cancelDragAtBlock = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
     <div
@@ -64,7 +71,13 @@ export default function BoardCard({ task, taskTypes, workflowStatuses, onClick, 
 
       {/* 하위태스크: 진행도 줄을 누르면 목록을 펼친다. 상태 변경은 하위태스크를 눌러 연 패널에서 한다 */}
       {progress?.total > 0 && (
-        <div className="BoardCard__SubtaskBlock" onClick={stopAtBlock} onContextMenu={stopAtBlock}>
+        <div
+          className="BoardCard__SubtaskBlock"
+          draggable
+          onDragStart={cancelDragAtBlock}
+          onClick={stopAtBlock}
+          onContextMenu={stopAtBlock}
+        >
           <button
             type="button"
             className="BoardCard__Progress"

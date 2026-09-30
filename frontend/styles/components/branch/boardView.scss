@@ -332,6 +332,7 @@
     display: flex;
     flex-direction: column;
     gap: $space-1;
+    cursor: default; // 드래그가 취소되는 영역이라 카드의 grab을 끊는다(버튼은 전역 pointer 유지)
   }
 
   &__Progress {
