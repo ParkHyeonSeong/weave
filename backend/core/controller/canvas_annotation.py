@@ -25,6 +25,11 @@ async def _broadcast_annotation_event(canvas_id: int, page_id: int, action: str,
             })
 
 
+def _thread_link(canvas_id: int, page_id: int, annotation_id: int) -> str:
+    """댓글 알림 링크 — 문서를 열면서 댓글 패널에 그 스레드를 띄운다(CanvasPageView가 ?comment를 읽는다)."""
+    return f'/canvas/{canvas_id}/{page_id}?comment={annotation_id}'
+
+
 async def _check_member(canvas_id: int, request: Request, db: AsyncSession):
     """Canvas 멤버 확인"""
     user_id = request.state.payload.get('user_id')
@@ -71,7 +76,7 @@ async def create_annotation(body, canvas_id: int, page_id: int, request: Request
     # 페이지 작성자에게 알림
     if page.get('created_by') and page['created_by'] != user_id:
         username = request.state.payload.get('username', '')
-        link = f'/canvas/{canvas_id}/{page_id}'
+        link = _thread_link(canvas_id, page_id, annotation_id)
         await notification_service.notify_bulk(
             [page['created_by']], 'annotation_created', user_id,
             'canvasCommentCreated', link, 'canvas_page', page_id, db, actor=username,
@@ -81,7 +86,7 @@ async def create_annotation(body, canvas_id: int, page_id: int, request: Request
     mentioned = extract_mention_user_ids(body.content)
     if mentioned:
         username = request.state.payload.get('username', '')
-        link = f'/canvas/{canvas_id}/{page_id}'
+        link = _thread_link(canvas_id, page_id, annotation_id)
         await notification_service.notify_bulk(
             mentioned, 'mention', user_id,
             'canvasCommentMention', link, 'canvas_page', page_id, db, actor=username,
@@ -130,7 +135,7 @@ async def update_annotation(body, canvas_id: int, page_id: int, annotation_id: i
     # resolve 시 앵커 작성자에게 알림
     if body.status == 'resolved' and annotation['created_by'] != user_id:
         username = request.state.payload.get('username', '')
-        link = f'/canvas/{canvas_id}/{page_id}'
+        link = _thread_link(canvas_id, page_id, annotation_id)
         await notification_service.notify_bulk(
             [annotation['created_by']], 'annotation_resolved', user_id,
             'canvasCommentResolved', link, 'canvas_page', page_id, db, actor=username,
@@ -183,7 +188,7 @@ async def create_reply(body, canvas_id: int, page_id: int, annotation_id: int,
 
     if recipients:
         username = request.state.payload.get('username', '')
-        link = f'/canvas/{canvas_id}/{page_id}'
+        link = _thread_link(canvas_id, page_id, annotation_id)
         await notification_service.notify_bulk(
             list(recipients), 'annotation_reply', user_id,
             'canvasReplyCreated', link, 'canvas_page', page_id, db, actor=username,
@@ -193,7 +198,7 @@ async def create_reply(body, canvas_id: int, page_id: int, annotation_id: int,
     mentioned = extract_mention_user_ids(body.content)
     if mentioned:
         username = request.state.payload.get('username', '')
-        link = f'/canvas/{canvas_id}/{page_id}'
+        link = _thread_link(canvas_id, page_id, annotation_id)
         await notification_service.notify_bulk(
             mentioned, 'mention', user_id,
             'canvasReplyMention', link, 'canvas_page', page_id, db, actor=username,

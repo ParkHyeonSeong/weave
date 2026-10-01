@@ -317,9 +317,18 @@
       width: 100%;
       padding: 6px $space-3;
       font-size: $font-size-xs;
-      color: $color-error;
+      color: $color-text;
       border-radius: $radius-sm;
       transition: background $transition-fast;
+
+      &:hover {
+        background: $color-surface;
+      }
+    }
+
+    // 경고색은 파괴적 항목(삭제)에만 — 수정 같은 일반 항목은 본문색
+    .AnnotationSidebar__MenuItem--danger {
+      color: $color-error;
 
       &:hover {
         background: $color-error-bg;

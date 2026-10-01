@@ -504,6 +504,10 @@ const en = {
       reopen: 'Reopen',
       emptyOpen: 'No open comments',
       emptyResolved: 'No resolved comments',
+      editFailed: "Couldn't save your edit",
+      deleteThreadTitle: 'Delete comment thread',
+      deleteThreadConfirm_one: 'Delete this thread and its {{count}} comment? This cannot be undone.',
+      deleteThreadConfirm_other: 'Delete this thread and all {{count}} comments? This cannot be undone.',
     },
     editor: {
       headingText: 'Text',

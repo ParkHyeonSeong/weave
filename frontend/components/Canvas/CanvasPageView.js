@@ -68,6 +68,7 @@ export default function CanvasPageView({ onRefClick }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [activeAnnotationId, setActiveAnnotationId] = useState(null);
+  const [commentReveal, setCommentReveal] = useState(0); // 댓글 알림을 누를 때마다 올린다 — 같은 스레드여도 다시 옮겨 보여 준다
   const [newAnnotationData, setNewAnnotationData] = useState(null);
 
   // Typst 읽기 모드용 상태
@@ -150,6 +151,20 @@ export default function CanvasPageView({ onRefClick }) {
       setIsEditing(false);
     }
   }, [fetchPage]);
+
+  // 댓글 알림 링크(?comment=스레드ID): 댓글 패널을 열고 그 스레드를 활성화한다(탭 전환·스크롤은 사이드바가 목록 로드 뒤에).
+  // 쿼리는 바로 지운다 — 이 문서를 보고 있다가 같은 알림을 다시 눌러도 쿼리가 새로 붙어 다시 동작한다.
+  const commentParam = router.query.comment;
+  useEffect(() => {
+    if (!commentParam) return;
+    const annotationId = Number(commentParam);
+    if (Number.isInteger(annotationId) && annotationId > 0) {
+      setSidebarOpen(true);
+      setActiveAnnotationId(annotationId);
+      setCommentReveal((n) => n + 1);
+    }
+    router.replace(`/canvas/${canvasId}/${pageId}`, undefined, { shallow: true });
+  }, [commentParam]);
 
   // 외부(사이드바 등)에서 페이지가 변경되면 데이터 갱신
   useEffect(() => {
@@ -835,6 +850,7 @@ export default function CanvasPageView({ onRefClick }) {
         canvasName={moveCanvasName}
       />
       <AnnotationSidebar
+        canvasId={Number(canvasId)}
         annotations={annotations}
         isOpen={sidebarOpen}
         onClose={() => { setSidebarOpen(false); setActiveAnnotationId(null); }}
@@ -845,6 +861,7 @@ export default function CanvasPageView({ onRefClick }) {
         onUpdateReply={updateReply}
         onDeleteReply={deleteReply}
         activeAnnotationId={activeAnnotationId}
+        revealKey={commentReveal}
         onAnnotationSelect={(id) => {
           setActiveAnnotationId(id);
           // 해당 텍스트로 스크롤

@@ -11,11 +11,11 @@ import RawModeBadge from '@/components/common/RawModeBadge';
 import { useRawMode } from '@/library/rawMode';
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
-const IssueEditor = forwardRef(({ content, placeholder, minHeight = 150, branchId, onChange, rawModeEnabled = false }, ref) => {
+const IssueEditor = forwardRef(({ content, placeholder, minHeight = 150, branchId, canvasId, onChange, rawModeEnabled = false }, ref) => {
   const { t } = useTranslation();
   const extensions = useMemo(
-    () => buildMarkdownExtensions([...buildIssueEditorExtensions({ placeholder, branchId }), MarkdownClipboardExtension]),
-    [placeholder, branchId]
+    () => buildMarkdownExtensions([...buildIssueEditorExtensions({ placeholder, branchId, canvasId }), MarkdownClipboardExtension]),
+    [placeholder, branchId, canvasId]
   );
 
   const editor = useEditor({

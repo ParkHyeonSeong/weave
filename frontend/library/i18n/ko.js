@@ -502,6 +502,10 @@ const ko = {
       reopen: '다시 열기',
       emptyOpen: '열린 댓글이 없습니다',
       emptyResolved: '해결된 댓글이 없습니다',
+      editFailed: '수정한 내용을 저장하지 못했습니다',
+      deleteThreadTitle: '댓글 스레드 삭제',
+      deleteThreadConfirm_one: '이 스레드와 댓글 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.',
+      deleteThreadConfirm_other: '이 스레드와 댓글 {{count}}개를 삭제할까요? 이 작업은 되돌릴 수 없습니다.',
     },
     editor: {
       headingText: '텍스트',

@@ -146,7 +146,8 @@ async def update(canvas_id: int, page_id: int, body, request: Request, db: Async
         if added_mentions:
             username = request.state.payload.get('username', '')
             page_title = page.get('title', '')
-            link = f'/canvas/{canvas_id}/page/{page_id}'
+            # 문서 라우트(frontend pages/canvas/[canvasId]/[pageId].js). 예전 '/page/' 링크는 next.config 리다이렉트가 받는다
+            link = f'/canvas/{canvas_id}/{page_id}'
             await notification_service.notify_bulk(
                 list(added_mentions), 'mention', user_id,
                 'canvasPageMention', link, 'doc', page_id, db,

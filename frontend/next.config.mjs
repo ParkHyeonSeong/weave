@@ -13,6 +13,16 @@ const nextConfig = {
     config.resolve.alias.wbg = false;
     return config;
   },
+  async redirects() {
+    return [
+      {
+        // 예전 문서 본문 멘션 알림 링크(라우트가 없어 404였다). 이미 저장된 알림·전달된 Web Push를 문서 라우트로 보낸다
+        source: '/canvas/:canvasId/page/:pageId',
+        destination: '/canvas/:canvasId/:pageId',
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const apiUrl = process.env.INTERNAL_API_URL || 'http://backend:8000';
     return [

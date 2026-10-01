@@ -38,9 +38,10 @@ const makeBaseExtensions = (placeholder) => [
   ...mathExtensions(),
 ];
 
-export function buildIssueEditorExtensions({ placeholder, branchId } = {}) {
+// canvasId: 문서 댓글(AnnotationSidebar)처럼 브랜치 밖에서 쓸 때의 멘션 후보 범위(그 캔버스 멤버)
+export function buildIssueEditorExtensions({ placeholder, branchId, canvasId } = {}) {
   const ext = makeBaseExtensions(placeholder);
-  ext.push(MentionNode.configure({ branchId }));
+  ext.push(MentionNode.configure({ branchId, canvasId }));
   ext.push(BookmarkPasteExtension);
   ext.push(Extension.create({
     name: 'markdownPaste',
