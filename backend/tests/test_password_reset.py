@@ -1,14 +1,19 @@
 """SEC-07: admin reset → 일회용·만료 재설정 토큰/링크 (평문 비밀번호 노출 제거)."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import bcrypt
+import pytest
 from sqlalchemy import text
 
+from config import PASSWORD_RESET_TOKEN_EXPIRE_HOURS
 from core.controller import admin as admin_controller
 from core.controller import auth as auth_controller
+from core.errors import Category, ErrorCode
 from core.model import password_reset_token as prt_model
-from library import crypto
+from core.model import smtp_config as smtp_config_model
+from library import crypto, origins, smtp_client
 
 
 async def _make_user(db, email="reset-user@test.local", password="oldpass123"):
@@ -28,8 +33,9 @@ async def _make_admin(db, email="reset-admin@test.local"):
     return row.scalar_one()
 
 
-def _req(user_id):
-    return SimpleNamespace(state=SimpleNamespace(payload={"user_id": user_id}))
+def _req(user_id, origin=None, host=None):
+    headers = {k: v for k, v in (("origin", origin), ("host", host)) if v}
+    return SimpleNamespace(state=SimpleNamespace(payload={"user_id": user_id}), headers=headers)
 
 
 def _reset_body(token, new_password):
@@ -149,3 +155,148 @@ async def test_consume_weak_password_rejected(db_session):
     rec = await db_session.execute(
         text("SELECT used_at FROM password_reset_token WHERE user_id = :uid"), {"uid": uid})
     assert rec.scalar_one() is None
+
+
+# ── OB-01: 운영 재설정 메일 링크(절대 주소) + 발송 결과 확인 ─────────────────
+# 운영 조건: FRONTEND_URL은 컨테이너에 전달되지 않고(docker-compose.prod.yml), ALLOWED_ORIGINS만 있다.
+
+PROD_ORIGIN = "https://weave.example.com"
+H = PASSWORD_RESET_TOKEN_EXPIRE_HOURS
+
+
+@pytest.fixture
+def prod_origins(monkeypatch):
+    monkeypatch.setattr(admin_controller, "FRONTEND_URL", "")
+    monkeypatch.setattr(origins, "ALLOWED_ORIGIN_LIST", [PROD_ORIGIN])
+    monkeypatch.setattr(origins, "DEBUG", False)
+
+
+async def _configure_smtp(db, admin_id):
+    await smtp_config_model.upsert_config(
+        smtp_host="smtp.test.local", smtp_port=587, smtp_user="mailer",
+        smtp_password="smtp-secret", sender_email="noreply@test.local",
+        sender_name="Weave", use_tls=True, updated_by=admin_id, db=db)
+
+
+def _fake_send(monkeypatch, result=None, delay=0.0):
+    """smtp_client.send_email 대역. 호출을 기록하고 result를 돌려준다(delay초 뒤)."""
+    outbox = []
+
+    async def send_email(config, to_list, subject, body_html):
+        outbox.append({"to": to_list, "html": body_html})
+        if delay:
+            await asyncio.sleep(delay)
+        return result or {"status": True, "message": "Email sent successfully"}
+
+    monkeypatch.setattr(smtp_client, "send_email", send_email)
+    return outbox
+
+
+async def test_reset_email_button_links_to_allowed_request_origin(db_session, prod_origins, monkeypatch):
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+    await _configure_smtp(db_session, admin_id)
+    outbox = _fake_send(monkeypatch)
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, PROD_ORIGIN), db_session)
+
+    # 발송이 끝난 뒤에 응답한다. 메일로 간 링크는 관리자에게 돌려주지 않는다.
+    assert res == {"status": True, "email_sent": True, "expires_hours": H}
+    assert len(outbox) == 1
+    assert outbox[0]["to"] == ["reset-user@test.local"]
+    # 메일 버튼은 메일 앱에서 열리는 절대 주소여야 한다
+    assert f'href="{PROD_ORIGIN}/auth/reset?token=rst_' in outbox[0]["html"]
+
+
+@pytest.mark.parametrize("origin,host", [
+    # Origin 권한부와 Host가 같아도(WS의 동일 출처 규칙이면 허용) 허용 목록 밖이면 쓰지 않는다
+    ("https://evil.example", "evil.example"),
+    (None, None),
+], ids=["same-origin-evil", "no-origin"])
+async def test_reset_link_falls_back_to_first_allowed_origin(db_session, prod_origins, origin, host):
+    # 허용 목록 밖 Origin(또는 Origin 없음)은 링크 주소로 쓰지 않는다 — 토큰이 외부 주소에 실리지 않게.
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, origin, host), db_session)
+
+    assert res["email_sent"] is False
+    assert res["reset_link"] == f"{PROD_ORIGIN}/auth/reset?token={res['reset_token']}"
+    assert res["expires_hours"] == H
+    assert "email_error" not in res  # SMTP 미설정은 발송 실패가 아니다
+
+
+async def test_frontend_url_still_takes_precedence(db_session, prod_origins, monkeypatch):
+    monkeypatch.setattr(admin_controller, "FRONTEND_URL", "https://app.example.com")
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, PROD_ORIGIN), db_session)
+
+    assert res["reset_link"] == f"https://app.example.com/auth/reset?token={res['reset_token']}"
+
+
+async def test_reset_email_failure_returns_reason_and_copyable_link(db_session, prod_origins, monkeypatch):
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+    await _configure_smtp(db_session, admin_id)
+    outbox = _fake_send(monkeypatch, result={"status": False, "message": "(535, b'auth failed')"})
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, PROD_ORIGIN), db_session)
+
+    assert len(outbox) == 1
+    assert res["status"] is True
+    assert res["email_sent"] is False
+    assert res["email_error"] == "SMTP_SEND_FAILED"
+    assert res["reset_link"] == f"{PROD_ORIGIN}/auth/reset?token={res['reset_token']}"
+    assert res["expires_hours"] == H
+    # 돌려준 링크의 토큰은 실제로 저장된 토큰이다(관리자가 대신 전달하면 동작한다)
+    row = await db_session.execute(
+        text("SELECT token_hash FROM password_reset_token WHERE user_id = :uid"), {"uid": uid})
+    assert row.scalar_one() == crypto.hash_token(res["reset_token"])
+
+
+async def test_reset_email_unexpected_error_still_returns_link(db_session, prod_origins, monkeypatch):
+    # 발송 중 예상 밖 예외도 발송 실패로 보고 링크를 돌려준다(500이면 토큰이 롤백돼 링크도 사라진다).
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+    await _configure_smtp(db_session, admin_id)
+
+    async def broken_send(*args, **kwargs):
+        raise RuntimeError("smtp client bug")
+
+    monkeypatch.setattr(smtp_client, "send_email", broken_send)
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, PROD_ORIGIN), db_session)
+
+    assert res["email_sent"] is False
+    assert res["email_error"] == "SMTP_SEND_FAILED"
+    assert res["reset_link"] == f"{PROD_ORIGIN}/auth/reset?token={res['reset_token']}"
+
+
+async def test_reset_email_timeout_returns_reason_and_copyable_link(db_session, prod_origins, monkeypatch):
+    monkeypatch.setattr(admin_controller, "RESET_EMAIL_TIMEOUT_SECONDS", 0.05, raising=False)
+    admin_id = await _make_admin(db_session)
+    uid = await _make_user(db_session)
+    await _configure_smtp(db_session, admin_id)
+    _fake_send(monkeypatch, delay=1.0)  # 메일 서버가 응답하지 않는 상황
+
+    res = await admin_controller.reset_user_password(
+        uid, SimpleNamespace(new_password=None), _req(admin_id, PROD_ORIGIN), db_session)
+
+    assert res["email_sent"] is False
+    assert res["email_error"] == "SMTP_TIMEOUT"
+    assert res["reset_link"] == f"{PROD_ORIGIN}/auth/reset?token={res['reset_token']}"
+    assert res["expires_hours"] == H
+
+
+def test_email_error_codes_are_registered():
+    registered = {m.value: m for m in ErrorCode}
+    for code in ("SMTP_SEND_FAILED", "SMTP_TIMEOUT"):
+        assert code in registered
+        assert registered[code].category is Category.SERVER

@@ -13,6 +13,8 @@ export default function ResetPassword({ user, onClose }) {
   // 결과 상태
   const [emailSent, setEmailSent] = useState(false);
   const [resetLink, setResetLink] = useState('');
+  const [emailError, setEmailError] = useState(null); // 발송 실패 사유 코드(SMTP 미설정이면 없음)
+  const [expiresHours, setExpiresHours] = useState(null); // 서버 설정의 링크 만료 시간
   const [copied, setCopied] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -24,9 +26,11 @@ export default function ResetPassword({ user, onClose }) {
     try {
       const res = await axios.post(`/admin/users/${user.user_id}/reset-password`, {});
       if (res.data.status) {
+        setExpiresHours(Number.isFinite(res.data.expires_hours) ? res.data.expires_hours : null);
         if (res.data.email_sent) {
           setEmailSent(true);
         } else {
+          setEmailError(res.data.email_error || null);
           // 상대경로면 현재 origin을 붙여 절대 URL로 만든다.
           const link = res.data.reset_link || '';
           const absolute = /^https?:\/\//i.test(link)
@@ -85,9 +89,11 @@ export default function ResetPassword({ user, onClose }) {
                 {t('modal.resetPassword.emailSentTo')}<br />
                 <strong>{user.email}</strong>
               </p>
-              <p className="ResetPassword__Notice">
-                {t('modal.resetPassword.linkNotice')}
-              </p>
+              {expiresHours != null && (
+                <p className="ResetPassword__Notice">
+                  {t('modal.resetPassword.linkNotice', { count: expiresHours })}
+                </p>
+              )}
             </div>
           </div>
 
@@ -114,6 +120,11 @@ export default function ResetPassword({ user, onClose }) {
           </div>
 
           <div className="ResetPassword__Body">
+            {emailError && (
+              <p className="ResetPassword__Error" role="alert">
+                {errorText(emailError) ?? t('modal.resetPassword.emailFailed')}
+              </p>
+            )}
             <p className="ResetPassword__Description">
               <Trans
                 i18nKey="modal.resetPassword.linkFor"
@@ -133,9 +144,11 @@ export default function ResetPassword({ user, onClose }) {
                 {copied ? t('modal.resetPassword.copied') : t('modal.resetPassword.copy')}
               </button>
             </div>
-            <p className="ResetPassword__Notice">
-              {t('modal.resetPassword.shareNotice')}
-            </p>
+            {expiresHours != null && (
+              <p className="ResetPassword__Notice">
+                {t('modal.resetPassword.shareNotice', { count: expiresHours })}
+              </p>
+            )}
           </div>
 
           <div className="ResetPassword__Footer">

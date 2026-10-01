@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger("weave.admin")
 
 from config import FRONTEND_URL, PASSWORD_RESET_TOKEN_EXPIRE_HOURS
+from core.errors import ErrorCode
 from core.model import user as user_model
 from core.model import smtp_config as smtp_config_model
 from core.model import password_reset_token as reset_token_model
@@ -15,9 +16,12 @@ from core.model import workspace as workspace_model
 from library.locale_prefs import COMPAT_TIME_ZONE
 from library import smtp_client, crypto, messages
 from library.locale_prefs import normalize_language_region
+from library.origins import cors_allow_origins, is_allowed_origin
 
 RESET_TOKEN_BYTES = 32
 RESET_PATH = "/auth/reset"
+# 재설정 메일 발송 결과를 기다리는 상한(초). 넘기면 실패로 보고 링크를 관리자에게 돌려준다.
+RESET_EMAIL_TIMEOUT_SECONDS = 15
 
 
 async def _user_locale(user_id, db: AsyncSession) -> str:
@@ -28,10 +32,18 @@ async def _user_locale(user_id, db: AsyncSession) -> str:
     return messages.normalize_locale(region['locale'] if region else None)
 
 
-def _build_reset_link(raw_token: str) -> str:
-    """재설정 링크 구성. FRONTEND_URL이 있으면 절대 URL, 없으면 상대경로."""
-    path = f"{RESET_PATH}?token={raw_token}"
-    return f"{FRONTEND_URL}{path}" if FRONTEND_URL else path
+def _build_reset_link(raw_token: str, request: Request) -> str:
+    """재설정 링크 — 항상 절대 URL이다(메일 앱에서 상대 경로 버튼은 Weave로 가지 않는다).
+
+    주소 우선순위: FRONTEND_URL → 허용 목록(library/origins.py)에 있는 요청 Origin → 첫 허용
+    origin. 운영 compose는 FRONTEND_URL을 컨테이너에 넘기지 않으므로 보통 요청 Origin이 쓰인다.
+    Host가 같으면 허용하는 동일 출처 규칙은 일부러 쓰지 않는다(host 인자 생략) — 메일로 나가는
+    링크라 조작한 Origin·Host 쌍으로 토큰이 외부 주소에 실리면 안 된다."""
+    base = FRONTEND_URL
+    if not base:
+        origin = request.headers.get('origin', '')
+        base = origin if is_allowed_origin(origin) else cors_allow_origins()[0]
+    return f"{base.rstrip('/')}{RESET_PATH}?token={raw_token}"
 
 
 async def create_user(body, request: Request, db: AsyncSession):
@@ -92,8 +104,9 @@ async def reset_user_password(user_id: int, body, request: Request, db: AsyncSes
 
     임시 평문 비밀번호를 더 이상 생성/반환하지 않는다. 대신 secrets로 토큰을 생성하고
     해시만 저장(at-rest)한 뒤, 사용자가 직접 새 비밀번호를 설정하는 단일사용 링크를 발급한다.
-    SMTP가 설정돼 있으면 링크를 이메일로 발송하고, 미설정이면 링크/토큰을 관리자에게 반환한다
-    (단일사용+만료라 평문 비밀번호보다 위험이 훨씬 낮다)."""
+    SMTP가 설정돼 있으면 링크를 이메일로 발송하고, 미설정이거나 발송이 실패·시간 초과되면
+    링크/토큰을 관리자에게 반환한다(실패면 email_error 사유 코드 포함). 단일사용+만료라 평문
+    비밀번호보다 위험이 훨씬 낮다."""
     admin_id = request.state.payload.get('user_id')
 
     # 자기 자신의 비밀번호는 초기화 불가
@@ -113,7 +126,11 @@ async def reset_user_password(user_id: int, body, request: Request, db: AsyncSes
     # 사용자가 링크에서 직접 새 비번을 설정하므로 must_change_password는 불필요 — 해제해 둔다.
     await user_model.set_must_change_password(user_id, False, db)
 
-    reset_link = _build_reset_link(raw_token)
+    reset_link = _build_reset_link(raw_token, request)
+    # 링크를 관리자에게 돌려주는 응답. 만료 안내는 프론트 고정 문구 대신 서버 설정값을 쓴다.
+    link_response = {'status': True, 'email_sent': False,
+                     'reset_link': reset_link, 'reset_token': raw_token,
+                     'expires_hours': PASSWORD_RESET_TOKEN_EXPIRE_HOURS}
 
     # SMTP 설정이 있으면 링크를 이메일로 발송
     smtp_config = await smtp_config_model.get_config_for_sending(db)
@@ -135,22 +152,31 @@ async def reset_user_password(user_id: int, body, request: Request, db: AsyncSes
             '<hr style="border:none;border-top:1px solid #E5E5E5;margin:24px 0;">'
             f'<p style="color:#999;font-size:12px;">{messages.render(locale, "email.footer")}</p>'
         )
+        # 발송 결과를 실제로 기다린다(상한 RESET_EMAIL_TIMEOUT_SECONDS). send_email은 실패해도
+        # 예외 대신 {'status': False}를 돌려주므로 status를 확인해야 한다.
         try:
-            asyncio.create_task(
+            result = await asyncio.wait_for(
                 smtp_client.send_email(smtp_config, [target['email']],
                                        messages.render(locale, 'email.passwordReset.subject'),
-                                       email_html)
+                                       email_html),
+                timeout=RESET_EMAIL_TIMEOUT_SECONDS,
             )
-            return {'status': True, 'email_sent': True}
+            email_error = None if result.get('status') else ErrorCode.SMTP_SEND_FAILED
+        except asyncio.TimeoutError:
+            logger.error("Reset email timed out after %ss", RESET_EMAIL_TIMEOUT_SECONDS)
+            email_error = ErrorCode.SMTP_TIMEOUT
         except Exception as e:
             logger.error("Failed to send reset email: %s", e)
-            # 발송 실패 시 평문 비밀번호가 아니라 단일사용 링크/토큰을 관리자에게 반환
-            return {'status': True, 'email_sent': False,
-                    'reset_link': reset_link, 'reset_token': raw_token}
+            email_error = ErrorCode.SMTP_SEND_FAILED
+        if email_error is None:
+            # 메일로 간 링크는 관리자에게 돌려주지 않는다.
+            return {'status': True, 'email_sent': True,
+                    'expires_hours': PASSWORD_RESET_TOKEN_EXPIRE_HOURS}
+        # 발송 실패: 짧은 사유 코드와 함께 단일사용 링크/토큰을 관리자에게 돌려준다(대신 전달용).
+        return {**link_response, 'email_error': email_error.value}
 
     # SMTP 미설정: 단일사용 링크/토큰을 관리자에게 반환 (평문 비밀번호 아님)
-    return {'status': True, 'email_sent': False,
-            'reset_link': reset_link, 'reset_token': raw_token}
+    return link_response
 
 
 # ── SMTP 설정 ────────────────────────────────────────────────────────────

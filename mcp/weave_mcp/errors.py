@@ -78,6 +78,7 @@ _OVERRIDES = {
     # --- server: *_NOT_CONFIGURED and MIGRATION_FAILED aren't caught by any rule ---
     "AI_NOT_CONFIGURED": "server", "MIGRATION_FAILED": "server",
     "SMTP_NOT_CONFIGURED": "server",
+    "SMTP_SEND_FAILED": "server", "SMTP_TIMEOUT": "server",
     "INTERNAL_SERVER_ERROR": "server",
     "GITHUB_FETCH_FAILED": "server",
     "RATE_LIMIT_EXCEEDED": "rate_limited",

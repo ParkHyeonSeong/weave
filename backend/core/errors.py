@@ -198,6 +198,9 @@ class ErrorCode(str, Enum):
     GITHUB_FETCH_FAILED = ("GITHUB_FETCH_FAILED", Category.SERVER)  # GitHub PR 메타 조회 실패(네트워크/권한/404)
     MIGRATION_FAILED = ("MIGRATION_FAILED", Category.SERVER)
     SMTP_NOT_CONFIGURED = ("SMTP_NOT_CONFIGURED", Category.SERVER)
+    # 관리자 비밀번호 재설정 응답의 email_error(실패 본문이 아니라 status:True 응답의 필드)
+    SMTP_SEND_FAILED = ("SMTP_SEND_FAILED", Category.SERVER)  # 인증·연결 실패, 수신 거부 등
+    SMTP_TIMEOUT = ("SMTP_TIMEOUT", Category.SERVER)  # 제한 시간 안에 발송 결과가 오지 않음
     INTERNAL_SERVER_ERROR = ("INTERNAL_SERVER_ERROR", Category.SERVER)  # handler (500)
 
     # --- rate_limited -------------------------------------------------------

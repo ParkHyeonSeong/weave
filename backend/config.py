@@ -76,7 +76,8 @@ elif not DEBUG and _PLACEHOLDER_MARK in ENCRYPT_KEY:
     raise RuntimeError("ENCRYPT_KEY must not be the example placeholder in production")
 
 # Frontend base URL — 비밀번호 재설정 링크 등 절대 URL 구성용.
-# 미설정 시 백엔드는 토큰 + 상대경로만 반환하고 프론트가 절대 URL을 구성한다.
+# 미설정이면 재설정 링크는 허용된 요청 Origin(없으면 첫 허용 origin)으로 절대 URL을 만들고
+# (core/controller/admin.py), 칩 링크 등은 상대경로를 쓴다.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 
 # 비밀번호 재설정 토큰 만료 (시간)

@@ -6,6 +6,8 @@
 
 prod는 리버스 프록시 뒤에서 프론트와 API가 동일 출처이므로 Origin==Host(동일 출처)면
 허용한다 → ALLOWED_ORIGINS에 자기 도메인을 굳이 넣지 않아도 정상 동작한다.
+단, 비밀번호 재설정 메일 링크(core/controller/admin.py)는 FRONTEND_URL이 없으면 Host를 믿지 않고
+이 허용 목록으로 주소를 정하므로, 운영에서는 ALLOWED_ORIGINS에 공개 origin을 넣어야 한다.
 """
 import os
 import re
