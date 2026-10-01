@@ -2043,10 +2043,10 @@ const ko = {
         actions: '작업',
         account: '계정',
         recent: '최근 항목',
+        spaces: '공간',
         tasks: '태스크',
         documents: '문서',
         issues: '이슈',
-        members: '멤버',
       },
       actions: {
         dashboard: '대시보드로 이동',
@@ -2056,6 +2056,8 @@ const ko = {
         admin: '관리자로 이동',
         createBranch: '브랜치 만들기',
         createCanvas: 'Canvas 만들기',
+        createTrack: '트랙 만들기',
+        createScrum: '스크럼 보드 만들기',
       },
     },
     completeSprint: {

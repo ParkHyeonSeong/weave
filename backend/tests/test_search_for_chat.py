@@ -101,6 +101,26 @@ async def test_task_search_ranks_title_above_body(db_session):
     assert ids.index(title_hit) < ids.index(body_hit)
 
 
+async def test_task_search_exact_display_id_ranks_first(db_session):
+    """입력이 KEY-번호와 정확히 같으면(대소문자 무시) 그 태스크가 맨 앞에 온다.
+
+    'RFX-1'은 RFX-10·RFX-11의 부분일치이기도 하다. 부분일치 쪽을 더 최근에 수정된 것으로
+    만들어, 정확 일치 랭킹이 없으면 그쪽이 앞서도록 한다(⌘K에서 WV-12가 WV-120 아래로 묻히던 회귀).
+    """
+    uid, bid = await _seed_branch_with_member(db_session, "t5@ref.test", "RFX")
+    exact_id, dn = await _make_task(db_session, bid, uid, title="정확 일치 대상")    # RFX-1
+    others = [(await _make_task(db_session, bid, uid, title="다른 태스크"))[0]
+              for _ in range(10)]                                                   # RFX-2..RFX-11
+    await db_session.execute(
+        text("UPDATE task SET updated_at = NOW() + interval '1 hour' WHERE task_id = ANY(:ids)"),
+        {"ids": others})
+    for q in (f"RFX-{dn}", f"rfx-{dn}"):
+        res = await task_model.search_for_chat(uid, q, False, db_session)
+        ids = [t["task_id"] for t in res]
+        assert len(ids) >= 3, q                 # RFX-1 + 부분일치 RFX-10·RFX-11
+        assert ids[0] == exact_id, q
+
+
 async def test_task_search_result_has_no_rank_key(db_session):
     """정렬 보조 _rank 는 응답에 노출되지 않는다(스키마 불변)."""
     uid, bid = await _seed_branch_with_member(db_session, "t4@ref.test", "RFD")

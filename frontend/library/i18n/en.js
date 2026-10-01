@@ -2045,10 +2045,10 @@ const en = {
         actions: 'Actions',
         account: 'Account',
         recent: 'Recent',
+        spaces: 'Spaces',
         tasks: 'Tasks',
         documents: 'Documents',
         issues: 'Issues',
-        members: 'Members',
       },
       actions: {
         dashboard: 'Go to Dashboard',
@@ -2058,6 +2058,8 @@ const en = {
         admin: 'Go to Admin',
         createBranch: 'Create Branch',
         createCanvas: 'Create Canvas',
+        createTrack: 'Create Track',
+        createScrum: 'Create Scrum Board',
       },
     },
     completeSprint: {

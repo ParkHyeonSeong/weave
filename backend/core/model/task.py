@@ -860,6 +860,9 @@ async def search_for_chat(user_id: int, keyword: str, my_only: bool, db: AsyncSe
                t.updated_at, t.created_at,
                ws.label AS status_label, ws.color AS status_color, ws.category AS status_category,
                CASE
+                   -- 입력이 task ID와 정확히 같으면(대소문자 무시) 맨 앞 — 'WV-12'가 부분일치인
+                   -- WV-120·WV-121(더 최근 수정) 아래로 묻히지 않게 한다.
+                   WHEN LOWER(b.key || '-' || t.display_number::text) = LOWER(:keyword) THEN -1
                    -- (b.key || '-' || display_number) = 'KEY-123' 사용자 노출 task ID
                    WHEN (b.key || '-' || t.display_number::text) ILIKE :keyword_like
                         OR t.display_number::text ILIKE :keyword_like THEN 0
@@ -880,7 +883,7 @@ async def search_for_chat(user_id: int, keyword: str, my_only: bool, db: AsyncSe
               {assignee_filter}
         ORDER BY _rank, t.updated_at DESC NULLS LAST, t.created_at DESC
         LIMIT :limit OFFSET :offset
-    """), {'user_id': user_id, 'keyword_like': keyword_like,
+    """), {'user_id': user_id, 'keyword_like': keyword_like, 'keyword': keyword or '',
            'limit': max(1, min(limit, 200)), 'offset': max(0, offset)})
     rows = result.fetchall()
     tasks = []
