@@ -52,6 +52,25 @@ async def test_update_canvas_page(fake_client):
     )
 
 
+async def test_update_canvas_page_content_never_sends_editor_origin(fake_client):
+    # origin='editor'는 웹 공동편집기의 자기 저장 표지다 — 에이전트 쓰기는 편집 중 거절·공동편집 상태 초기화 규칙을 따른다
+    fake_client.call_json.return_value = {"status": True}
+    async with Client(_app.mcp) as client:
+        await client.call_tool("update_canvas_page", {"canvas_id": 1, "page_id": 2, "content": "# AI"})
+    fake_client.call_json.assert_awaited_once_with(
+        "PATCH", "/api/canvases/1/pages/2", json={"content": "# AI"}
+    )
+
+
+async def test_update_canvas_page_documents_being_edited_rejection():
+    # 편집 중인 페이지에 content를 쓰면 PAGE_BEING_EDITED로 거절된다는 것을 에이전트가 도구 설명에서 알 수 있어야 한다
+    async with Client(_app.mcp) as client:
+        tools = {t.name: t for t in await client.list_tools()}
+    description = tools["update_canvas_page"].description or ""
+    assert "PAGE_BEING_EDITED" in description
+    assert "nothing is changed" in description
+
+
 async def test_create_canvas_page_with_type(fake_client):
     fake_client.call_json.return_value = {"status": True}
     async with Client(_app.mcp) as client:

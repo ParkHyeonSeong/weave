@@ -8,6 +8,7 @@ import { axios } from '@/library/_axios';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import PageMoveModal from '@/components/modal/PageMoveModal';
 import useCollabProvider from '@/library/useCollabProvider';
+import useCollabEditBase from '@/library/useCollabEditBase';
 import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
 import { collabStatusKey } from '@/library/collabDelivery';
 import { sanitizeHtml, sanitizeSvg } from '@/library/sanitize';
@@ -24,6 +25,9 @@ import { copyAsMarkdown } from '@/library/copyMarkdown';
 import { buildCanvasEditorExtensions } from './canvasEditorExtensions';
 import { useTranslation } from 'react-i18next';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { showToast } from '@/components/Layout/Toast';
+import { getError } from '@/library/errorCode';
+import { errorText } from '@/library/errorText';
 
 const lowlight = createLowlight(common);
 
@@ -110,6 +114,13 @@ export default function CanvasPageView({ onRefClick }) {
     isEditing && pageId ? Number(pageId) : null,
     isEditing ? user : null
   );
+  // 편집기는 방 동기화 뒤에 다시 읽은 페이지로 연다 — 읽기 화면의 page는 그사이 외부(MCP·REST) 본문 쓰기를 모른다.
+  // 다시 읽기가 실패하면 알리고 편집을 닫는다: 편집기 없이 '연결 중'에 멈추지 않고, 다시 열면 새 세션이 새로 읽는다
+  const editBase = useCollabEditBase(provider, isEditing && canvasId && pageId ? `/canvases/${canvasId}/pages/${pageId}` : null, (data) => {
+    const err = getError(data);
+    showToast(errorText(err.code, err.category) ?? t('canvas.editOpenFailed'), 'error');
+    handleCloseEdit();
+  });
 
   // 페이지 데이터 fetch
   const fetchPage = useCallback(async () => {
@@ -266,7 +277,8 @@ export default function CanvasPageView({ onRefClick }) {
     }, 1000);
   };
 
-  // HTML content 변경 시 debounced REST PATCH. 바뀐 순간부터 "저장 중" — 5초를 기다리는 동안 "저장됨"으로 두지 않는다
+  // HTML content 변경 시 debounced REST PATCH. 바뀐 순간부터 "저장 중" — 5초를 기다리는 동안 "저장됨"으로 두지 않는다.
+  // origin: 'editor' — 방 문서에서 뽑은 HTML이라는 표지. 없으면 서버가 편집기 밖 쓰기로 보고 편집 중에는 거절한다
   const handleHtmlChange = (html) => {
     htmlRef.current = html;
     setSaveStatus('saving');
@@ -274,7 +286,7 @@ export default function CanvasPageView({ onRefClick }) {
     if (contentTimerRef.current) clearTimeout(contentTimerRef.current);
     contentTimerRef.current = setTimeout(async () => {
       try {
-        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: htmlRef.current });
+        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: htmlRef.current, origin: 'editor' });
         if (seq === contentSeqRef.current) setSaveStatus('saved');   // 그사이 새 변경이 있으면 그 저장이 정한다
       } catch {
         if (seq === contentSeqRef.current) setSaveStatus('error');
@@ -300,7 +312,7 @@ export default function CanvasPageView({ onRefClick }) {
     for (let i = 0; i < 2 && htmlRef.current && htmlRef.current !== saved; i++) {
       saved = htmlRef.current;
       try {
-        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: saved });
+        await axios.patch(`/canvases/${canvasId}/pages/${pageId}`, { content: saved, origin: 'editor' });
         saveFailed = false;
       } catch {
         saveFailed = true;
@@ -719,13 +731,13 @@ export default function CanvasPageView({ onRefClick }) {
       {/* 내용 */}
       <div className={`CanvasPageView__Body${page.type === 'typst' ? ' CanvasPageView__Body--typst' : ''}`}>
         {isEditing ? (
-          ydoc && provider ? (
+          ydoc && provider && editBase ? (
             page.type === 'typst' ? (
               <TypstEditor
                 ydoc={ydoc}
                 provider={provider}
-                initialContent={page.content || ''}
-                hasExistingYjsState={!!page.yjs_state}
+                initialContent={editBase.content || ''}
+                hasExistingYjsState={!!editBase.yjs_state}
                 onContentChange={handleHtmlChange}
                 pageTitle={page.title}
               />
@@ -734,8 +746,8 @@ export default function CanvasPageView({ onRefClick }) {
                 ydoc={ydoc}
                 provider={provider}
                 canvasId={Number(canvasId)}
-                initialContent={page.content || ''}
-                hasExistingYjsState={!!page.yjs_state}
+                initialContent={editBase.content || ''}
+                hasExistingYjsState={!!editBase.yjs_state}
                 onHtmlChange={handleHtmlChange}
               />
             )

@@ -424,6 +424,7 @@ const ko = {
       saveFailed: '저장 실패',
     },
     connecting: '연결 중…',
+    editOpenFailed: '편집기를 열지 못했습니다. 잠시 후 다시 시도해 주세요.',
     emptyContent: '아직 내용이 없습니다. 편집을 눌러 작성해 보세요.',
     presenceEditing_one: '{{count}}명 편집 중',
     presenceEditing_other: '{{count}}명 편집 중',

@@ -162,6 +162,7 @@ class ErrorCode(str, Enum):
     KEY_ALREADY_EXISTS = ("KEY_ALREADY_EXISTS", Category.CONFLICT)  # canonical of key_already_exists
     TYPE_KEY_ALREADY_EXISTS = ("TYPE_KEY_ALREADY_EXISTS", Category.CONFLICT)
     LABEL_ALREADY_EXISTS = ("LABEL_ALREADY_EXISTS", Category.CONFLICT)
+    PAGE_BEING_EDITED = ("PAGE_BEING_EDITED", Category.CONFLICT)  # 공동편집 중인 캔버스 페이지에 편집기 밖 본문 쓰기(CV-02)
     PARENT_DELETED = ("PARENT_DELETED", Category.CONFLICT)
     IN_USE = ("IN_USE", Category.CONFLICT)  # canonical of in_use (new)
     STATUS_IN_USE = ("STATUS_IN_USE", Category.CONFLICT)

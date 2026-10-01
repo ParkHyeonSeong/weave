@@ -426,6 +426,7 @@ const en = {
       saveFailed: "Couldn't save",
     },
     connecting: 'Connecting…',
+    editOpenFailed: "Couldn't open the editor. Please try again in a moment.",
     emptyContent: 'No content yet. Click Edit to start writing.',
     presenceEditing_one: '{{count}} editing',
     presenceEditing_other: '{{count}} editing',

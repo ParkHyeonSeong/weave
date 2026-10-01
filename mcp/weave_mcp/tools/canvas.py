@@ -228,6 +228,12 @@ async def update_canvas_page(
     partial updates are not supported; pass the full desired content. content accepts
     markdown or HTML; strings without HTML tags are treated as markdown. To change a
     page's parent or order use move_canvas_page instead.
+
+    While someone has the page open in the web editor, a `content` update is rejected
+    with code PAGE_BEING_EDITED (category "conflict") and nothing is changed — not even
+    a title/wide_mode passed in the same call. Retry after they close the editor, or tell
+    the user. Updates without `content` are never blocked. When nobody is editing, the
+    next editor session starts from the content you wrote.
     """
     body = {k: v for k, v in {
         "title": title,

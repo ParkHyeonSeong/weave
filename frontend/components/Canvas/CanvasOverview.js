@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { Pencil, X, Wifi, WifiOff, Loader, Copy } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import useCollabProvider from '@/library/useCollabProvider';
+import useCollabEditBase from '@/library/useCollabEditBase';
 import CollabStatusBadge from '@/components/shared/CollabStatusBadge';
 import { collabStatusKey } from '@/library/collabDelivery';
 import { sanitizeHtml } from '@/library/sanitize';
@@ -15,6 +16,9 @@ import EntityIcon from '@/components/common/EntityIcon';
 import EntityAppearancePopover from '@/components/common/EntityAppearancePopover';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
 import { buildCanvasEditorExtensions } from './canvasEditorExtensions';
+import { showToast } from '@/components/Layout/Toast';
+import { getError } from '@/library/errorCode';
+import { errorText } from '@/library/errorText';
 
 const CanvasCollabEditor = dynamic(() => import('./CanvasCollabEditor'), { ssr: false });
 
@@ -88,6 +92,13 @@ export default function CanvasOverview() {
     isEditing && overview?.page_id ? overview.page_id : null,
     isEditing ? user : null
   );
+  // 편집기는 방 동기화 뒤에 다시 읽은 개요로 연다. 다시 읽기가 실패하면 알리고 편집을 닫는다(CanvasPageView와 같다 —
+  // useCollabEditBase 참고)
+  const editBase = useCollabEditBase(provider, isEditing && overview?.page_id ? `/canvases/${canvasId}/pages/${overview.page_id}` : null, (data) => {
+    const err = getError(data);
+    showToast(errorText(err.code, err.category) ?? t('canvas.editOpenFailed'), 'error');
+    handleCloseEdit();
+  });
 
   // 읽기 모드에서 레퍼런스 클릭 핸들러 (task, doc, issue)
   useEffect(() => {
@@ -152,8 +163,10 @@ export default function CanvasOverview() {
     contentTimerRef.current = setTimeout(async () => {
       if (!overview) return;
       try {
+        // origin: 'editor' — 편집기 저장 표지(CanvasPageView.handleHtmlChange와 같다)
         await axios.patch(`/canvases/${canvasId}/pages/${overview.page_id}`, {
           content: htmlRef.current,
+          origin: 'editor',
         });
         if (seq === contentSeqRef.current) setSaveStatus('saved');
       } catch {
@@ -181,6 +194,7 @@ export default function CanvasOverview() {
       try {
         await axios.patch(`/canvases/${canvasId}/pages/${overview.page_id}`, {
           content: saved,
+          origin: 'editor',
         });
         saveFailed = false;
       } catch {
@@ -285,13 +299,13 @@ export default function CanvasOverview() {
 
           <div className="CanvasOverview__OverviewBody">
             {isEditing ? (
-              ydoc && provider ? (
+              ydoc && provider && editBase ? (
                 <CanvasCollabEditor
                   ydoc={ydoc}
                   provider={provider}
                   canvasId={Number(canvasId)}
-                  initialContent={overview.content || ''}
-                  hasExistingYjsState={!!overview.yjs_state}
+                  initialContent={editBase.content || ''}
+                  hasExistingYjsState={!!editBase.yjs_state}
                   onHtmlChange={handleHtmlChange}
                 />
               ) : (

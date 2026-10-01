@@ -72,6 +72,7 @@ _OVERRIDES = {
     "ALREADY_MEMBER": "conflict", "COMMENT_DELETED": "conflict",
     "DUPLICATE_DEPENDENCY": "conflict", "DUPLICATE_LINK": "conflict",
     "PARENT_DELETED": "conflict", "IN_USE": "conflict",
+    "PAGE_BEING_EDITED": "conflict",
     # --- business: NOT_INITIALIZED starts with NOT_ so forbidden rule fires ---
     "NOT_INITIALIZED": "business",
     # --- server: *_NOT_CONFIGURED and MIGRATION_FAILED aren't caught by any rule ---

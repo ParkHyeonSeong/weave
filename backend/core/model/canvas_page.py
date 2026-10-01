@@ -92,13 +92,27 @@ async def find_tree(canvas_id: int, db: AsyncSession):
 _UPDATABLE_FIELDS = frozenset({'title', 'content', 'wide_mode'})
 
 
-async def update(page_id: int, fields: dict, updated_by: int, db: AsyncSession):
-    """페이지 수정 (화이트리스트 필드만 — parent_page_id/position 제외)"""
+async def lock(page_id: int, db: AsyncSession):
+    """행을 잠근다(호출 세션이 커밋할 때 풀린다). 편집기 밖 본문 쓰기가 협업 방 확인 전에 잡는다 — 방 입장도
+    get_yjs_state(for_update=True)로 같은 행을 잠그므로 둘은 서로의 커밋을 기다린다(core/controller/canvas_page.update)."""
+    await db.execute(text("""
+        SELECT 1 FROM canvas_page WHERE page_id = :page_id FOR UPDATE
+    """), {'page_id': page_id})
+
+
+async def update(page_id: int, fields: dict, updated_by: int, db: AsyncSession,
+                 reset_yjs: bool = False):
+    """페이지 수정 (화이트리스트 필드만 — parent_page_id/position 제외).
+
+    reset_yjs=True면 같은 UPDATE에서 공동편집 상태(yjs_state)를 비운다 — 편집기 밖에서 content를 바꾼 뒤 다음
+    편집기가 옛 Yjs 문서 대신 새 content에서 시작하게 한다."""
     fields = {k: v for k, v in fields.items() if k in _UPDATABLE_FIELDS}
     if not fields:
         return
     fields['updated_by'] = updated_by
     set_clauses = ', '.join(f'{k} = :{k}' for k in fields)
+    if reset_yjs:
+        set_clauses += ', yjs_state = NULL, yjs_updated_at = NULL'
     params = {**fields, 'page_id': page_id}
     await db.execute(text(f"""
         UPDATE canvas_page SET {set_clauses}, updated_at = NOW()
@@ -262,10 +276,14 @@ async def copy_page(page_id: int, parent_page_id: int | None,
     )
 
 
-async def get_yjs_state(page_id: int, db: AsyncSession) -> bytes | None:
-    """페이지의 Yjs 바이너리 상태 조회"""
-    result = await db.execute(text("""
-        SELECT yjs_state FROM canvas_page WHERE page_id = :page_id
+async def get_yjs_state(page_id: int, db: AsyncSession, for_update: bool = False) -> bytes | None:
+    """페이지의 Yjs 바이너리 상태 조회.
+
+    for_update: 협업 방 입장이 행을 잠그고 읽는다 — 편집기 밖 본문 쓰기(yjs_state를 비운다)가 커밋될 때까지
+    기다렸다가 그 결과를 읽는다(library/ws_collab_manager.py). 잠금은 호출 세션의 커밋 때 풀린다."""
+    lock_clause = " FOR UPDATE" if for_update else ""
+    result = await db.execute(text(f"""
+        SELECT yjs_state FROM canvas_page WHERE page_id = :page_id{lock_clause}
     """), {'page_id': page_id})
     row = result.fetchone()
     return row[0] if row else None

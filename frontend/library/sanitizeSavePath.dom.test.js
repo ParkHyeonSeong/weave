@@ -4,7 +4,9 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
 // vi.mock 팩토리는 호이스팅되므로 픽스처/캡처 배열은 vi.hoisted로 만든다.
-const { EDITOR_OUT, dynProps } = vi.hoisted(() => ({
+const { EDITOR_OUT, dynProps, SYNCED_PROVIDER } = vi.hoisted(() => ({
+  // 이미 방 동기화를 마친 provider — 편집기는 동기화 뒤 다시 읽은 페이지로 열린다(useCollabEditBase). 렌더마다 같은 객체.
+  SYNCED_PROVIDER: { synced: true, on() {}, off() {} },
   EDITOR_OUT:
     '<p><span style="color: rgb(220, 38, 38);">red</span>'
     + '<mark data-color="#FEF08A" style="background-color: rgb(254, 240, 138); color: inherit;">hl</mark></p>'
@@ -32,7 +34,7 @@ vi.mock('next/dynamic', () => ({
   default: () => function DynamicStub(props) { dynProps.push(props); return null; },
 }));
 vi.mock('@/library/useCollabProvider', () => ({
-  default: (cid, pid) => ({ ydoc: cid && pid ? {} : null, provider: cid && pid ? {} : null,
+  default: (cid, pid) => ({ ydoc: cid && pid ? {} : null, provider: cid && pid ? SYNCED_PROVIDER : null,
                             status: 'connected', connectedUsers: [],
                             // 연결·전달 확인됨 — 닫기가 묻지 않고 저장 경로만 탄다
                             connection: 'connected', pending: false,

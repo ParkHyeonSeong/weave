@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 from pydantic import BaseModel, field_validator
 
 MAX_CONTENT_LENGTH = 300_000
@@ -32,6 +32,9 @@ class CanvasPageUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     wide_mode: Optional[bool] = None
+    # 저장하지 않는 표지 — 공동편집기의 자기 저장(자동 저장·닫기 저장)만 'editor'를 보낸다. 없으면 편집기 밖(MCP·REST)
+    # 쓰기로 보고, content를 바꿀 때 공동편집 상태를 비우거나 편집 중이면 거절한다(core/controller/canvas_page.update).
+    origin: Optional[Literal['editor']] = None
 
     @field_validator('content')
     @classmethod

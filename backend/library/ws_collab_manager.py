@@ -20,6 +20,8 @@ SYNC_UPDATE = 2
 
 PERSIST_DEBOUNCE_SECS = 30
 
+EMPTY_UPDATE = b'\x00\x00'  # 구조체도 삭제 기록도 없는 Yjs 업데이트 — 한 번도 쓰이지 않은 문서의 전체 상태
+
 
 def _read_var_uint(data: bytes, offset: int) -> tuple[int, int]:
     """Read a variable-length unsigned integer (LEB128)."""
@@ -342,12 +344,19 @@ class CollabManager:
 
 
 class CanvasPageStore:
-    """캔버스 페이지 yjs_state store (기존 동작 보존)."""
+    """캔버스 페이지 yjs_state store."""
     async def get_yjs_state(self, room_id, db_session, for_update=False):
-        # 캔버스는 방 밖에서 yjs_state를 쓰는 경로(REST)가 없어 행을 잠그지 않는다.
-        return await canvas_page_model.get_yjs_state(room_id, db_session)
+        # 방 입장은 행을 잠그고 읽는다: 방이 없을 때의 편집기 밖 본문 쓰기(REST·MCP)는 같은 UPDATE에서 yjs_state를
+        # 비운다(core/controller/canvas_page.update). 그 쓰기가 커밋되기 전 상태로 방을 열면 편집기가 옛 문서로 열려
+        # 그 HTML을 다시 저장해 쓰기를 덮는다. 그 쓰기도 방을 확인하기 전에 이 행을 잠근다.
+        return await canvas_page_model.get_yjs_state(room_id, db_session, for_update)
 
     async def save_yjs_state(self, room_id, state, db_session):
+        # 아무것도 들어간 적 없는 문서(빈 업데이트)는 저장하지 않는다. 편집기는 yjs_state가 있으면 content로 문서를 채우지
+        # 않으므로, content로 채우기 전에 끝난 편집 세션(다시 읽기 실패·응답 전 닫기)이 빈 상태를 남기면 다음 편집기가
+        # 본문 대신 빈 문서로 열린다. 본문을 모두 지운 문서는 삭제 기록이 남아 빈 업데이트가 아니므로 그대로 저장된다.
+        if state == EMPTY_UPDATE:
+            return
         await canvas_page_model.save_yjs_state(room_id, state, None, db_session)
 
 

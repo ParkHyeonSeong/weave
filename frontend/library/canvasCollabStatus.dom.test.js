@@ -9,12 +9,15 @@ import { createRoot } from 'react-dom/client';
 
 // 협업 훅 모의가 읽는 상태 — 테스트가 바꾸면 useSyncExternalStore로 다시 렌더된다(재연결 같은 전환을 흉내 낸다).
 // deliveryRef는 훅이 돌려주는 최신값 ref처럼 set 즉시(렌더를 기다리지 않고) 바뀐다.
-const { dynProps, collabStore } = vi.hoisted(() => {
+// provider는 이미 방 동기화를 마친 y-websocket처럼 둔다 — 편집기는 동기화 뒤 다시 읽은 페이지로 열린다(useCollabEditBase).
+// 렌더마다 같은 객체여야 한다(편집 세션마다 하나).
+const { dynProps, collabStore, SYNCED_PROVIDER } = vi.hoisted(() => {
   let value = {};
   const listeners = new Set();
   const deliveryRef = { current: { connection: 'connected', pending: false } };
   return {
     dynProps: [],
+    SYNCED_PROVIDER: { synced: true, on() {}, off() {} },
     collabStore: {
       deliveryRef,
       get: () => value,
@@ -45,7 +48,7 @@ vi.mock('@/library/useCollabProvider', async () => {
   return {
     default: (cid, pid) => {
       const collab = useSyncExternalStore(collabStore.subscribe, collabStore.get);
-      return { ydoc: cid && pid ? {} : null, provider: cid && pid ? {} : null, status: 'connected',
+      return { ydoc: cid && pid ? {} : null, provider: cid && pid ? SYNCED_PROVIDER : null, status: 'connected',
                connectedUsers: [], ...collab, deliveryRef: collabStore.deliveryRef };
     },
   };

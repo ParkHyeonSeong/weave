@@ -10,6 +10,7 @@ from library import activity_service
 from library.html_markdown import ensure_html, html_to_markdown
 from library.html_sanitize import sanitize_html
 from library.mention_parser import extract_mention_user_ids
+from library.ws_collab_manager import collab_manager
 
 
 async def _verify_parent_in_canvas(parent_page_id, canvas_id: int, db: AsyncSession):
@@ -107,8 +108,19 @@ async def update(canvas_id: int, page_id: int, body, request: Request, db: Async
         return error_response(ErrorCode.PAGE_NOT_FOUND)
 
     fields = body.model_dump(exclude_unset=True)
+    from_editor = fields.pop('origin', None) == 'editor'  # 저장하지 않는 표지 — 공동편집기의 자기 저장
     if not fields:
         return {'status': True}
+
+    # CV-02: 편집기 밖(MCP·REST)의 본문 쓰기. 편집기는 yjs_state가 있으면 content를 무시하고 그 문서로 열려 옛 HTML을
+    # 다시 저장한다. 그래서 편집 중인 방이 없으면 같은 UPDATE에서 yjs_state를 비워 다음 편집이 새 content에서 시작하게
+    # 하고, 방이 열려 있으면 덮이지 않도록 아무것도 바꾸지 않고 거절한다. 방을 보기 전에 행을 잠근다 — 방 입장도 이 행을
+    # 잠그고 읽으므로(CanvasPageStore) 이 쓰기가 커밋되기 전 상태로 방이 열리지 않고, 먼저 열리던 방은 여기서 보인다.
+    reset_yjs = 'content' in fields and not from_editor
+    if reset_yjs:
+        await page_model.lock(page_id, db)
+        if page_id in collab_manager.rooms:
+            return error_response(ErrorCode.PAGE_BEING_EDITED)
 
     # SEC-17: 저장 전 서버측 HTML 정화(프론트 DOMPurify 우회 경로 방어)
     # type 가드: content 컬럼은 typst 페이지의 raw 소스도 담는다 — 그 경우 md 변환도
@@ -121,7 +133,7 @@ async def update(canvas_id: int, page_id: int, body, request: Request, db: Async
         else:  # folder
             fields['content'] = sanitize_html(fields['content'])
 
-    await page_model.update(page_id, fields, user_id, db)
+    await page_model.update(page_id, fields, user_id, db, reset_yjs=reset_yjs)
 
     # 활동 로그
     await activity_service.log_canvas_page_change(page_id, canvas_id, user_id, page, fields, db)
