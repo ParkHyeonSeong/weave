@@ -1008,6 +1008,7 @@ const ko = {
       daysOverdue_other: '{{count}}일 지남',
       daysLeft_one: '{{count}}일',
       daysLeft_other: '{{count}}일',
+      dueTitle: '마감 {{date}}',
       group: {
         unassigned: '담당자 없음',
         noEpic: '에픽 없음',

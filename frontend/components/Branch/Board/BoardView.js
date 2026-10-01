@@ -448,6 +448,7 @@ export default function BoardView({
                 tasks={ordered}
                 taskTypes={taskTypes}
                 workflowStatuses={workflowStatuses}
+                epics={epics}
                 onCardClick={(task) => onSelectTask(task)}
                 onCardContextMenu={taskMenu.openMenu}
                 onStatusChange={handleStatusChange}
@@ -478,6 +479,7 @@ export default function BoardView({
                     tasks={lane.tasks.filter((t) => t.status === ws.key)}
                     taskTypes={taskTypes}
                     workflowStatuses={workflowStatuses}
+                    epics={epics}
                     onCardClick={(task) => onSelectTask(task)}
                     onCardContextMenu={taskMenu.openMenu}
                     onStatusChange={handleStatusChange}

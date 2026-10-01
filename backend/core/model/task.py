@@ -301,10 +301,13 @@ async def find_for_board(branch_id: int, sprint_id, db: AsyncSession):
         # sprint_id 미지정 시 모든 active sprint의 task 조회
         where_sprint = "AND t.sprint_id IN (SELECT sprint_id FROM sprint WHERE branch_id = :branch_id AND status = 'active')"
 
+    # epic_id·due_date·created_at은 보드의 에픽 필터·카드 마감/에픽 칩·마감일/생성일 정렬이 읽는다
+    # (frontend/library/filterSpec.js LEAF, taskViewState.js val) — 빼면 에픽 필터가 모든 카드를 숨긴다
     result = await db.execute(text(f"""
         SELECT t.task_id, t.display_number, t.title,
                t.task_type, t.status, t.priority,
-               t.sort_order, t.custom_fields,
+               t.epic_id, t.due_date,
+               t.sort_order, t.created_at, t.custom_fields,
                b.key AS branch_key
         FROM task t
         INNER JOIN branch b ON t.branch_id = b.branch_id

@@ -177,3 +177,94 @@ describe('BoardCard 부모 카드 드래그와 기존 상호작용', () => {
     expect(onCardContextMenu).toHaveBeenCalledTimes(1);
   });
 });
+
+// 스탠드업에서 "이거 언제까지죠?"를 카드를 열지 않고 답하게 한다. 오늘은 개인 시간대 기준이다
+// (Provider 밖 기본 시간대 UTC). 날짜를 고정해 경계(지남·이틀 이내·여유)를 결정적으로 본다.
+describe('BoardCard 마감 칩과 에픽 칩', () => {
+  const EPICS = [{ epic_id: 7, epic_name: 'Payments', color: '#16A34A' }];
+  const taskWith = (id, extra) => ({
+    task_id: id, display_id: `QA-${id}`, title: `태스크 ${id}`, status: 'todo', assignees: [], ...extra,
+  });
+
+  function renderCards(tasks) {
+    act(() => {
+      root.render(
+        <BoardColumn
+          status="todo"
+          label="To Do"
+          color="#9CA3AF"
+          tasks={tasks}
+          taskTypes={[]}
+          workflowStatuses={WORKFLOW}
+          epics={EPICS}
+          onCardClick={onCardClick}
+          onCardContextMenu={onCardContextMenu}
+          onStatusChange={onStatusChange}
+        />,
+      );
+    });
+  }
+
+  const cardOf = (id) => [...container.querySelectorAll('.BoardCard')]
+    .find((el) => el.textContent.includes(`QA-${id}`));
+  const dueOf = (id) => cardOf(id).querySelector('.BoardCard__Due');
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-30T03:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('마감이 지난 열린 태스크는 빨간 D+N 칩을 단다', () => {
+    renderCards([taskWith(1, { due_date: '2026-09-28' })]);
+    const due = dueOf(1);
+    expect(due.classList.contains('BoardCard__Due--over')).toBe(true);
+    expect(due.querySelector('.BoardCard__DueDate').textContent).toBe('09/28');
+    expect(due.querySelector('.BoardCard__DueDday').textContent).toBe('D+2');
+    expect(due.getAttribute('title')).toBe('Due 09/28');
+  });
+
+  it('이틀 이내 마감은 주황 칩이다 (오늘은 D-day)', () => {
+    renderCards([
+      taskWith(1, { due_date: '2026-09-30' }),
+      taskWith(2, { due_date: '2026-10-02' }),
+    ]);
+    expect(dueOf(1).classList.contains('BoardCard__Due--soon')).toBe(true);
+    expect(dueOf(1).querySelector('.BoardCard__DueDday').textContent).toBe('D-day');
+    expect(dueOf(2).classList.contains('BoardCard__Due--soon')).toBe(true);
+    expect(dueOf(2).querySelector('.BoardCard__DueDday').textContent).toBe('D-2');
+  });
+
+  it('여유 있는 마감은 날짜만 보이고 경고색이 없다', () => {
+    renderCards([taskWith(1, { due_date: '2026-10-15' })]);
+    const due = dueOf(1);
+    expect(due.classList.contains('BoardCard__Due--calm')).toBe(true);
+    expect(due.querySelector('.BoardCard__DueDate').textContent).toBe('10/15');
+    expect(due.querySelector('.BoardCard__DueDday')).toBeNull();
+  });
+
+  it('완료된 태스크는 마감이 지나도 경고하지 않는다', () => {
+    renderCards([taskWith(1, { status: 'done', due_date: '2026-09-28' })]);
+    const due = dueOf(1);
+    expect(due.classList.contains('BoardCard__Due--calm')).toBe(true);
+    expect(due.querySelector('.BoardCard__DueDday')).toBeNull();
+  });
+
+  it('에픽이 있으면 색 점과 에픽 이름을 보인다', () => {
+    renderCards([taskWith(1, { epic_id: 7 })]);
+    const epic = cardOf(1).querySelector('.BoardCard__Epic');
+    expect(epic.querySelector('.BoardCard__EpicName').textContent).toBe('Payments');
+    expect(epic.querySelector('.BoardCard__EpicDot').style.backgroundColor).toBe('rgb(22, 163, 74)');
+    expect(cardOf(1).querySelector('.BoardCard__Due')).toBeNull();
+  });
+
+  it('마감도 에픽도 없으면 칩 줄을 그리지 않는다', () => {
+    renderCards([taskWith(1, {}), taskWith(2, { epic_id: 999 })]);
+    expect(cardOf(1).querySelector('.BoardCard__Meta')).toBeNull();
+    // 목록에 없는 에픽 id(방금 지워진 에픽 등)는 빈 칩 대신 아무것도 그리지 않는다
+    expect(cardOf(2).querySelector('.BoardCard__Meta')).toBeNull();
+  });
+});

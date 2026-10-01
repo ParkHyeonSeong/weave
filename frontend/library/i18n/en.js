@@ -1010,6 +1010,7 @@ const en = {
       daysOverdue_other: '{{count}}d overdue',
       daysLeft_one: '{{count}}d',
       daysLeft_other: '{{count}}d',
+      dueTitle: 'Due {{date}}',
       group: {
         unassigned: 'Unassigned',
         noEpic: 'No epic',

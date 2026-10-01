@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CheckSquare, ChevronRight } from 'lucide-react';
+import { Calendar, CheckSquare, ChevronRight } from 'lucide-react';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import Avatar from '@/components/common/Avatar';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { ddayBadge } from '@/library/dueBadge';
 import { entityTintStyle } from '@/library/entityTint';
 import { progressLabel, progressPercent } from '@/library/subtaskProgress';
 import { priorityInkVar, tokenVar, FALLBACK_TOKEN } from '@/library/themePalette';
@@ -10,8 +12,9 @@ import { priorityInkVar, tokenVar, FALLBACK_TOKEN } from '@/library/themePalette
 // 기본값인 medium까지 모든 카드에 붙으면 소음이라, 기본에서 벗어난 우선순위만 보여준다
 const SHOWN_PRIORITIES = new Set(['urgent', 'high', 'low']);
 
-export default function BoardCard({ task, taskTypes, workflowStatuses, onClick, onContextMenu, onSubtaskClick }) {
+export default function BoardCard({ task, taskTypes, workflowStatuses, epics, onClick, onContextMenu, onSubtaskClick }) {
   const { t } = useTranslation();
+  const { today, formatDateOnlyShort } = useDateFormat();
   const [subtasksOpen, setSubtasksOpen] = useState(false);
   const typeConfig = (taskTypes || []).find((tt) => tt.type_key === task.task_type);
   const subtasks = task.subtasks || [];
@@ -26,6 +29,16 @@ export default function BoardCard({ task, taskTypes, workflowStatuses, onClick, 
 
   // 하위태스크 상태 점 — 색은 브랜치 workflow_status.color가 authority(TaskSubtaskSection과 같은 규칙)
   const statusColor = (key) => workflowStatuses.find((ws) => ws.key === key)?.color || tokenVar(FALLBACK_TOKEN);
+
+  // 에픽 칩 — 이름·색은 보드가 불러 둔 브랜치 에픽 목록에서 찾는다(목록 행의 에픽 칸과 같은 출처)
+  const epic = (epics || []).find((e) => e.epic_id === task.epic_id);
+  // 마감 칩 — D-day는 개인 시간대의 오늘 기준(ddayBadge). 지남=빨강, 이틀 이내=주황.
+  // 완료·취소된 태스크는 My Tasks의 연체 표시(isOverdue)처럼 경고하지 않고 날짜만 보인다
+  const dueDate = formatDateOnlyShort(task.due_date);
+  const due = dueDate ? ddayBadge(task.due_date, today()) : null;
+  const statusCategory = workflowStatuses.find((ws) => ws.key === task.status)?.category;
+  const isClosed = statusCategory === 'done' || statusCategory === 'cancelled';
+  const dueTone = due && !isClosed && (due.cls === 'over' || due.cls === 'soon') ? due.cls : 'calm';
 
   const handleDragStart = (e) => {
     e.dataTransfer.setData('text/plain', String(task.task_id));
@@ -121,6 +134,32 @@ export default function BoardCard({ task, taskTypes, workflowStatuses, onClick, 
                 );
               })}
             </ul>
+          )}
+        </div>
+      )}
+
+      {/* 에픽(왼쪽) + 마감(오른쪽) 한 줄 — 둘 다 없으면 줄을 만들지 않는다 */}
+      {(epic || dueDate) && (
+        <div className="BoardCard__Meta">
+          {epic && (
+            <span className="BoardCard__Epic" title={epic.epic_name}>
+              <span
+                className="BoardCard__EpicDot"
+                style={{ backgroundColor: epic.color || tokenVar(FALLBACK_TOKEN) }}
+                aria-hidden="true"
+              />
+              <span className="BoardCard__EpicName">{epic.epic_name}</span>
+            </span>
+          )}
+          {dueDate && (
+            <span
+              className={`BoardCard__Due BoardCard__Due--${dueTone}`}
+              title={t('branch.board.dueTitle', { date: dueDate })}
+            >
+              <Calendar size={11} aria-hidden="true" />
+              <span className="BoardCard__DueDate">{dueDate}</span>
+              {dueTone !== 'calm' && <span className="BoardCard__DueDday">{due.text}</span>}
+            </span>
           )}
         </div>
       )}
