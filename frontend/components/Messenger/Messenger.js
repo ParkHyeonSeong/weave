@@ -117,7 +117,9 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
               onOpenRoom={handleOpenRoom}
             />
           ) : activeRoomId ? (
+            // 방마다 새로 마운트 — 쓰던 글·첨부·멘션이 다른 방으로 따라가지 않고, 작성부가 방별 초안을 복원한다
             <MessengerChatRoom
+              key={activeRoomId}
               roomId={activeRoomId}
               wsRef={wsRef}
               onBack={handleBack}
@@ -167,6 +169,7 @@ export default function Messenger({ wsRef, activeRoomRef, panelWidth, isMobile, 
     return (
       <div className={`Messenger${mobileClass}${pipClass}`} style={narrowStyle}>
         <MessengerChatRoom
+          key={activeRoomId}
           roomId={activeRoomId}
           wsRef={wsRef}
           onBack={handleBack}

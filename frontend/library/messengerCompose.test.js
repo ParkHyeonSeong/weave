@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isCodeMode, parseSlashInput, buildAttachmentsPayload } from './messengerCompose.js';
 import { buildSendMessage, formatFileSize } from './messengerCompose.js';
+import { roomDraftKey, loadRoomDraft, saveRoomDraft } from './messengerCompose.js';
 
 describe('isCodeMode', () => {
   it('```가 홀수 개면 코드모드', () => {
@@ -70,5 +71,32 @@ describe('formatFileSize', () => {
     expect(formatFileSize(500)).toBe('500 B');
     expect(formatFileSize(2048)).toBe('2.0 KB');
     expect(formatFileSize(5 * 1024 * 1024)).toBe('5.0 MB');
+  });
+});
+
+describe('room drafts', () => {
+  const blank = { input: '', attachedTask: null, attachedDoc: null, attachedIssue: null, mentionedUserIds: [], pendingFiles: [] };
+
+  it('업로드가 끝난 첨부만 초안에 남긴다', () => {
+    const done = { id: 'a', status: 'done', url: '/api/uploads/chat/chat_5_0123456789ab.png', preview: 'blob:a' };
+    const uploading = { id: 'b', status: 'uploading', preview: 'blob:b' };
+    saveRoomDraft('7:5', { ...blank, input: 'hi', mentionedUserIds: [9], pendingFiles: [done, uploading] });
+    expect(loadRoomDraft('7:5')).toEqual({ ...blank, input: 'hi', mentionedUserIds: [9], pendingFiles: [done] });
+    expect(loadRoomDraft('7:5').pendingFiles[0]).toBe(done); // 미리보기 해제 판단은 같은 항목인지로 한다
+    expect(loadRoomDraft('8:5')).toBeNull();
+  });
+
+  it('남길 글·참조·첨부가 없으면(보낸 뒤 포함) 초안을 지운다', () => {
+    saveRoomDraft('7:5', { ...blank, input: 'hi' });
+    saveRoomDraft('7:5', { ...blank, mentionedUserIds: [9], pendingFiles: [{ id: 'b', status: 'uploading' }] });
+    expect(loadRoomDraft('7:5')).toBeNull();
+    saveRoomDraft('7:5', { ...blank, attachedTask: { task_id: 1 } });
+    expect(loadRoomDraft('7:5')?.attachedTask).toEqual({ task_id: 1 });
+  });
+
+  it('초안 자리가 없으면(로그인 정보 없음·새 채팅) 저장도 복원도 하지 않는다', () => {
+    saveRoomDraft(null, { ...blank, input: 'hi' });
+    expect(loadRoomDraft(null)).toBeNull();
+    expect(roomDraftKey(null)).toBeNull();
   });
 });

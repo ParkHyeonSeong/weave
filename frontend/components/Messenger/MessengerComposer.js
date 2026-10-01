@@ -3,7 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Paperclip, File as FileIcon, Send, X } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { showToast } from '@/components/Layout/Toast';
-import { isCodeMode, parseSlashInput, buildAttachmentsPayload, formatFileSize } from '@/library/messengerCompose';
+import {
+  isCodeMode, parseSlashInput, buildAttachmentsPayload, formatFileSize, roomDraftKey, loadRoomDraft, saveRoomDraft,
+} from '@/library/messengerCompose';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import TaskSearchPopup from './TaskSearchPopup';
@@ -50,26 +52,38 @@ const MessengerComposer = forwardRef(function MessengerComposer(
   ref
 ) {
   const { t } = useTranslation();
-  const [input, setInput] = useState('');
-  const [attachedTask, setAttachedTask] = useState(null);
-  const [attachedDoc, setAttachedDoc] = useState(null);
-  const [attachedIssue, setAttachedIssue] = useState(null);
+  // 방마다 작성부가 새로 마운트된다(Messenger가 방 화면을 roomId로 key) — 마운트한 계정의 그 방 초안으로 시작한다.
+  const [draftKey] = useState(() => roomDraftKey(roomId));
+  const [draft] = useState(() => loadRoomDraft(draftKey));
+  const [input, setInput] = useState(draft?.input ?? '');
+  const [attachedTask, setAttachedTask] = useState(draft?.attachedTask ?? null);
+  const [attachedDoc, setAttachedDoc] = useState(draft?.attachedDoc ?? null);
+  const [attachedIssue, setAttachedIssue] = useState(draft?.attachedIssue ?? null);
   const [slashCommand, setSlashCommand] = useState(null);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [slashMenuIdx, setSlashMenuIdx] = useState(0);
   const [mentionCommand, setMentionCommand] = useState(null);
-  const [mentionedUserIds, setMentionedUserIds] = useState([]);
-  const [pendingFiles, setPendingFiles] = useState([]);
+  const [mentionedUserIds, setMentionedUserIds] = useState(draft?.mentionedUserIds ?? []);
+  const [pendingFiles, setPendingFiles] = useState(draft?.pendingFiles ?? []);
   const [isDragOver, setIsDragOver] = useState(false);
   const [sending, setSending] = useState(false);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
   const justSelectedRef = useRef(false);
   const dragCounterRef = useRef(0);
+  // 쓰는 동안 그 방 초안을 계속 남긴다. 떠날 때만 남기면 팝아웃 전환처럼 같은 방이 한 번에 다시
+  // 그려질 때 새 작성부가 옛 작성부보다 먼저 초안을 읽는다. 보내서 비면 초안이 지워진다.
+  useEffect(() => {
+    saveRoomDraft(draftKey, { input, attachedTask, attachedDoc, attachedIssue, mentionedUserIds, pendingFiles });
+  }, [draftKey, input, attachedTask, attachedDoc, attachedIssue, mentionedUserIds, pendingFiles]);
+  // 떠날 때 초안에 남지 않은 미리보기(업로드 중이던 파일 등)만 해제한다 — 남은 것은 돌아왔을 때 다시 보인다.
   const pendingFilesRef = useRef([]);
   useEffect(() => { pendingFilesRef.current = pendingFiles; }, [pendingFiles]);
   useEffect(() => () => {
-    pendingFilesRef.current.forEach((f) => { if (f.preview) URL.revokeObjectURL(f.preview); });
+    const kept = loadRoomDraft(draftKey)?.pendingFiles ?? [];
+    pendingFilesRef.current.forEach((f) => {
+      if (f.preview && !kept.includes(f)) URL.revokeObjectURL(f.preview);
+    });
   }, []);
 
   const codeMode = isCodeMode(input);
