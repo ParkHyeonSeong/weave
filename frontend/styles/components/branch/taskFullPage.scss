@@ -9,6 +9,12 @@
   gap: $space-5;
   min-height: 100%;
 
+  // 휴대폰(768px 미만)에서는 여백을 줄인다. 아래 __Layout·__Sidebar 규칙과 함께
+  // 392px 이상 폭에서 본문 열이 (폭 − 392)px로 짓눌리던 문제(393px iPhone에서 약 1px)를 푼다.
+  @include mobile {
+    padding: $space-4;
+  }
+
   &__Loading {
     display: flex;
     align-items: center;
@@ -128,6 +134,11 @@
     flex-wrap: wrap;
     gap: $space-6;
     flex: 1;
+
+    // 휴대폰에서는 본문과 세부 사항을 세로 1단으로 쌓는다(세부 사항은 본문 아래).
+    @include mobile {
+      flex-direction: column;
+    }
   }
 
   &__Main {
@@ -141,6 +152,10 @@
   &__Sidebar {
     flex: 0 0 320px;
     max-width: 100%;
+
+    @include mobile {
+      flex: 0 0 auto;
+    }
     display: flex;
     flex-direction: column;
     gap: $space-3;
