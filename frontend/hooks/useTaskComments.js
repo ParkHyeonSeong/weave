@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { axios } from '@/library/_axios';
-import { getErrorCode } from '@/library/errorCode';
+import { getErrorCode, getError } from '@/library/errorCode';
 
 /**
  * Task 댓글 데이터 hook.
@@ -63,10 +63,14 @@ export default function useTaskComments(branchId, taskId, order = 'asc') {
   }, [base, order]);
 
   // private helper: run a mutator fn, validate response, then refetch
+  // 실패는 코드(message·code)와 분류(category)를 실어 던진다 — 입력기가 errorText(code, category)로 푼다
   const _mutate = useCallback(async (fn, fallback) => {
     if (!base) throw new Error('NO_TASK');
     const res = await fn();
-    if (!res.data?.status) throw new Error(getErrorCode(res.data) ?? fallback);
+    if (!res.data?.status) {
+      const { code, category } = getError(res.data);
+      throw Object.assign(new Error(code ?? fallback), { code: code ?? fallback, category });
+    }
     await fetchComments();
     return res.data;
   }, [base, fetchComments]);

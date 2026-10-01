@@ -24,9 +24,10 @@ import { copyAsMarkdown } from '@/library/copyMarkdown';
  *   - currentUserId
  *   - branchId
  *   - members: [{user_id, username, avatar_url}]
- *   - onUpdate(commentId, content) — 본인 수정
+ *   - onUpdate(commentId, content) — 본인 수정. 실패는 reject (편집기가 이유를 표시)
  *   - onDelete(commentId) — 본인 삭제 (soft)
  *   - onReply(content, parentRootId) — 답글. parentRootId는 항상 root의 id; 백엔드가 normalize 처리.
+ *       실패는 reject (답글 입력기가 열린 채 이유를 표시)
  *   - rootForReplies: { comment_id } — 답글이 부착될 root (depth 1에서 답글 클릭 시 root로 redirect)
  *   - depth: 0 (root) | 1 (reply)
  *   - highlightCommentId: number | null
@@ -78,18 +79,15 @@ function CommentItem({
   useRefHydration(contentRef, [comment.content, editing], !editing);
   useMathHydration(contentRef, [comment.content, editing], !editing);
 
+  // 실패는 삼키지 않고 CommentEditor로 넘긴다 — 입력기가 열린 채 이유를 보이고 초안을 남긴다
   const handleSubmitEdit = async (html) => {
-    try {
-      await onUpdate(comment.comment_id, html);
-      setEditing(false);
-    } catch (e) { logError('Update comment', e); }
+    await onUpdate(comment.comment_id, html);
+    setEditing(false);
   };
 
   const handleSubmitReply = async (html) => {
-    try {
-      await onReply(html, rootForReplies?.comment_id ?? comment.comment_id);
-      setReplyOpen(false);
-    } catch (e) { logError('Reply', e); }
+    await onReply(html, rootForReplies?.comment_id ?? comment.comment_id);
+    setReplyOpen(false);
   };
 
   const handleConfirmDelete = async () => {

@@ -170,6 +170,9 @@
     left: 0;
     right: 0;
     bottom: calc(56px + env(safe-area-inset-bottom));
+    // 기본 height:100%가 남아 있으면 top·height·bottom 과제약으로 bottom이 무시돼
+    // 상자가 뷰포트 아래로 48px 밀리고 입력칸이 화면 밖으로 나간다 → top/bottom으로 높이를 정한다
+    height: auto;
     z-index: 200;
     padding: 0;
     background: $color-bg;

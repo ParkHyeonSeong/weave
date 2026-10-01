@@ -77,21 +77,11 @@ export default function TaskCommentSection({
   // 최상위 composer는 submit 후 unmount/remount로 비워진다 (답글/edit composer는 cancel로 닫히므로 영향 없음)
   const [composerKey, setComposerKey] = useState(0);
 
+  // 실패는 삼키지 않는다 — reject가 CommentEditor까지 가야 입력기 아래에 이유가 보이고 초안이 남는다.
+  // (답글은 createComment를 그대로 넘긴다: 여기서 삼키면 CommentItem이 성공으로 알고 입력기를 닫는다)
   const handleCreateTop = async (html) => {
-    try {
-      await createComment(html, null);
-      setComposerKey((k) => k + 1);
-    } catch (e) {
-      console.error('Create comment failed', e);
-    }
-  };
-
-  const handleReply = async (html, parentRootId) => {
-    try {
-      await createComment(html, parentRootId);
-    } catch (e) {
-      console.error('Reply failed', e);
-    }
+    await createComment(html, null);
+    setComposerKey((k) => k + 1);
   };
 
   return (
@@ -135,7 +125,7 @@ export default function TaskCommentSection({
             members={members}
             onUpdate={updateComment}
             onDelete={deleteComment}
-            onReply={handleReply}
+            onReply={createComment}
             rootForReplies={root}
             depth={0}
             highlightCommentId={highlightCommentId}

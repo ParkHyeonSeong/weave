@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { CodeXml } from 'lucide-react';
 import { useEditorRefHydration } from '@/library/refHydration';
+import { errorText } from '@/library/errorText';
 import { buildCommentEditorExtensions } from './commentEditorExtensions';
 import { buildMarkdownExtensions } from '@/library/markdownCodec';
 import { MarkdownClipboardExtension } from '@/components/Canvas/extensions/MarkdownClipboardExtension';
@@ -21,8 +22,10 @@ import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
  *   - autoFocus: bool
  *   - rawAutoEnter: bool (default true) — false skips raw-mode auto-entry from ui_prefs
  *     for this instance (manual toggle still allowed); see CommentItem.js reply prefill
- *   - onSubmit(html): called on Cmd/Ctrl+Enter; receives current HTML
- *   - onCancel(): called on Esc
+ *   - onSubmit(html): called on [등록] or Cmd/Ctrl+Enter; receives current HTML.
+ *     If it rejects, the editor stays open with the draft and shows the reason below
+ *     (err.code/err.category → errorText, else a generic message).
+ *   - onCancel(): called on [취소] or Esc. Without it no [취소] is rendered (top-level composer).
  */
 export default function CommentEditor({
   initialContent = '',
@@ -42,6 +45,8 @@ export default function CommentEditor({
   // 제출 중 가드: keydown 연타는 리렌더보다 빠르므로 ref가 진실원천, state는 표시용
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
+  // 마지막 제출 실패(표시용) — 문구는 렌더 시점 locale로 푼다
+  const [submitError, setSubmitError] = useState(null);
   useEffect(() => { submitRef.current = onSubmit; }, [onSubmit]);
   useEffect(() => { cancelRef.current = onCancel; }, [onCancel]);
 
@@ -50,13 +55,14 @@ export default function CommentEditor({
     [resolvedPlaceholder, branchId]
   );
 
-  // 제출 공용 경로 — WYSIWYG(handleKeyDown)과 raw(Cmd+Enter) 양쪽이 사용.
+  // 제출 공용 경로 — WYSIWYG 단축키(handleKeyDown)와 submitCurrent([등록]·raw Cmd+Enter)가 사용.
   // 가드/복구 시맨틱은 기존 인라인 로직 그대로 (submittingRef가 진실원천).
   const submitHtml = useCallback((html) => {
     const ed = editorRef.current;
     if (submittingRef.current || html == null) return;
     submittingRef.current = true;
     setSubmitting(true);
+    setSubmitError(null);
     if (ed && !ed.isDestroyed) ed.setEditable(false);
     const finish = () => {
       submittingRef.current = false;
@@ -66,10 +72,15 @@ export default function CommentEditor({
         setSubmitting(false);
       }
     };
+    // 실패 시 부모는 에디터를 닫지 않는다 → 초안은 그대로 두고 이유만 보인다
+    const fail = (err) => {
+      if (ed && !ed.isDestroyed) setSubmitError(err ?? {});
+    };
     try {
-      Promise.resolve(submitRef.current?.(html)).finally(finish);
-    } catch {
+      Promise.resolve(submitRef.current?.(html)).catch(fail).finally(finish);
+    } catch (err) {
       // onSubmit이 동기 throw해도 가드가 잠기지 않게 즉시 복구
+      fail(err);
       finish();
     }
   }, []);
@@ -113,16 +124,27 @@ export default function CommentEditor({
     handleRawChange, toggleRaw, parseCurrentRaw, isRawEmpty,
   } = useRawMode(editor, extensions, true, { autoEnter: rawAutoEnter });
 
+  // 현재 모드의 내용을 제출 — [등록] 버튼과 raw Cmd+Enter 공용.
+  // 빈 내용·raw 파싱 실패 차단은 WYSIWYG 단축키(handleKeyDown)와 같은 시맨틱.
+  const submitCurrent = () => {
+    if (isRaw) {
+      if (isRawEmpty()) return; // 기존 ed.isEmpty 차단과 동일
+      const res = parseCurrentRaw();
+      if (!res.ok || res.html == null) return; // 파싱 실패(방어) — 제출 차단 + 배지
+      submitHtml(res.html);
+      return;
+    }
+    if (!editor || editor.isEmpty) return;
+    submitHtml(editor.getHTML());
+  };
+
   // raw 모드 Cmd+Enter/Esc — CodeMirror defaultKeymap의 Mod-Enter(빈 줄 삽입)보다
   // 먼저 잡아야 하므로 조상 캡처 단계에서 가로챈다(캡처는 대상 리스너보다 선행).
   const handleRawKeyDown = (event) => {
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
       event.preventDefault();
       event.stopPropagation();
-      if (isRawEmpty()) return; // 기존 ed.isEmpty 차단과 동일
-      const res = parseCurrentRaw();
-      if (!res.ok || res.html == null) return; // 파싱 실패(방어) — 제출 차단 + 배지
-      submitHtml(res.html);
+      submitCurrent();
     } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -131,6 +153,9 @@ export default function CommentEditor({
   };
 
   if (!editor) return null;
+  const submitErrorText = submitError
+    ? (errorText(submitError.code, submitError.category) ?? t('branchTasks.commentEditor.submitFailed'))
+    : null;
   return (
     <div className={`CommentEditor${submitting ? ' CommentEditor--submitting' : ''}`}>
       {isRaw && <RawModeBadge warnings={warnings} parseError={parseError} />}
@@ -149,16 +174,40 @@ export default function CommentEditor({
       </div>
       <div className="CommentEditor__Hint">
         <span>{submitting ? t('branchTasks.commentEditor.submitting') : t('branchTasks.commentEditor.hint')}</span>
-        <button
-          type="button"
-          className={`CommentEditor__RawToggle${isRaw ? ' CommentEditor__RawToggle--active' : ''}`}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={toggleRaw}
-          title={isRaw ? t('branchTasks.rawEditor.switchToRichText') : t('branchTasks.rawEditor.switchToMarkdown')}
-        >
-          <CodeXml size={12} />
-        </button>
+        {/* 화면 키보드에는 Cmd/Ctrl+Enter·Esc가 없다 — 터치로도 끝낼 수 있게 버튼을 둔다 */}
+        <div className="CommentEditor__Actions">
+          <button
+            type="button"
+            className={`CommentEditor__RawToggle${isRaw ? ' CommentEditor__RawToggle--active' : ''}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={toggleRaw}
+            title={isRaw ? t('branchTasks.rawEditor.switchToRichText') : t('branchTasks.rawEditor.switchToMarkdown')}
+          >
+            <CodeXml size={12} />
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              className="CommentEditor__CancelBtn"
+              onClick={() => { if (!submittingRef.current) cancelRef.current?.(); }}
+              disabled={submitting}
+            >
+              {t('common.actions.cancel')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="CommentEditor__SubmitBtn"
+            onClick={submitCurrent}
+            disabled={submitting}
+          >
+            {t('branchTasks.commentEditor.submit')}
+          </button>
+        </div>
       </div>
+      {submitErrorText && (
+        <div className="CommentEditor__Error" role="status" aria-live="polite">{submitErrorText}</div>
+      )}
     </div>
   );
 }

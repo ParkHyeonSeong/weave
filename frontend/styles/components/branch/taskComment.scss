@@ -165,6 +165,12 @@
     gap: 4px;
     visibility: hidden;
     pointer-events: none;
+
+    // 터치 기기에는 hover가 없어 답글·수정·삭제 아이콘을 찾을 수 없다 → 항상 노출
+    @media (hover: none) {
+      visibility: visible;
+      pointer-events: auto;
+    }
   }
 
   &:hover &__Actions,
@@ -184,6 +190,11 @@
     &:hover {
       background: $color-surface;
       color: $color-text;
+    }
+
+    // 손가락으로 누를 수 있게 터치 영역을 24px로 넓힌다(아이콘 12px + 6px*2)
+    @media (hover: none) {
+      padding: 6px;
     }
   }
 
@@ -270,6 +281,13 @@
     margin-top: $space-1;
   }
 
+  &__Actions {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    flex-shrink: 0;
+  }
+
   &__RawToggle {
     display: inline-flex;
     align-items: center;
@@ -281,5 +299,36 @@
 
     &:hover { background: $color-surface; color: $color-text; }
     &--active { background: $color-primary-subtle; color: $color-primary; }
+  }
+
+  // [등록]/[취소] — 이슈 상세의 SaveBtn/CancelBtn과 같은 모양
+  &__SubmitBtn {
+    padding: $space-1 $space-3;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: $color-text-inverse;
+    background: $color-primary;
+    border-radius: $radius-md;
+    transition: background $transition-fast;
+
+    &:hover:not(:disabled) { background: $color-primary-hover; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+
+  &__CancelBtn {
+    padding: $space-1 $space-3;
+    font-size: $font-size-sm;
+    color: $color-text-secondary;
+    border-radius: $radius-md;
+    transition: background $transition-fast;
+
+    &:hover:not(:disabled) { background: $color-surface; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+
+  &__Error {
+    font-size: $font-size-xs;
+    color: $color-error;
+    padding-top: $space-1;
   }
 }

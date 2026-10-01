@@ -1562,7 +1562,9 @@ const ko = {
     },
     commentEditor: {
       placeholder: '댓글을 입력하세요...',
+      submit: '등록',
       submitting: '등록 중…',
+      submitFailed: '댓글을 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       hint: 'Cmd/Ctrl+Enter로 등록 · Esc로 취소',
     },
     rawEditor: {

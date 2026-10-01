@@ -1564,7 +1564,9 @@ const en = {
     },
     commentEditor: {
       placeholder: 'Add a comment...',
+      submit: 'Submit',
       submitting: 'Submitting…',
+      submitFailed: 'Could not submit the comment. Please try again shortly.',
       hint: 'Cmd/Ctrl+Enter to submit · Esc to cancel',
     },
     rawEditor: {
