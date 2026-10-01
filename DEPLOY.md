@@ -54,11 +54,13 @@ EXPOSE_PORT=13000                                             # 서버 nginx가 
 > 시크릿이 비어 있거나 예제의 `CHANGE_ME` 플레이스홀더가 남아 있으면 백엔드가 `RuntimeError`로 시작을 거부합니다 — 약한 기본값으로 조용히 뜨는 것을 막기 위한 장치입니다. `DEBUG`는 `false`(기본값)로 둡니다. `true`면 JWT 시크릿이 재시작마다 바뀌어 세션이 풀리고 `/api/docs`가 노출됩니다.
 >
 > `ENCRYPT_KEY`는 나중에 바꾸면 저장된 refresh 토큰과 Personal Access Token이 전부 무효가 되어, 전원이 다시 로그인하고 토큰을 재발급해야 합니다.
+>
+> `ALLOWED_ORIGINS`에는 사람들이 브라우저로 여는 공개 주소를 `https://<도메인>` 형식으로 적습니다(경로·끝 슬래시 없이, 여러 개면 쉼표). 이 값은 CORS 허용 목록이면서 **비밀번호 재설정 메일 링크의 주소**입니다. 운영 compose는 `FRONTEND_URL`을 넘기지 않으므로, 관리자가 접속한 주소가 목록에 있으면 그 항목, 없으면 첫 항목으로 링크를 만듭니다. 비어 있으면 링크가 `http://localhost:3000/auth/reset?…`, 예제 값이 남아 있으면 `https://weave.example.com/…`이 되어, 메일은 정상 발송돼도 버튼이 Weave로 가지 않습니다. `make prod-deploy`는 빌드 전에 이 값을 검사해 비었거나 localhost·예제 도메인·잘못된 형식이면 `RESET LINK CHECK FAIL`과 고칠 설정을 출력하고 아무것도 바꾸지 않은 채 멈춥니다. 형식만 보는 검사이므로 그 도메인이 실제 이 서버의 주소인지는 직접 확인하세요. 값을 바꾼 뒤에는 `make prod-deploy`로 적용합니다(`make prod`도 백엔드 컨테이너를 새 값으로 다시 만들지만 이 검사를 거치지 않습니다).
 
 ### 3. 스택 시작
 
 ```bash
-make prod-deploy                             # 빌드 → 일회용 DB로 백엔드 시작 확인 → 배포
+make prod-deploy                             # 재설정 링크 주소 검사 → 빌드 → 일회용 DB로 백엔드 시작 확인 → 배포
 make prod-ps                                 # nginx, backend, frontend, db 네 개가 Up 인지
 curl -sI http://127.0.0.1:13000 | head -1    # HTTP/1.1 200 (또는 3xx) 이면 정상
 ```
@@ -133,11 +135,11 @@ PR과 태스크를 연결하려면 README의 [GitHub App 연동](README.ko.md#gi
 ```bash
 cd /opt/weave
 git pull --ff-only
-make prod-deploy    # 이미지 빌드 → 일회용 DB로 백엔드 시작 확인 → 통과하면 그 이미지로 교체
+make prod-deploy    # 재설정 링크 주소 검사 → 이미지 빌드 → 일회용 DB로 백엔드 시작 확인 → 통과하면 그 이미지로 교체
 make prod-ps
 ```
 
-`make prod-deploy`는 실행 중인 컨테이너를 그대로 둔 채 이미지를 먼저 빌드합니다. 운영 compose의 실행 명령·entrypoint·healthcheck를 사용하되, **임시 시크릿과 비어 있는 일회용 Postgres**로 백엔드를 띄워 마이그레이션·시작·DB 응답을 확인합니다. 빌드는 성공해도 필수 패키지 누락으로 서버가 시작하지 못하는 문제를 교체 전에 잡는 절차입니다.
+`make prod-deploy`는 먼저 재설정 링크 주소 설정(2단계의 `ALLOWED_ORIGINS`)을 검사한 뒤, 실행 중인 컨테이너를 그대로 둔 채 이미지를 빌드합니다. 운영 compose의 실행 명령·entrypoint·healthcheck를 사용하되, **임시 시크릿과 비어 있는 일회용 Postgres**로 백엔드를 띄워 마이그레이션·시작·DB 응답을 확인합니다. 빌드는 성공해도 필수 패키지 누락으로 서버가 시작하지 못하는 문제를 교체 전에 잡는 절차입니다.
 
 빌드나 시작 확인이 실패하면 서비스를 교체하지 않고, 빌드가 옮긴 이미지 태그도 되돌립니다. 되돌리기 자체가 실패하면 `RESTORE FAILED`와 수동 복구 명령을 출력합니다. 통과하면 다시 빌드하지 않고 검증한 이미지로 교체하고, 실제 백엔드 이미지 ID가 일치하는지 확인합니다. 기존 백엔드 이미지가 있고 새 이미지와 다르면 `weave-backend:previous`로 보관합니다.
 
@@ -163,10 +165,10 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 
 | 명령어 | 설명 |
 |--------|------|
-| `make prod-deploy` | 첫 설치·업데이트 권장 — 빌드, 일회용 DB로 백엔드 시작 확인, 통과한 이미지로 교체 |
+| `make prod-deploy` | 첫 설치·업데이트 권장 — 재설정 링크 주소 검사, 빌드, 일회용 DB로 백엔드 시작 확인, 통과한 이미지로 교체 |
 | `make prod-verify` | 빌드와 백엔드 시작 확인만 — 실행 중인 서비스는 그대로 (실패하면 이미지 태그도 되돌림) |
 | `make prod-build` | 바로 빌드하고 시작 — 시작 확인과 이전 이미지 보관 절차를 건너뜀 |
-| `make prod` | 현재 이미지 태그로 시작·재생성 — 빌드·시작 확인 없음; 런타임 설정 변경 반영에 사용 |
+| `make prod` | 현재 이미지 태그로 시작·재생성 — 빌드·시작 확인·주소 검사 없음; 런타임 설정 변경 반영에 사용 |
 | `make prod-down` | 중지 (데이터 볼륨은 유지) |
 | `make prod-logs` | 로그 |
 | `make prod-ps` | 서비스 상태 |
@@ -180,7 +182,7 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 - **Swagger UI**(`/api/docs`): `DEBUG=false`에서는 꺼집니다.
 - **요청 제한**: 로그인·회원가입·비밀번호 재설정 같은 인증 경로와 AI 채팅·집계 엔드포인트에 기본 적용됩니다.
 - **보안 헤더**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`는 컨테이너 nginx가, Content-Security-Policy는 Next.js 미들웨어가 요청마다 nonce와 함께 붙입니다. HSTS는 서버 nginx에서 추가하세요(예제 파일 참고).
-- **CORS**: `ALLOWED_ORIGINS`에 적은 origin만 허용합니다. 쉼표로 여러 개 지정할 수 있습니다.
+- **CORS**: `ALLOWED_ORIGINS`에 적은 origin만 허용합니다. 쉼표로 여러 개 지정할 수 있습니다. 같은 값이 비밀번호 재설정 메일 링크의 주소로도 쓰입니다(2단계).
 - **신뢰 프록시**: 컨테이너 nginx는 도커 브리지 대역(`set_real_ip_from 172.16.0.0/12`, [nginx/default.conf](nginx/default.conf))에서 온 연결 — 즉 서버 nginx — 의 `X-Forwarded-For`로 실제 클라이언트 IP를 복원하고, 백엔드는 같은 대역(`TRUSTED_PROXIES`)의 nginx가 전달한 IP만 믿습니다. 그래서 서버 nginx 뒤에서도 실제 클라이언트 IP를 기준으로 로그인 요청 제한과 로그가 동작합니다. 사무실처럼 공인 IP를 공유하면 요청 한도도 공유하므로, 로그인 거절(429)이 생기면 IP·요청 경로별 로그를 먼저 확인하세요. 13000이 기본으로 `127.0.0.1`에만 열리기 때문에 이 신뢰를 외부에서 악용할 수 없습니다 — `EXPOSE_BIND`를 넓히면 방화벽으로 13000을 막고, 프록시 대역이 172.16/12가 아니면 두 곳을 함께 바꾸세요.
 
 ## 문제 해결
@@ -191,6 +193,8 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 | `curl 127.0.0.1:13000`은 되는데 도메인으로는 안 열림 | `sudo nginx -t`, DNS A 레코드, 방화벽 80/443 |
 | 페이지는 뜨는데 채팅·문서 동시 편집이 안 됨 | 서버 nginx 블록의 `Upgrade` / `Connection "upgrade"` 헤더(4단계) |
 | 로그인이 자꾸 풀림 | `DEBUG=true`로 떠 있지 않은지 (`make prod-logs`의 시작 경고) |
+| `make prod-deploy`가 `RESET LINK CHECK FAIL`로 멈춤 | 이미지와 운영 컨테이너는 그대로입니다. 출력된 설정(`ALLOWED_ORIGINS`, 직접 추가했다면 `FRONTEND_URL`)을 `.env.production`에서 공개 https 주소로 고친 뒤 다시 실행합니다. 같은 이름의 셸 환경변수가 있으면 그 값이 우선합니다 |
+| 재설정 메일의 버튼이 localhost나 example 주소로 열림 | `ALLOWED_ORIGINS`(2단계). 고친 뒤 `make prod-deploy`로 적용하고, 이미 보낸 링크는 바뀌지 않으므로 재설정 링크를 다시 발급합니다 |
 | `make prod-deploy`가 `SMOKE FAIL`·`VERIFY FAIL`로 멈춤 | 운영 서비스와 이미지 태그는 그대로입니다(빌드가 옮긴 태그를 실행 중 이미지로 되돌림). 출력된 백엔드 로그(예: `ImportError`)를 보고 고친 뒤 다시 실행 |
 | `RESTORE FAILED`가 나옴 | 이미지 태그가 검증되지 않은 빌드를 가리킬 수 있습니다. `make prod`를 실행하지 말고, 출력된 `docker tag …` 명령으로 되돌린 뒤 `docker image inspect -f '{{.Id}}' weave-backend`가 `docker inspect -f '{{.Image}}' weave-backend`와 같은지 확인 |
 | 교체 뒤 문제가 생김 | `weave-backend:previous`가 원하는 복구 버전인지 확인한 뒤 `docker tag weave-backend:previous weave-backend && make prod` — 다시 빌드하지 않고 백엔드 이미지를 되돌립니다 (새 DB 마이그레이션이 없었던 배포만) |

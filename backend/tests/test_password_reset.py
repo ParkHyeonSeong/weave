@@ -1,6 +1,9 @@
 """SEC-07: admin reset → 일회용·만료 재설정 토큰/링크 (평문 비밀번호 노출 제거)."""
 import asyncio
+import importlib
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import bcrypt
@@ -300,3 +303,48 @@ def test_email_error_codes_are_registered():
     for code in ("SMTP_SEND_FAILED", "SMTP_TIMEOUT"):
         assert code in registered
         assert registered[code].category is Category.SERVER
+
+
+# ── 배포 전 검사(scripts/prod-reset-link-check.sh)와 실제 링크 ─────────────────────
+# 운영 compose처럼 ALLOWED_ORIGINS 원문을 환경변수로 두고 library.origins를 다시 읽어(목록 파싱까지 실제 코드),
+# 가짜 토큰으로 만든 링크의 주소가 검사 스크립트가 출력하는 주소(fixture의 link_base)와 같은지 본다.
+# 같은 fixture로 frontend/library/prodResetLinkCheck.test.js가 스크립트의 통과·실패를 확인한다.
+RESET_LINK_CASES = json.loads(
+    (Path(__file__).parent / "fixtures" / "reset_link_origin_cases.json").read_text(encoding="utf-8"))
+FAKE_TOKEN = "rst_fake-token-for-test"
+
+
+@pytest.fixture
+def prod_env(monkeypatch):
+    def apply(allowed_origins, frontend_url=None):
+        monkeypatch.delenv("FRONTEND_PORT", raising=False)  # 운영 compose는 넘기지 않는다 → 기본 3000
+        if allowed_origins is None:
+            monkeypatch.delenv("ALLOWED_ORIGINS", raising=False)
+        else:
+            monkeypatch.setenv("ALLOWED_ORIGINS", allowed_origins)
+        importlib.reload(origins)
+        monkeypatch.setattr(origins, "DEBUG", False)
+        # config.py처럼 끝 슬래시를 뗀 값. 운영 compose는 FRONTEND_URL을 넘기지 않는다(None → 빈 값).
+        monkeypatch.setattr(admin_controller, "FRONTEND_URL", (frontend_url or "").rstrip("/"))
+    yield apply
+    monkeypatch.undo()
+    importlib.reload(origins)  # 원래 환경변수로 모듈 상태를 되돌린다
+
+
+@pytest.mark.parametrize("case", RESET_LINK_CASES, ids=[c["name"] for c in RESET_LINK_CASES])
+def test_reset_link_uses_the_address_the_deploy_check_reports(prod_env, case):
+    prod_env(case["allowed_origins"], case["frontend_url"])
+
+    # Origin이 없거나 허용 목록 밖이면 이 주소로 만든다 — 메일 버튼이 실제로 가리킬 주소
+    link = admin_controller._build_reset_link(FAKE_TOKEN, _req(1))
+
+    assert link == f"{case['link_base']}/auth/reset?token={FAKE_TOKEN}"
+
+
+def test_any_allowed_origin_can_become_the_reset_link(prod_env):
+    # 관리자 브라우저가 둘째 항목 주소에 있으면 그 항목으로 링크를 만든다 — 검사가 첫 항목만 보면 안 되는 이유
+    prod_env("https://weave.acme.co.kr,http://localhost:3000")
+
+    link = admin_controller._build_reset_link(FAKE_TOKEN, _req(1, "http://localhost:3000"))
+
+    assert link == f"http://localhost:3000/auth/reset?token={FAKE_TOKEN}"

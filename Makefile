@@ -92,7 +92,12 @@ prod-build:            ## Build and start production services
 prod-verify:           ## Build production images (running containers untouched), then smoke-test the backend on a throwaway Postgres; on failure the image tags go back to the running images
 	PROD_COMPOSE="$(PROD_COMPOSE)" scripts/prod-verify.sh
 
-prod-deploy: prod-verify  ## prod-verify, then switch to the verified images without rebuilding (previous backend image kept as :previous)
+# The reset-link check runs first, so a missing, localhost or example ALLOWED_ORIGINS stops the deploy
+# before any image is built or container replaced. It is a recipe line rather than a prerequisite so
+# that it also comes first under make -j.
+prod-deploy:           ## Check the password-reset link address (ALLOWED_ORIGINS), prod-verify, then switch to the verified images without rebuilding (previous backend image kept as :previous)
+	@PROD_COMPOSE="$(PROD_COMPOSE)" scripts/prod-reset-link-check.sh
+	@$(MAKE) --no-print-directory prod-verify
 	@img="$$($(PROD_COMPOSE) config --images | grep -- '-backend$$')"; \
 	want="$$(docker image inspect -f '{{.Id}}' "$$img")"; \
 	prev="$$(docker image inspect -f '{{.Id}}' "$$img:pre-verify" 2>/dev/null || true)"; \

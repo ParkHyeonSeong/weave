@@ -54,11 +54,13 @@ EXPOSE_PORT=13000                                             # local port the h
 > If a secret is empty or still the example's `CHANGE_ME` placeholder, the backend refuses to start with a `RuntimeError` — on purpose, so it cannot come up silently with weak defaults. Leave `DEBUG` at `false` (the default): with `true` the JWT secret changes on every restart, which logs everyone out, and `/api/docs` is exposed.
 >
 > Changing `ENCRYPT_KEY` later invalidates every stored refresh token and Personal Access Token: everyone has to log in again and re-issue their tokens.
+>
+> Set `ALLOWED_ORIGINS` to the public address people open in their browser, written as `https://<domain>` (no path or trailing slash; separate several with commas). It is the CORS allow list and also **the address of password-reset email links**: the production compose file does not pass `FRONTEND_URL`, so a link uses the admin's current address when it is in the list, and the first entry otherwise. If it is empty, links are built as `http://localhost:3000/auth/reset?…`; if the example value is left in, they point to `https://weave.example.com/…`. Either way the email is still sent, but its button does not open Weave. `make prod-deploy` checks this value before building and, if it is empty, localhost, an example domain or malformed, prints `RESET LINK CHECK FAIL` with the setting to fix and stops without changing anything. The check only looks at the format, so confirm yourself that the domain really is this server. After changing the value, apply it with `make prod-deploy` (`make prod` also re-creates the backend container with the new value, but skips this check).
 
 ### 3. Start the stack
 
 ```bash
-make prod-deploy                             # build → check backend startup on a temporary DB → deploy
+make prod-deploy                             # check the reset-link address → build → check backend startup on a temporary DB → deploy
 make prod-ps                                 # nginx, backend, frontend, db should all be Up
 curl -sI http://127.0.0.1:13000 | head -1    # HTTP/1.1 200 (or a 3xx) means it is serving
 ```
@@ -133,11 +135,11 @@ To link pull requests to tasks, create a GitHub App as described in README → [
 ```bash
 cd /opt/weave
 git pull --ff-only
-make prod-deploy    # build → start the backend on a throwaway database → switch to that image if it passed
+make prod-deploy    # check the reset-link address → build → start the backend on a throwaway database → switch to that image if it passed
 make prod-ps
 ```
 
-`make prod-deploy` builds the images while leaving the running containers alone. It uses the production compose command, entrypoint and healthcheck, but starts the backend with **temporary secrets and an empty, disposable Postgres database** to check migrations, startup and a database-backed response. This catches problems such as an image that builds successfully but cannot start because a required package is missing.
+`make prod-deploy` first checks the reset-link address setting (`ALLOWED_ORIGINS`, step 2), then builds the images while leaving the running containers alone. It uses the production compose command, entrypoint and healthcheck, but starts the backend with **temporary secrets and an empty, disposable Postgres database** to check migrations, startup and a database-backed response. This catches problems such as an image that builds successfully but cannot start because a required package is missing.
 
 If the build or startup check fails, the services are not replaced and the image tags moved by the build are restored. If restoration itself fails, the script prints `RESTORE FAILED` with manual recovery commands. On success, the stack switches to the verified images without rebuilding and checks that the running backend image ID matches. When an existing backend image differs from the new one, it is kept as `weave-backend:previous`.
 
@@ -163,10 +165,10 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 
 | Command | What it does |
 |--------|------|
-| `make prod-deploy` | Recommended for first installs and updates — build, check backend startup on a temporary database, deploy the images that passed |
+| `make prod-deploy` | Recommended for first installs and updates — check the reset-link address, build, check backend startup on a temporary database, deploy the images that passed |
 | `make prod-verify` | Build and check the backend start only — running services are left alone (on failure the image tags are restored too) |
 | `make prod-build` | Build and start directly — skips the startup check and previous-image backup steps |
-| `make prod` | Start or re-create from current image tags — no build or startup check; use to apply runtime settings |
+| `make prod` | Start or re-create from current image tags — no build, startup check or address check; use to apply runtime settings |
 | `make prod-down` | Stop (data volumes are kept) |
 | `make prod-logs` | Logs |
 | `make prod-ps` | Service status |
@@ -180,7 +182,7 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 - **Swagger UI** (`/api/docs`) is off when `DEBUG=false`.
 - **Rate limits** apply by default to the auth endpoints (login, sign-up, password reset) and to the AI chat and aggregation endpoints.
 - **Security headers**: `X-Content-Type-Options`, `X-Frame-Options` and `Referrer-Policy` are set by the container nginx; the Content-Security-Policy is set per request, with a nonce, by the Next.js middleware. Add HSTS in the host nginx (see the example file).
-- **CORS**: only the origins listed in `ALLOWED_ORIGINS` are allowed. Separate several with commas.
+- **CORS**: only the origins listed in `ALLOWED_ORIGINS` are allowed. Separate several with commas. The same value is the address of password-reset email links (step 2).
 - **Trusted proxies**: the container nginx restores the real client IP from `X-Forwarded-For` for connections arriving from the Docker bridge range (`set_real_ip_from 172.16.0.0/12` in [nginx/default.conf](nginx/default.conf)) — that is, from the host nginx — and the backend only believes IPs forwarded by an nginx in that same range (`TRUSTED_PROXIES`). Login rate limits and logs therefore use the actual client IP even behind the host nginx. People sharing a public IP, such as an office, share its request limit; inspect 429 logs by IP and request path before changing the policy. Because 13000 is bound to `127.0.0.1` by default, that trust cannot be abused from outside — if you widen `EXPOSE_BIND`, firewall port 13000, and if your proxy range is not 172.16/12, change both places together.
 
 ## Troubleshooting
@@ -191,6 +193,8 @@ docker exec weave-backend pip freeze --exclude weave-backend | LC_ALL=C sort | s
 | `curl 127.0.0.1:13000` works but the domain does not open | `sudo nginx -t`, the DNS A record, firewall ports 80/443 |
 | Pages load but chat and collaborative editing do not work | The `Upgrade` / `Connection "upgrade"` headers in the host nginx block (step 4) |
 | Users keep getting logged out | Make sure the stack is not running with `DEBUG=true` (see the startup warning in `make prod-logs`) |
+| `make prod-deploy` stops with `RESET LINK CHECK FAIL` | The images and production containers are unchanged. Fix the setting it names (`ALLOWED_ORIGINS`, or `FRONTEND_URL` if you added it) in `.env.production` to the public https address, then run it again. An exported shell variable of the same name takes precedence over the file |
+| The button in a password-reset email opens localhost or an example address | `ALLOWED_ORIGINS` (step 2). Fix it, apply with `make prod-deploy`, and issue the reset link again — links already sent do not change |
 | `make prod-deploy` stops with `SMOKE FAIL` / `VERIFY FAIL` | Nothing in production changed, and the image tags point at the running images again. Read the backend log it printed (for example an `ImportError`), fix it and run it again |
 | `RESTORE FAILED` is printed | The image tags may still point at the unverified build. Do not run `make prod`; run the printed `docker tag …` commands, then check that `docker image inspect -f '{{.Id}}' weave-backend` equals `docker inspect -f '{{.Image}}' weave-backend` |
 | Something breaks after the switch | Check that `weave-backend:previous` is the version you want, then run `docker tag weave-backend:previous weave-backend && make prod` — restores the backend image without rebuilding (only if the release added no database migration) |
