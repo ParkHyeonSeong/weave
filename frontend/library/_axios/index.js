@@ -8,6 +8,12 @@ function dispatchAuthExpired() {
   if (isAuthExpiredDispatched) return;
   isAuthExpiredDispatched = true;
   clearClientSession();
+  // 세션이 끝난 기기에 이전 계정의 푸시가 계속 뜨지 않게 이 기기 구독도 끊는다. 인증이 이미 없어
+  // DELETE /push/unsubscribe는 못 부르므로 브라우저 쪽만 해제한다(server: false).
+  // 동적 import: pushSubscription이 이 모듈을 import하므로 정적 import는 순환이 된다.
+  import('@/library/pushSubscription')
+    .then(({ unsubscribeFromPush }) => unsubscribeFromPush({ server: false }))
+    .catch(() => {});
   window.dispatchEvent(new CustomEvent('auth:expired'));
   setTimeout(() => { isAuthExpiredDispatched = false; }, 3000);
 }

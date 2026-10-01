@@ -8,6 +8,7 @@ import { axios } from '@/library/_axios';
 import NavLink from '@/components/common/NavLink';
 import { LOGIN_PATH } from '@/library/authRedirect';
 import { clearClientSession } from '@/library/sessionCleanup';
+import { unsubscribeFromPush } from '@/library/pushSubscription';
 import { clearWorkspaceSettingsCache } from '@/library/workspaceSettings';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import Avatar from '@/components/common/Avatar';
@@ -172,7 +173,11 @@ export default function CommandPalette({ onClose }) {
         window.dispatchEvent(new Event('layout:create-canvas'));
         break;
       case 'logout':
-        axios.post('/auth/logout').catch(() => {});
+        // 이 기기 푸시 구독의 서버 삭제는 로그인이 필요하다 → /auth/logout은 그 뒤에 보낸다(Header와 같은
+        // 순서). 화면 정리·이동은 지금처럼 네트워크를 기다리지 않는다.
+        unsubscribeFromPush()
+          .then(() => axios.post('/auth/logout'))
+          .catch(() => {});
         clearClientSession();
         clearWorkspaceSettingsCache();
         // returnTo 미전달: 로그아웃 후 다시 보호 페이지로 복귀시키지 않는다

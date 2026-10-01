@@ -12,7 +12,7 @@ import CreateCanvas from '@/components/modal/CreateCanvas';
 import CreateTrack from '@/components/modal/CreateTrack';
 import CreateScrumBoard from '@/components/modal/CreateScrumBoard';
 import CommandPalette from '@/components/modal/CommandPalette';
-import { requestNotificationPermission, showNotification, playNotificationSound, chatMessagePreview } from '@/library/notification';
+import { showNotification, playNotificationSound, chatMessagePreview } from '@/library/notification';
 import { subscribeToPush } from '@/library/pushSubscription';
 import { getWsBaseURL, refreshAccessToken } from '@/library/_axios';
 import { sumChatUnread } from '@/library/chatUnread';
@@ -341,7 +341,10 @@ export default function Layout({ children }) {
     } catch {}
     if (!profile.user_id) return;
 
-    requestNotificationPermission().then(() => subscribeToPush());
+    // 알림 권한은 여기서 묻지 않는다 — 사용자 동작 없는 요청은 Safari·iOS·Firefox가 막고, 설명 없이
+    // 뜨는 권한 창이기도 하다. 켜기는 종 드롭다운의 "이 기기에서 알림 켜기"가 클릭 안에서 한다.
+    // 이미 허용한 기기만 조용히 구독을 갱신한다(granted가 아니면 subscribeToPush가 곧바로 끝난다).
+    subscribeToPush();
 
     // WebSocket URL: axios base URL 기반으로 생성
     const wsUrl = `${getWsBaseURL()}/api/ws/chat`;

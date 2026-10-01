@@ -1839,6 +1839,14 @@ const ko = {
       noUnreadNotifications: '읽지 않은 알림이 없습니다',
       adminSettings: '관리자 설정',
       systemActor: '시스템',
+      push: {
+        enable: '이 기기에서 알림 켜기',
+        enableHint: '앱을 닫아 두어도 새 알림과 메시지를 받을 수 있어요.',
+        reconnect: '이 기기 알림 다시 연결',
+        reconnectHint: '알림은 허용돼 있지만 이 기기가 아직 연결되지 않았어요.',
+        blockedHint: '이 브라우저에서 알림이 차단돼 있어요. 브라우저의 사이트 설정에서 알림을 허용하면 이 기기에서도 받을 수 있어요.',
+        failed: '알림을 켜지 못했어요. 잠시 후 다시 시도해 주세요.',
+      },
     },
     chatNotification: {
       sharedTask: '태스크를 공유했습니다',

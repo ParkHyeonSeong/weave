@@ -1841,6 +1841,14 @@ const en = {
       noUnreadNotifications: 'No unread notifications',
       adminSettings: 'Admin Settings',
       systemActor: 'System',
+      push: {
+        enable: 'Turn on notifications on this device',
+        enableHint: 'Get new notifications and messages even when Weave is closed.',
+        reconnect: 'Reconnect this device',
+        reconnectHint: "Notifications are allowed, but this device isn't connected yet.",
+        blockedHint: "Notifications are blocked in this browser. Allow them in your browser's site settings to get them on this device.",
+        failed: "Couldn't turn on notifications. Please try again in a moment.",
+      },
     },
     chatNotification: {
       sharedTask: 'Shared a task',
