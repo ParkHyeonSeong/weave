@@ -16,6 +16,7 @@ import { requestNotificationPermission, showNotification, playNotificationSound,
 import { subscribeToPush } from '@/library/pushSubscription';
 import { getWsBaseURL, refreshAccessToken } from '@/library/_axios';
 import { sumChatUnread } from '@/library/chatUnread';
+import { isChatViewing } from '@/library/chatRoomSync';
 import useResyncOnVisible from '@/hooks/useResyncOnVisible';
 import { showToast } from './Toast';
 import useMobile from '@/hooks/useMobile';
@@ -87,6 +88,9 @@ export default function Layout({ children }) {
   const refreshingRef = useRef(false);
   const rerunRef = useRef(false);
   const { isSupported: isPipSupported, isPipActive, portalContainer: pipContainer, openPip, closePip } = usePictureInPicture();
+  // WS 핸들러가 메신저가 그려진 문서를 알게 한다 — PiP면 그 창의 문서다("보는 중" 판단에 쓴다).
+  const pipContainerRef = useRef(null);
+  pipContainerRef.current = pipContainer;
 
   // 알림/채팅 unread 카운트를 서버 권위 스냅샷으로 재동기화 (마운트·재연결·탭복귀 공용).
   // - allSettled: 한 요청이 실패해도 나머지 카운트는 반영(재동기화 목적상 부분 성공 허용).
@@ -316,6 +320,7 @@ export default function Layout({ children }) {
 
     let reconnectTimer = null;
     let alive = true;
+    let hasOpened = false; // 첫 연결과 재연결을 가른다
 
     const connect = () => {
       if (!alive) return;
@@ -330,7 +335,12 @@ export default function Layout({ children }) {
 
       // 최초 연결/재연결 모두에서 카운트를 서버값으로 재동기화한다.
       // 끊겨 있던 동안 Web Push로만 도착해 누락된 뱃지 증가분을 여기서 보정.
-      ws.onopen = () => { refreshCounts(); };
+      // 재연결이면 열린 방이 끊긴 사이 놓친 메시지를 채우도록 알린다(첫 연결 때는 방이 막 불러왔다).
+      ws.onopen = () => {
+        refreshCounts();
+        if (hasOpened) window.dispatchEvent(new CustomEvent('chat:reconnected'));
+        hasOpened = true;
+      };
 
       ws.onmessage = (event) => {
         try {
@@ -360,8 +370,10 @@ export default function Layout({ children }) {
 
             // 내가 보낸 메시지가 아닐 때
             if (data.message.sender_id !== profile.user_id) {
-              // 현재 해당 채팅방에 들어와있으면 알림 생략
-              const isViewingRoom = activeRoomRef.current === data.room_id;
+              // 그 방을 열어 두고 실제로 보고 있을 때만 알림 생략. 탭이 숨었거나 창에 포커스가 없으면
+              // 방이 열려 있어도 아직 읽지 않은 것이다(MessengerChatRoom도 같은 판단으로 읽음 처리를 미룬다).
+              const chatDoc = pipContainerRef.current?.ownerDocument || document;
+              const isViewingRoom = activeRoomRef.current === data.room_id && isChatViewing(chatDoc);
 
               if (!isViewingRoom) {
                 setChatUnreadCount((prev) => prev + 1);

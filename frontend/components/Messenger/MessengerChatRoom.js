@@ -11,6 +11,7 @@ import MessengerComposer from './MessengerComposer';
 import { useLightbox } from '@/components/common/LightboxProvider';
 import { showToast } from '@/components/Layout/Toast';
 import { buildSendMessage, formatFileSize } from '@/library/messengerCompose';
+import { isChatViewing, mergeMissedMessages } from '@/library/chatRoomSync';
 
 const isImageType = (fileType) => fileType?.startsWith('image/');
 
@@ -33,12 +34,27 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
   const composerRef = useRef(null);
   const isInitialLoadRef = useRef(true);
   const dragCounterRef = useRef(0);
+  const rootRef = useRef(null);
+  // 방이 안 보이는 동안 미뤄 둔 일 — 다시 보일 때(탭 복귀·창 포커스) 처리한다.
+  const readPendingRef = useRef(false);   // 안 보이는 동안 온 메시지를 아직 읽음 처리하지 않았다
+  const reloadPendingRef = useRef(false); // 재연결 뒤 끊긴 사이 놓친 메시지를 아직 다시 불러오지 않았다
 
   let myUserId = 0;
   try {
     const profile = JSON.parse(sessionStorage.getItem('profile') || '{}');
     myUserId = profile.user_id || 0;
   } catch {}
+
+  // 이 방이 그려진 문서(메인 창 또는 PiP 창)를 사용자가 실제로 보고 있는가
+  const isViewing = () => isChatViewing(rootRef.current?.ownerDocument);
+
+  // 읽음을 알린다 — 보낸 사람 화면의 안 읽음 숫자가 여기서 사라진다. 연결이 없으면 보내지 못한다.
+  const sendMarkRead = () => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
+    wsRef.current.send(JSON.stringify({ action: 'mark_read', room_id: roomId }));
+    window.dispatchEvent(new CustomEvent('chat:unread_changed'));
+    return true;
+  };
 
   // 메시지 목록 로드
   useEffect(() => {
@@ -62,10 +78,7 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
       } catch {}
     };
     fetchMessages();
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ action: 'mark_read', room_id: roomId }));
-      window.dispatchEvent(new CustomEvent('chat:unread_changed'));
-    }
+    sendMarkRead();
   }, [roomId]);
 
   // WebSocket 메시지 수신
@@ -77,10 +90,10 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
           if (prev.some((m) => m.message_id === data.message.message_id)) return prev;
           return [...prev, data.message];
         });
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ action: 'mark_read', room_id: roomId }));
-          window.dispatchEvent(new CustomEvent('chat:unread_changed'));
-        }
+        // 실제로 보고 있을 때만 읽음 처리한다. 안 보이면 다시 보일 때로 미룬다
+        // (그동안 Layout이 다른 방처럼 토스트·소리·OS 알림·배지를 띄운다).
+        if (isViewing()) sendMarkRead();
+        else readPendingRef.current = true;
       }
       if (data.type === 'mark_read' && data.room_id === roomId && data.user_id !== myUserId) {
         setMembers((prev) =>
@@ -93,6 +106,54 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
     window.addEventListener('chat:ws_message', handleWsMessage);
     return () => window.removeEventListener('chat:ws_message', handleWsMessage);
   }, [roomId, myUserId]);
+
+  // 방이 다시 보이면 미뤄 둔 읽음을 처리하고, 채팅 WebSocket이 다시 붙으면 끊긴 사이 놓친 메시지를 채운다.
+  // 메시지 조회(GET /chat/{room}/messages)는 서버에서 읽음 처리까지 하므로 보고 있을 때만 부르고,
+  // 아니면 다시 보일 때로 미룬다. PiP 창이면 그 창의 문서·창 이벤트를 듣는다.
+  useEffect(() => {
+    let alive = true;
+    readPendingRef.current = false;
+    reloadPendingRef.current = false;
+
+    const reloadMissed = async () => {
+      reloadPendingRef.current = false;
+      readPendingRef.current = false;
+      try {
+        const res = await axios.get(`/chat/${roomId}/messages`);
+        if (!alive || !res.data.status) return;
+        setMessages((prev) => mergeMissedMessages(prev, res.data.messages.reverse()));
+        if (res.data.members) setMembers(res.data.members);
+        // 응답을 기다리는 사이 방이 안 보이게 됐으면(그사이 온 새 메시지 포함) 읽음은 다시 보일 때로 미룬다
+        if (isViewing()) sendMarkRead();
+        else readPendingRef.current = true;
+      } catch {
+        if (alive) reloadPendingRef.current = true; // 다음에 다시 보일 때 재시도
+      }
+    };
+
+    const flushPending = () => {
+      if (!isViewing()) return;
+      if (reloadPendingRef.current) reloadMissed();
+      else if (readPendingRef.current && sendMarkRead()) readPendingRef.current = false;
+    };
+
+    const handleReconnected = () => {
+      reloadPendingRef.current = true;
+      flushPending();
+    };
+
+    const doc = rootRef.current?.ownerDocument || document;
+    const win = doc.defaultView || window;
+    doc.addEventListener('visibilitychange', flushPending);
+    win.addEventListener('focus', flushPending);
+    window.addEventListener('chat:reconnected', handleReconnected);
+    return () => {
+      alive = false;
+      doc.removeEventListener('visibilitychange', flushPending);
+      win.removeEventListener('focus', flushPending);
+      window.removeEventListener('chat:reconnected', handleReconnected);
+    };
+  }, [roomId]);
 
   // 스크롤
   useEffect(() => {
@@ -272,6 +333,7 @@ export default function MessengerChatRoom({ roomId, wsRef, onBack, hideback, hea
 
   return (
     <div className="MessengerChatRoom"
+         ref={rootRef}
          onDragEnter={handleDragEnter}
          onDragLeave={handleDragLeave}
          onDragOver={handleDragOver}
