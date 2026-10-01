@@ -269,6 +269,44 @@ async def test_canvas_typst_page_content_untouched(db_session):
     assert page["content"] == src2
 
 
+async def test_canvas_typst_page_copy_keeps_source_byte_identical(db_session):
+    # 복제도 create/update와 같은 P0 가드(TY-01): nh3에 태우면 <intro> 라벨이 지워지고
+    # '<'·'&'가 '&lt;'·'&amp;'로 바뀌어 복제본이 컴파일 오류가 나거나 PDF에 엔티티가 찍힌다.
+    user = await _make_user(db_session, "tyc@ing.test", "tyc_ing")
+    canvas = await _make_canvas(db_session, user, name="TC", key="INGTC")
+    src = ('#set heading(numbering: "1.")\n= 개요 <intro>\n'
+           "@intro 참조, 수식 $a < b$, R&D 팀\n#let x = 1 < 2\n")
+    res = await page_ctrl.create(
+        canvas, page_schema.CanvasPageCreate(title="t", content=src, type="typst"),
+        _req(user), db_session)
+
+    copied = await page_ctrl.copy(
+        canvas, res["page_id"], page_schema.CanvasPageCopy(), _req(user), db_session)
+    assert copied["status"] is True
+    page = await page_model.find_by_id(copied["page_id"], db_session)
+    assert page["type"] == "typst"
+    assert page["content"] == src  # 라벨·'<'·'&' 포함 원본과 바이트 동일
+
+
+async def test_canvas_document_page_copy_still_sanitized(db_session):
+    # 반대쪽 분기 핀: document 복제는 계속 정화한다(SEC-17 — 정화 도입 전에 저장된 오염의 전파 차단).
+    # create 경로는 이미 정화하므로 레거시 행은 직접 INSERT로 흉내낸다.
+    user = await _make_user(db_session, "dcc@ing.test", "dcc_ing")
+    canvas = await _make_canvas(db_session, user, name="DC", key="INGDC")
+    row = await db_session.execute(text("""
+        INSERT INTO canvas_page (canvas_id, title, content, position, created_by, updated_by, type)
+        VALUES (:c, 'legacy', :html, 0, :u, :u, 'document') RETURNING page_id
+    """), {"c": canvas, "u": user, "html": "<p>ok</p><script>alert(1)</script>"})
+    pid = row.scalar_one()
+
+    copied = await page_ctrl.copy(
+        canvas, pid, page_schema.CanvasPageCopy(), _req(user), db_session)
+    assert copied["status"] is True
+    page = await page_model.find_by_id(copied["page_id"], db_session)
+    assert "<script" not in page["content"]
+    assert "<p>ok</p>" in page["content"]
+
+
 async def test_canvas_overview_page_update_converts_markdown(db_session):
     # update의 'overview' 분기도 document와 동일하게 변환+정화 대상.
     # overview 페이지는 page_ctrl.create로 못 만들므로(canvas 생성 시에만 시딩) 직접 INSERT.

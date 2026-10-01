@@ -244,11 +244,16 @@ async def copy_page(page_id: int, parent_page_id: int | None,
     position = await get_next_position(canvas_id, target_parent, db)
 
     new_title = f"{original['title']} (copy)"
+    content = original.get('content') or ''
+    if original['type'] != 'typst':
+        # SEC-17: 복제 시에도 정화 — 정화 도입 이전에 저장된 기존 콘텐츠의 오염 전파 차단.
+        # typst는 raw 소스라 우회한다(controller create/update와 같은 근거: nh3가 <intro> 라벨을
+        # 지우고 '<'·'&'를 엔티티로 바꿔 원문을 훼손한다).
+        content = sanitize_html(content) or ''
     return await create(
         canvas_id=canvas_id,
         title=new_title,
-        # SEC-17: 복제 시에도 정화 — 정화 도입 이전에 저장된 기존 콘텐츠의 오염 전파 차단
-        content=sanitize_html(original.get('content') or '') or '',
+        content=content,
         parent_page_id=target_parent,
         position=position,
         created_by=created_by,
