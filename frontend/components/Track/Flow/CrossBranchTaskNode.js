@@ -15,7 +15,7 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
   const { t } = useTranslation();
   const { formatDateOnly } = useDateFormat();
   const {
-    displayId, title, status, statusLabel, statusColor,
+    displayId, title, status, statusLabel, statusColor, statusCategory,
     priority, branchKey, branchName, branchColor, branchIcon,
     assignees, dueDate, otherTracksCount,
     parent, subtaskTotal, subtaskDone,
@@ -25,9 +25,12 @@ const CrossBranchTaskNode = memo(function CrossBranchTaskNode({ data, selected }
   // ⚠️ 노드 배경이 --track-card라 배지 부모도 그것이다 — track-card 프로파일(TrackTree·TrackDetail과 동일).
   const branchTint = entityTintStyle(branchColor, { from: 8, alpha: '14', surface: 'track-card' });
 
+  // 완료·취소 계열(브랜치 워크플로우 카테고리)은 SCSS가 흐린다 — 상태 키로 판정하지 않는다.
+  const categoryClass = statusCategory ? ` TrackNode--cat-${statusCategory}` : '';
+
   return (
     <div
-      className={`TrackNode ${selected ? 'TrackNode--selected' : ''}`}
+      className={`TrackNode ${selected ? 'TrackNode--selected' : ''}${categoryClass}`}
       style={{ '--branch-color': branchColor }}
     >
       <span className="TrackNode__BranchBand" />

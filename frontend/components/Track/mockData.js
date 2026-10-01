@@ -31,14 +31,6 @@ export const MEMBERS = [
   { user_id: 4, username: 'Sarah Kim', initial: 'S', color: '#9333EA', role: 'editor' },
 ];
 
-export const WORKFLOW_STATUSES = {
-  todo: { label: 'To Do', color: '#9CA3AF', category: 'todo' },
-  in_progress: { label: 'In Progress', color: '#F59E0B', category: 'in_progress' },
-  review: { label: 'In Review', color: '#3B82F6', category: 'in_progress' },
-  done: { label: 'Done', color: '#16A34A', category: 'done' },
-  blocked: { label: 'Blocked', color: '#DC2626', category: 'in_progress' },
-};
-
 // 우선순위는 사용자가 색을 고르는 축이 아니라 앱이 정한 의미 등급이다 —
 // themePalette.js의 PRIORITY_TOKENS를 단일 원천으로 재사용한다(중복 매핑 금지).
 // ⛔ 여기서 나온 값은 `var(--x)` 토큰 참조다. 알파 접미(`color + '40'`)를 붙이면

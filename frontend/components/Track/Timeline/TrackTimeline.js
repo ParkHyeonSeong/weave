@@ -32,7 +32,7 @@ const LANE_HEIGHT = 50;      // 각 task row 높이
 const GROUP_HEAD_HEIGHT = 32;
 
 export default function TrackTimeline({
-  items, links, branchById, workflowStatuses,
+  items, links, branchById,
   selectedItemId, onSelectItem,
 }) {
   const { t } = useTranslation();
@@ -369,12 +369,16 @@ export default function TrackTimeline({
               grp.items.map((it) => {
                 const r = itemRects.get(it.item_id);
                 if (!r) return null;
-                const ws = workflowStatuses[it.status] || {};
+                // 상태 색·카테고리는 서버가 이 태스크 브랜치의 워크플로우에서 hydrate한 값이다(mock 상태표 금지).
+                const ws = { color: it.status_color, category: it.status_category };
+                // 흐림은 상태 키가 아니라 카테고리(done·cancelled)로 건다 — 키로 걸면 완료 계열 커스텀 상태가 빠진다.
+                // 키 클래스(--${it.status})는 'blocked' 키 빗금 규칙(track.scss·S4 다크 캡처)이 쓰므로 남긴다.
+                const categoryClass = ws.category ? ` TrackTimeline__Bar--cat-${ws.category}` : '';
                 const isSelected = selectedItemId === it.item_id;
                 return (
                   <div
                     key={`b-${it.item_id}`}
-                    className={`TrackTimeline__Bar ${isSelected ? 'TrackTimeline__Bar--selected' : ''} TrackTimeline__Bar--${it.status}`}
+                    className={`TrackTimeline__Bar ${isSelected ? 'TrackTimeline__Bar--selected' : ''} TrackTimeline__Bar--${it.status}${categoryClass}`}
                     style={{
                       left: r.x, top: r.y, width: r.w, height: r.h,
                       '--branch-color': grp.branch.color,

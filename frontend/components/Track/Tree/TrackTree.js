@@ -11,12 +11,12 @@ import { useTranslation } from 'react-i18next';
 const DUE_OPTS = { month: 'numeric', day: 'numeric' };
 
 /**
- * Tree view — 같은 mock 데이터를 outline 형태로.
+ * Tree view — 같은 items를 outline 형태로.
  * 그룹핑: Branch → (옵션) Epic 가상 그룹 → Task.
  * 의존성은 우측에 "→ N items" 처럼 카운트로만 노출 (시각화는 Flow에 위임).
  */
 export default function TrackTree({
-  items, links, branchById, workflowStatuses,
+  items, links, branchById,
   selectedItemId, onSelectItem,
 }) {
   const { t } = useTranslation();
@@ -126,7 +126,9 @@ export default function TrackTree({
                     </div>
                   );
                 }
-                const ws = workflowStatuses[it.status] || {};
+                // 상태 라벨·색은 서버가 이 태스크 브랜치의 워크플로우에서 hydrate한 값이다(mock 상태표 금지).
+                // 워크플로우 행을 못 찾은 상태는 라벨을 키로 대신하고 색은 칠하지 않는다.
+                const ws = { label: it.status_label || it.status, color: it.status_color };
                 // 이 배지의 부모는 페이지 표면이 아니라 트리 **행**(--track-card)이다.
                 // 다크에서 --track-card가 --color-surface보다 밝아 default로 계산하면 묻힌다.
                 const wsTint = entityTintStyle(ws.color, { from: 8, alpha: '14', surface: 'track-card' });

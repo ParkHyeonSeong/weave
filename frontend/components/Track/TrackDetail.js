@@ -11,7 +11,7 @@ import BulkAddModal from './BulkAddModal';
 import { showToast } from '@/components/Layout/Toast';
 import { getErrorCode, getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
-import { WORKFLOW_STATUSES, getBranchDistribution } from './mockData';
+import { getBranchDistribution } from './mockData';
 import { useTranslation } from 'react-i18next';
 
 // 서버 hydrated item → 컴포넌트가 기대하는 형태로 정규화
@@ -460,7 +460,6 @@ export default function TrackDetail() {
               items={items}
               links={links}
               branchById={branchById}
-              workflowStatuses={WORKFLOW_STATUSES}
               selectedItemId={selectedItemId}
               edgeType={edgeType}
               materializeOnCreate={materializeOnCreate}
@@ -479,7 +478,6 @@ export default function TrackDetail() {
               items={items}
               links={links}
               branchById={branchById}
-              workflowStatuses={WORKFLOW_STATUSES}
               selectedItemId={selectedItemId}
               onSelectItem={setSelectedItemId}
             />
@@ -489,7 +487,6 @@ export default function TrackDetail() {
               items={items}
               links={links}
               branchById={branchById}
-              workflowStatuses={WORKFLOW_STATUSES}
               selectedItemId={selectedItemId}
               onSelectItem={setSelectedItemId}
             />
@@ -499,7 +496,6 @@ export default function TrackDetail() {
         <TrackItemDetail
           item={selectedItem}
           branch={selectedItem && !selectedItem.restricted ? branchById[selectedItem.branch_id] : null}
-          workflowStatuses={WORKFLOW_STATUSES}
           onClose={() => setSelectedItemId(null)}
           onRemove={handleItemDelete}
         />

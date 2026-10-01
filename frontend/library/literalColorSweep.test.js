@@ -1071,7 +1071,8 @@ describe('mockData dead export에 제품 소비자가 없다', () => {
   const DEAD = ['TRACK', 'BRANCHES', 'MEMBERS', 'ITEMS', 'SOURCE_TREE'];
   const ALLOWED = [
     { file: 'components/Track/Detail/TrackItemDetail.js', names: ['PRIORITIES'] },
-    { file: 'components/Track/TrackDetail.js', names: ['WORKFLOW_STATUSES', 'getBranchDistribution'] },
+    // 상태는 서버 status_label/status_color/status_category로 그린다 — mock 상태표(WORKFLOW_STATUSES)는 없어졌다.
+    { file: 'components/Track/TrackDetail.js', names: ['getBranchDistribution'] },
   ];
   const MOCK_ABS = resolve(ROOT, MOCK);
   const parse = (text) => AcornParser.extend(acornJsx())

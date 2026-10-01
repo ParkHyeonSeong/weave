@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 // 하루 전으로 렌더된다. 하드코딩 영문 월 배열도 locale을 따르지 않았다.
 const DUE_LONG_OPTS = { month: 'short', day: 'numeric' };
 
-export default function TrackItemDetail({ item, branch, workflowStatuses, onClose, onRemove }) {
+export default function TrackItemDetail({ item, branch, onClose, onRemove }) {
   const { t } = useTranslation();
   const router = useRouter();
   const { formatDateOnly } = useDateFormat();
@@ -62,7 +62,9 @@ export default function TrackItemDetail({ item, branch, workflowStatuses, onClos
     );
   }
 
-  const ws = workflowStatuses[item.status] || {};
+  // 상태 라벨·색은 서버가 이 태스크 브랜치의 워크플로우에서 hydrate한 값이다(mock 상태표 금지).
+  // 워크플로우 행을 못 찾은 상태는 라벨을 키로 대신하고 색은 칠하지 않는다.
+  const ws = { label: item.status_label || item.status, color: item.status_color };
   const prio = PRIORITIES[item.priority] || {};
   // ⚠️ 이 패널의 배지 부모는 --track-card다(TrackTree 행과 같은 표면) — track-card 프로파일을 쓴다.
   //    default로 계산하면 다크에서 31색 중 17색이 BADGE_MIN 미달이다(실측 StatusPill 1.2425).

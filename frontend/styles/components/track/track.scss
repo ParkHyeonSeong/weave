@@ -788,6 +788,12 @@ $track-border-soft: var(--track-border-soft);
     .TrackNode__BranchGlow { opacity: 1; }
   }
 
+  // 완료·취소 계열(브랜치 워크플로우 카테고리) 카드는 타임라인 막대와 같은 비율로 흐린다.
+  &--cat-done,
+  &--cat-cancelled {
+    opacity: 0.62;
+  }
+
   &__Header {
     display: flex;
     align-items: center;
@@ -1893,7 +1899,10 @@ $track-border-soft: var(--track-border-soft);
         0 6px 14px -4px color-mix(in srgb, var(--branch-color) 30%, transparent);
     }
 
-    &--done {
+    // 완료·취소 계열은 흐리게 — 상태 **키**가 아니라 브랜치 워크플로우의 **카테고리**로 건다.
+    // 키('done')로 걸면 '배포 완료' 같은 완료 계열 커스텀 상태와 '취소됨'이 흐려지지 않는다.
+    &--cat-done,
+    &--cat-cancelled {
       opacity: 0.62;
       background: $track-border-soft;
     }

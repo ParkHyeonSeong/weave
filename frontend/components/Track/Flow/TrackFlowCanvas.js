@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 const nodeTypes = { task: CrossBranchTaskNode, restricted: RestrictedNode };
 const edgeTypes = { track: TrackEdge };
 
-function buildNodes(items, branchById, workflowStatuses, onItemDelete) {
+function buildNodes(items, branchById, onItemDelete) {
   return items.map((it) => {
     if (it.restricted) {
       return {
@@ -33,7 +33,8 @@ function buildNodes(items, branchById, workflowStatuses, onItemDelete) {
       };
     }
     const branch = branchById[it.branch_id] || {};
-    const ws = workflowStatuses[it.status] || {};
+    // 상태는 서버가 이 태스크 브랜치의 워크플로우에서 hydrate한 값이다(mock 상태표 금지).
+    const ws = { label: it.status_label, color: it.status_color };
     return {
       id: String(it.item_id),
       type: 'task',
@@ -45,6 +46,7 @@ function buildNodes(items, branchById, workflowStatuses, onItemDelete) {
         status: it.status,
         statusLabel: ws.label || it.status,
         statusColor: ws.color || '#9CA3AF',
+        statusCategory: it.status_category || null,
         priority: it.priority,
         branchKey: branch.key || '?',
         branchName: branch.name || '?',
@@ -105,7 +107,7 @@ function buildEdges(links, items, onDelete) {
 }
 
 function CanvasInner({
-  items, links, branchById, workflowStatuses,
+  items, links, branchById,
   selectedItemId, edgeType, materializeOnCreate,
   onSelectItem, onSourceDrop, onItemPositionChange,
   onLinkCreate, onLinkDelete, onItemDelete,
@@ -117,8 +119,8 @@ function CanvasInner({
   const { resolved } = useTheme();
 
   const initialNodes = useMemo(
-    () => buildNodes(items, branchById, workflowStatuses, onItemDelete),
-    [items, branchById, workflowStatuses, onItemDelete]
+    () => buildNodes(items, branchById, onItemDelete),
+    [items, branchById, onItemDelete]
   );
   const initialEdges = useMemo(
     () => buildEdges(links, items, onLinkDelete),
