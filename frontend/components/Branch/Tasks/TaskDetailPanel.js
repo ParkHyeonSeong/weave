@@ -24,6 +24,7 @@ import TaskDependencySection from './TaskDependencySection';
 import TaskPageLinkSection from './TaskPageLinkSection';
 import TaskDescriptionEditor from './TaskDescriptionEditor';
 import TaskCommentSection from './TaskCommentSection';
+import TaskCustomFieldInput from './TaskCustomFieldInput';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import ActivityTimeline from '@/components/common/ActivityTimeline';
 import NavLink from '@/components/common/NavLink';
@@ -48,7 +49,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
   const {
     task, loading, error, sprints, epics, members, labels,
     workflowStatuses: hookStatuses, taskTypes: hookTaskTypes, customFields,
-    refreshTask, updateField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
+    refreshTask, updateField, updateCustomField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
   } = useTaskDetail(branchId, taskSummary?.task_id);
 
   const workflowStatuses = (externalStatuses && externalStatuses.length > 0) ? externalStatuses : hookStatuses;
@@ -467,13 +468,11 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
               <div className="TaskDetailPanel__Fields">
                 {customFields.map((cf) => (
                   <DetailRow key={cf.custom_field_id} label={cf.field_name}>
-                    <CustomFieldInput
+                    <TaskCustomFieldInput
                       field={cf}
                       value={(task.custom_fields || {})[cf.custom_field_id]}
-                      onChange={(val) => {
-                        const updated = { ...(task.custom_fields || {}), [cf.custom_field_id]: val };
-                        updateField('custom_fields', updated);
-                      }}
+                      onSave={(val) => updateCustomField(cf.custom_field_id, val)}
+                      className="TaskDetailPanel__DateInput"
                     />
                   </DetailRow>
                 ))}
@@ -556,79 +555,6 @@ function DetailRow({ label, children, align }) {
       <div className="TaskDetailPanel__RowValue">{children}</div>
     </div>
   );
-}
-
-function CustomFieldInput({ field, value, onChange }) {
-  const { t } = useTranslation();
-  switch (field.field_type) {
-    case 'text':
-      return (
-        <input
-          className="TaskDetailPanel__DateInput"
-          type="text"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder={field.field_name}
-        />
-      );
-    case 'number':
-      return (
-        <input
-          className="TaskDetailPanel__DateInput"
-          type="number"
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-        />
-      );
-    case 'date':
-      return (
-        <DatePicker
-          size="sm"
-          value={value || null}
-          onChange={onChange}
-        />
-      );
-    case 'checkbox':
-      return (
-        <input
-          type="checkbox"
-          checked={!!value}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-      );
-    case 'select':
-      return (
-        <select
-          className="TaskDetailPanel__DateInput"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-        >
-          <option value="">{t('branchTasks.selectPlaceholder')}</option>
-          {(field.field_options || []).map((opt) => (
-            <option key={opt} value={opt}>{opt}</option>
-          ))}
-        </select>
-      );
-    case 'url':
-      return (
-        <input
-          className="TaskDetailPanel__DateInput"
-          type="url"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-          placeholder="https://..."
-        />
-      );
-    default:
-      return (
-        <input
-          className="TaskDetailPanel__DateInput"
-          type="text"
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value || null)}
-        />
-      );
-  }
 }
 
 function SubAssigneeDropdown({ members, selectedIds, onChange }) {

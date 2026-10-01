@@ -26,6 +26,7 @@ import TaskDependencySection from './TaskDependencySection';
 import TaskPageLinkSection from './TaskPageLinkSection';
 import TaskGithubRefSection from './TaskGithubRefSection';
 import TaskDescriptionEditor from './TaskDescriptionEditor';
+import TaskCustomFieldInput from './TaskCustomFieldInput';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import ActivityTimeline from '@/components/common/ActivityTimeline';
 import { taskDeleteMessage } from '@/library/taskDeleteMessage';
@@ -53,7 +54,7 @@ export default function TaskFullPage() {
   const {
     task, loading, error, sprints, epics, members, labels,
     workflowStatuses, taskTypes, customFields,
-    refreshTask, updateField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
+    refreshTask, updateField, updateCustomField, updateSubtaskStatus, updateAssignees, toggleLabel, createLabel, updateLabel, deleteLabel, handleDelete, handleSelectChange,
   } = useTaskDetail(branchId, taskId);
 
   // 진행도 파생 규칙은 library/subtaskProgress.js progressFromRows의 JSDoc 참조.
@@ -488,13 +489,10 @@ export default function TaskFullPage() {
             {/* 커스텀 필드 */}
             {customFields.map((cf) => (
               <FieldRow key={cf.custom_field_id} label={cf.field_name}>
-                <CustomFieldInput
+                <TaskCustomFieldInput
                   field={cf}
                   value={(task.custom_fields || {})[cf.custom_field_id]}
-                  onChange={(val) => {
-                    const updated = { ...(task.custom_fields || {}), [cf.custom_field_id]: val };
-                    updateField('custom_fields', updated);
-                  }}
+                  onSave={(val) => updateCustomField(cf.custom_field_id, val)}
                   className="TaskFullPage__DateInput"
                 />
               </FieldRow>
@@ -526,32 +524,6 @@ function FieldRow({ label, children, align }) {
       <div className="TaskFullPage__RowValue">{children}</div>
     </div>
   );
-}
-
-function CustomFieldInput({ field, value, onChange, className = '' }) {
-  const { t } = useTranslation();
-  const inputClass = className || 'TaskFullPage__DateInput';
-  switch (field.field_type) {
-    case 'text':
-      return <input className={inputClass} type="text" value={value || ''} onChange={(e) => onChange(e.target.value || null)} placeholder={field.field_name} />;
-    case 'number':
-      return <input className={inputClass} type="number" value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} />;
-    case 'date':
-      return <DatePicker size="sm" value={value || null} onChange={onChange} />;
-    case 'checkbox':
-      return <input type="checkbox" checked={!!value} onChange={(e) => onChange(e.target.checked)} />;
-    case 'select':
-      return (
-        <select className={inputClass} value={value || ''} onChange={(e) => onChange(e.target.value || null)}>
-          <option value="">{t('branchTasks.selectPlaceholder')}</option>
-          {(field.field_options || []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-        </select>
-      );
-    case 'url':
-      return <input className={inputClass} type="url" value={value || ''} onChange={(e) => onChange(e.target.value || null)} placeholder="https://..." />;
-    default:
-      return <input className={inputClass} type="text" value={value || ''} onChange={(e) => onChange(e.target.value || null)} />;
-  }
 }
 
 function SubAssigneeDropdown({ members, selectedIds, onChange }) {

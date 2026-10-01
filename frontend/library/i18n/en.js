@@ -1410,6 +1410,8 @@ const en = {
       details: 'Details',
       customFields: 'Custom Fields',
       deleteTask: 'Delete task',
+      saveFailed: 'Could not save the change.',
+      saveFailedRetry: 'Could not save the change. Please try again shortly.',
     },
     fullPage: {
       loadFailed: 'We could not load this task.',

@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { getErrorCode, getError } from '@/library/errorCode';
+import { errorText } from '@/library/errorText';
+import { showToast } from '@/components/Layout/Toast';
 
 /**
  * 서버 스냅샷에 "진행 중인 하위태스크 상태"를 덮어씌운다.
@@ -30,7 +33,25 @@ function mergeInFlightSubtasks(serverTask, inFlight) {
   return { task: { ...serverTask, subtasks }, settled };
 }
 
+/**
+ * 서버 스냅샷에 "진행 중인 낙관 저장"을 덮어씌운다(필드·커스텀 필드 한 키, 라벨 목록, 담당자 목록 단위).
+ *
+ * 항목: { apply, committedAt }. apply(task)는 그 저장의 값을 넣은 task를 돌려준다. committedAt은 저장이
+ * 커밋된 것을 안 순간까지 나간 상세 GET의 수(커밋 전이면 null)다. 그보다 뒤에 나간 GET(issued)의
+ * 스냅샷은 그 커밋을 담고 있으므로 항목을 지우고 서버 값을 그대로 쓴다. 그 전에 나간 GET은 커밋 전
+ * 값일 수 있으므로 항목의 값이 이긴다.
+ */
+function mergeInFlightFields(serverTask, inFlight, issued) {
+  let merged = serverTask;
+  inFlight.forEach((entry, key) => {
+    if (entry.committedAt !== null && issued > entry.committedAt) inFlight.delete(key);
+    else merged = entry.apply(merged);
+  });
+  return merged;
+}
+
 export default function useTaskDetail(branchId, taskId) {
+  const { t } = useTranslation();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -70,6 +91,15 @@ export default function useTaskDetail(branchId, taskId) {
   const inFlightSubtaskStatus = useRef(new Map());
   const inFlightSubtaskPatches = useRef(0);
 
+  // 진행 중인 낙관 저장(필드·라벨·담당자)의 오버레이 { 'priority' | 'cf:12' | 'labels' | 'assignees' … ->
+  // { apply, committedAt } }와 지금까지 나간 상세 GET 수. 저장 두 개가 겹치면 먼저 끝난 쪽의 재조회가 다른 쪽의
+  // 커밋 전 스냅샷을 받는다 — 그대로 적용하면 그 값이 옛 값으로 돌아가고, 늦게 끝난 쪽의 재조회는 순번에 밀려
+  // 폐기돼 화면이 서버와 어긋난 채 남는다. 그래서 커밋 뒤에 나간 GET이 적용될 때까지 저장 값이 모든 스냅샷을
+  // 이긴다(mergeInFlightFields). 태스크를 갈아타면 Map을 새로 갈아끼운다 — 이전 화면의 저장은 시작 때 잡은
+  // Map과 달라진 것으로 물러난다.
+  const inFlightFields = useRef(new Map());
+  const detailGetsIssued = useRef(0);
+
   // 현재 taskId의 task가 화면에 올라왔는지. 최초 로드 전에는 (a) 백그라운드 재조회가
   // 순번을 가져가 최초 GET을 폐기시키면 안 되고, (b) 조용한 실패가 아무 상태도 남기지 않아
   // loading=false / task=null / error=null 인 빈 패널로 굳으면 안 된다.
@@ -86,7 +116,7 @@ export default function useTaskDetail(branchId, taskId) {
   // **순번을 올리는 것만으로** 현재 화면의 진행 중인 요청을 supersede시킨다(A의 stale
   // refreshTask가 B 최초 GET을 무효화 → 빈 패널). 그래서 순번을 owner에 귀속시킨다:
   // A 콜백은 A owner의 순번만 올리고 B 요청은 B owner의 순번과만 비교하므로, stale 작업이
-  // 어느 claim 경로(resync·최초 GET·수렴 GET·담당자·라벨·createLabel의 늦은 claim)로
+  // 어느 claim 경로(resync·최초 GET·수렴 GET·필드·담당자·라벨·createLabel의 늦은 claim)로
   // 들어와도 현재 화면을 건드릴 수 없다. 같은 owner 안의 순서 보호는 그대로다.
   const ownerRef = useRef(null);
   if (!ownerRef.current
@@ -121,14 +151,15 @@ export default function useTaskDetail(branchId, taskId) {
     }
     let applied = false;
     try {
+      const issued = ++detailGetsIssued.current;
       const res = await axios.get(`/branches/${branchId}/tasks/${taskId}`);
       // 더 최신 재동기화에 추월됨 — 같은 화면 안에서의 순서 가드.
       const superseded = seq !== undefined && seq !== owner.seq;
       if (isCurrent() && !superseded) {
         if (res.data.status) {
-          // 진행 중인 하위태스크 값이 스냅샷을 이긴다 — 커밋 전 상태로 되돌리지 않기 위해.
+          // 진행 중인 하위태스크·필드 값이 스냅샷을 이긴다 — 커밋 전 상태로 되돌리지 않기 위해.
           const merged = mergeInFlightSubtasks(res.data.task, inFlightSubtaskStatus.current);
-          setTask(merged.task);
+          setTask(mergeInFlightFields(merged.task, inFlightFields.current, issued));
           setError(null); // 이 화면의 성공은 앞선 실패가 남긴 에러를 정리한다
           hasTaskRef.current = true;
           // 서버가 이미 같은 값을 주는 committed 항목은 역할이 끝났다 — 항목 단위로만 제거.
@@ -150,7 +181,7 @@ export default function useTaskDetail(branchId, taskId) {
   }, [branchId, taskId, owner]);
 
   // 백그라운드 재동기화 단일 경로 — 호출 시점에 순번을 claim해, 늦게 도착한 이전 GET이
-  // 그 사이 들어온 낙관적 변경을 덮지 못하게 한다. 낙관적 변경을 내는 쪽(담당자·라벨·
+  // 그 사이 들어온 낙관적 변경을 덮지 못하게 한다. 낙관적 변경을 내는 쪽(필드·담당자·라벨·
   // 하위태스크 상태)은 PATCH 전에 직접 순번을 claim하므로 이 헬퍼를 쓰지 않는다.
   const resync = useCallback(() => {
     const seq = ++owner.seq; // 자기 owner의 순번만 올린다 — 현재 화면의 요청은 건드리지 않는다
@@ -209,6 +240,7 @@ export default function useTaskDetail(branchId, taskId) {
     pendingResync.current = false;
     inFlightSubtaskStatus.current = new Map(); // 세대 격리 — 이전 화면의 항목을 새 Map으로 떼어낸다
     inFlightSubtaskPatches.current = 0;
+    inFlightFields.current = new Map();
     setTask(null);
     fetchTask({ seq }).then(() => {
       // 최초 GET이 진행 중일 때 들어온 알림을 여기서 딱 한 번 소화한다. 최초 응답이 이미
@@ -245,17 +277,82 @@ export default function useTaskDetail(branchId, taskId) {
     fetchCustomFields();
   }, [fetchCustomFields]);
 
-  // 필드 업데이트 (자동 저장 + 재조회)
+  // 필드 저장 실패 안내. 컨트롤러 거절(200 + {status:false})은 코드·분류 문구, 네트워크 오류는
+  // 재시도 안내 — 어느 쪽이든 null이 아닌 폴백을 둔다.
+  const notifySaveFailed = (failure) => {
+    const message = failure.network
+      ? t('branchTasks.detail.saveFailedRetry')
+      : (errorText(failure.code, failure.category) ?? t('branchTasks.detail.saveFailed'));
+    showToast(message, 'error');
+  };
+
+  // 필드 저장 공통 경로 — 담당자·라벨과 같은 규약이다: 순번 claim → 즉시 반영 → PATCH →
+  // 조용한 재동기화. 비silent 재조회는 loading을 올려 패널 본문 전체(스크롤 위치·쓰던 댓글
+  // 초안)를 언마운트하고 풀페이지를 로딩 화면으로 바꾸므로 여기서는 쓰지 않는다.
+  // 실패(200 + {status:false} / 네트워크)는 반영을 되돌리고 토스트로 알린다. 되돌리기는 이 화면이
+  // 아직 현재 화면일 때만 하고, revert는 값이 아직 이 저장이 넣은 그대로일 때만 되돌린다 —
+  // 그 사이 같은 필드를 다시 바꿨다면 새 변경이 이긴다.
+  // 저장 값은 오버레이(inFlightFields)에 올려, 커밋 뒤에 나간 GET이 적용될 때까지 다른 재조회(겹친 다른
+  // 저장의 재조회 등)의 스냅샷을 이긴다. 같은 필드를 다시 바꾸면 항목이 교체돼 새 변경만 남는다.
+  // 라벨·담당자도 이 경로로 저장한다(notify: false — 실패는 예전처럼 알리지 않고 되돌린 뒤 서버 값으로 맞춘다).
+  const saveOptimistic = async ({ key, apply, revert, request, notify = true }) => {
+    const seq = ++owner.seq; // 늦게 도착한 이전 재동기화가 낙관 반영을 덮지 못하게 한다
+    const overlay = inFlightFields.current; // 시작 때의 Map — 태스크를 갈아타면 교체되므로 세대 판별도 겸한다
+    const entry = { apply, committedAt: null };
+    overlay.set(key, entry);
+    setTask((prev) => (prev ? apply(prev) : prev));
+    let failure = null;
+    try {
+      const res = await request();
+      // 컨트롤러 검증 실패는 200 + {status:false} (silent-200 계약) — 호출부에서 확인
+      if (!res.data.status) failure = getError(res.data);
+    } catch {
+      failure = { network: true };
+    }
+    const ours = overlay === inFlightFields.current && overlay.get(key) === entry;
+    if (failure) {
+      if (ours) overlay.delete(key);
+      if (owner === ownerRef.current) setTask((prev) => (prev ? revert(prev) : prev));
+      if (notify) notifySaveFailed(failure);
+    } else if (ours) {
+      entry.committedAt = detailGetsIssued.current; // 이제부터 나가는 GET은 이 커밋을 담는다
+    }
+    // 서버가 채우는 값(스프린트·에픽 이름 등)이나 실패 뒤의 서버 값을 조용히 받아 온다. 순번은 시작할 때 잡은
+    // 것이다 — 그 뒤에 시작한 다른 저장(필드·담당자·라벨)이 있으면 그 저장의 재조회가 이기고 이 재조회는
+    // 버려진다. 여기서 순번을 새로 잡으면 진행 중인 담당자·라벨 저장의 마지막 재조회를 버리게 된다(그 값은
+    // 오버레이가 없어 옛 스냅샷으로 남는다). 버려져도 이 저장의 값은 오버레이가 지킨다.
+    await fetchTask({ silent: true, seq });
+    if (!failure) emitTaskUpdated();
+  };
+
+  // 필드 업데이트 (즉시 반영 + 자동 저장 + 조용한 재동기화)
   const updateField = async (field, value) => {
     if (!task) return;
-    try {
-      const payload = { [field]: value };
-      const res = await axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, payload);
-      if (res.data.status) {
-        await fetchTask();
-        emitTaskUpdated();
-      }
-    } catch {}
+    const prevValue = task[field];
+    await saveOptimistic({
+      key: field,
+      apply: (prev) => ({ ...prev, [field]: value }),
+      revert: (prev) => (prev[field] === value ? { ...prev, [field]: prevValue } : prev),
+      request: () => axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, { [field]: value }),
+    });
+  };
+
+  // 커스텀 필드 한 키 저장 — 단일 키 병합 API라 그 키만 바꾼다. 전체 객체를 보내면 그 사이
+  // 저장된 다른 칸(다른 사람의 변경 포함)을 이 화면이 들고 있던 옛 값으로 덮는다.
+  const updateCustomField = async (fieldId, value) => {
+    if (!task) return;
+    const key = String(fieldId);
+    const prevValue = task.custom_fields?.[key];
+    const withValue = (prev, v) => ({ ...prev, custom_fields: { ...(prev.custom_fields || {}), [key]: v } });
+    await saveOptimistic({
+      key: `cf:${key}`,
+      apply: (prev) => withValue(prev, value),
+      revert: (prev) => (prev.custom_fields?.[key] === value ? withValue(prev, prevValue) : prev),
+      request: () => axios.patch(
+        `/branches/${branchId}/tasks/${task.task_id}/custom-fields`,
+        { field_id: fieldId, value },
+      ),
+    });
   };
 
   // 하위태스크 상태 인라인 변경 (상세 패널 Subtasks 섹션)
@@ -354,20 +451,17 @@ export default function useTaskDetail(branchId, taskId) {
       ...(mainId ? [enrich(mainId, 'main')] : []),
       ...subIds.map((id) => enrich(id, 'sub')),
     ];
-    const seq = ++owner.seq; // 이 변경이 최신임을 표시 — 늦게 온 이전 재동기화는 폐기됨
-    setTask((prev) => (prev ? { ...prev, assignees: optimistic } : prev));
-    try {
-      const res = await axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, {
+    const prevAssignees = task.assignees;
+    // 필드와 같은 저장 경로다 — 겹친 필드 저장의 재조회(커밋 전 스냅샷)가 이 선택을 지우지 못하게 오버레이에 올린다.
+    await saveOptimistic({
+      key: 'assignees',
+      apply: (prev) => ({ ...prev, assignees: optimistic }),
+      revert: (prev) => (prev.assignees === optimistic ? { ...prev, assignees: prevAssignees } : prev),
+      request: () => axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, {
         assignees: { main: mainId || null, sub: subIds },
-      });
-      // 성공/실패 모두 서버 상태로 조용히 동기화 (실패 시 낙관적 반영이 서버값으로 롤백됨)
-      await fetchTask({ silent: true, seq });
-      if (res.data.status) {
-        emitTaskUpdated();
-      }
-    } catch {
-      await fetchTask({ silent: true, seq });
-    }
+      }),
+      notify: false,
+    });
   };
 
   // 라벨 토글
@@ -380,17 +474,15 @@ export default function useTaskDetail(branchId, taskId) {
     // 낙관적 반영: 패널 재로딩 없이 즉시 칩을 추가/제거해 라벨 드롭다운을 연 채로 연속 토글할 수 있고,
     // 직전 토글이 재동기화 전에 유실되는 레이스도 막는다. labels(전체)에서 라벨 객체를 보강.
     const optimistic = newIds.map((id) => labels.find((l) => l.label_id === id)).filter(Boolean);
-    const seq = ++owner.seq;
-    setTask((prev) => (prev ? { ...prev, labels: optimistic } : prev));
-    try {
-      const res = await axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, { label_ids: newIds });
-      await fetchTask({ silent: true, seq });
-      if (res.data.status) {
-        emitTaskUpdated();
-      }
-    } catch {
-      await fetchTask({ silent: true, seq });
-    }
+    const prevLabels = task.labels;
+    // 필드와 같은 저장 경로다 — 겹친 필드 저장의 재조회(커밋 전 스냅샷)가 이 토글을 지우지 못하게 오버레이에 올린다.
+    await saveOptimistic({
+      key: 'labels',
+      apply: (prev) => ({ ...prev, labels: optimistic }),
+      revert: (prev) => (prev.labels === optimistic ? { ...prev, labels: prevLabels } : prev),
+      request: () => axios.patch(`/branches/${branchId}/tasks/${task.task_id}`, { label_ids: newIds }),
+      notify: false,
+    });
   };
 
   // 라벨 생성 후 태스크에 할당
@@ -474,6 +566,7 @@ export default function useTaskDetail(branchId, taskId) {
     customFields,
     refreshTask,
     updateField,
+    updateCustomField,
     updateSubtaskStatus,
     updateAssignees,
     toggleLabel,

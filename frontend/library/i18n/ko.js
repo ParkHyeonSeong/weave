@@ -1408,6 +1408,8 @@ const ko = {
       details: '세부 사항',
       customFields: '커스텀 필드',
       deleteTask: '태스크 삭제',
+      saveFailed: '변경 내용을 저장하지 못했어요.',
+      saveFailedRetry: '변경 내용을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
     },
     fullPage: {
       loadFailed: '태스크를 불러올 수 없습니다.',
