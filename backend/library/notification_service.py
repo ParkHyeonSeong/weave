@@ -56,6 +56,15 @@ async def _send_web_push(user_id: int, title: str, link: str, db: AsyncSession):
             logger.warning(f"Web Push error: {e}")
 
 
+def chat_push_url(room_id: int) -> str:
+    """채팅 Web Push를 눌렀을 때 열 주소. 앱(Layout)이 ?chat= 을 읽어 그 방을 연다.
+
+    push 전용이다 — 채팅 멘션 알림 **행**의 link는 비워 둔다. link가 있으면 종 알림 클릭이
+    그 주소로 페이지를 옮겨(Header) 보던 화면을 떠나게 된다.
+    """
+    return f'/?chat={room_id}'
+
+
 async def recipient_locale(user_id: int, db: AsyncSession) -> str:
     """수신자의 표시 언어. 설정이 없거나 손상됐으면 en."""
     region = normalize_language_region(await user_model.get_language_region(user_id, db))
@@ -113,10 +122,11 @@ async def notify(user_id: int, ntype: str, actor_id: int, message_key: str,
         'unread_count': unread,
     })
 
-    # WebSocket 연결 없음 -> Web Push 전송
+    # WebSocket 연결 없음 -> Web Push 전송 (채팅방 알림은 행 link가 없어도 push는 그 방을 연다)
     if user_id not in manager.active_connections:
+        push_link = link or (chat_push_url(entity_id) if entity_type == 'chat_room' else None)
         try:
-            await _send_web_push(user_id, title, link, db)
+            await _send_web_push(user_id, title, push_link, db)
         except Exception as e:
             logger.warning(f"Web Push fallback failed: {e}")
 
@@ -179,6 +189,6 @@ async def push_chat_to_offline(room_id: int, sender_id: int, sender_name: str,
                 else:
                     locale = await recipient_locale(uid, db)
                     body = f'{sender_name}: {messages.render(locale, fallback_key)}'
-                await _send_web_push(uid, body, None, db)
+                await _send_web_push(uid, body, chat_push_url(room_id), db)
             except Exception as e:
                 logger.warning(f"Chat push failed for user {uid}: {e}")

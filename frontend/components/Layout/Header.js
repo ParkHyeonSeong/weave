@@ -12,6 +12,7 @@ import NavLink from '@/components/common/NavLink';
 import ThemeToggleButton from '@/components/Layout/ThemeToggleButton';
 import { clearClientSession } from '@/library/sessionCleanup';
 
+// 키는 백엔드가 notify()에 넘기는 type 그대로다(예: task_status — core/service/task_transition.py).
 const NOTI_ICONS = {
   mention: AtSign,
   chat_mention: AtSign,
@@ -21,7 +22,7 @@ const NOTI_ICONS = {
   issue_comment: MessageSquare,
   issue_closed: CheckCircle2,
   issue_reopened: CircleDot,
-  task_status_changed: CheckCircle2,
+  task_status: CheckCircle2,
 };
 
 // 알림 타입 → 색 그룹(스캔용) + 짧은 한글 라벨. 그룹 색은 SCSS의
@@ -34,7 +35,7 @@ const NOTI_TYPE_META = {
   chat_mention:        { group: 'mention', labelKey: 'notifications.types.mention' },
   comment_reply:       { group: 'task',    labelKey: 'notifications.types.reply' },
   task_assigned:       { group: 'task',    labelKey: 'notifications.types.assigned' },
-  task_status_changed: { group: 'task',    labelKey: 'notifications.types.status' },
+  task_status:         { group: 'task',    labelKey: 'notifications.types.status' },
   issue_created:       { group: 'issue',   labelKey: 'notifications.types.issue' },
   issue_comment:       { group: 'issue',   labelKey: 'notifications.types.comment' },
   issue_closed:        { group: 'issue',   labelKey: 'notifications.types.closed' },

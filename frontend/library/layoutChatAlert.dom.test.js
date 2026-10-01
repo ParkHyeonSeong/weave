@@ -8,7 +8,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 
-vi.mock('next/router', () => ({ useRouter: () => ({ pathname: '/', asPath: '/', push: () => {} }) }));
+// Layout은 채팅 푸시 주소(?chat=)를 router.query에서 읽는다 — 실제 Next 라우터처럼 빈 query를 준다.
+vi.mock('next/router', () => ({ useRouter: () => ({ pathname: '/', asPath: '/', query: {}, push: () => {} }) }));
 vi.mock('@/library/_axios', () => ({
   axios: { get: async () => ({ data: { status: true, notifications: [], count: 0, rooms: [] } }) },
   getWsBaseURL: () => 'ws://weave.test',

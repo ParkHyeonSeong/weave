@@ -289,6 +289,34 @@ export default function Layout({ children }) {
     return () => window.removeEventListener('layout:open-search', handleOpen);
   }, []);
 
+  // 채팅방 열기 단일 진입점 — 종 알림·홈 '읽지 않은 메시지' 위젯·채팅 푸시 주소(?chat=)가 쓴다.
+  // 패널이 접혀 있으면 Messenger가 아직 없어 chat:open_room을 들을 수 없다. 그래서 열 방을
+  // 먼저 기록하고(Messenger는 마운트될 때 chat_active_room의 방으로 시작한다) 패널을 펼친다.
+  // 이미 열려 있거나 PiP면 마운트된 Messenger가 이벤트를 받아 그 방으로 바로 바꾼다.
+  const openChatRoom = useCallback((roomId) => {
+    try { sessionStorage.setItem('chat_active_room', String(roomId)); } catch {}
+    setIsMessengerCollapsed(false);
+    window.dispatchEvent(new CustomEvent('chat:open_room', { detail: roomId }));
+  }, []);
+
+  // 홈 위젯 등 Layout 밖에서 오는 방 열기 요청 수신
+  useEffect(() => {
+    const handleOpen = (e) => openChatRoom(e.detail);
+    window.addEventListener('layout:open-chat-room', handleOpen);
+    return () => window.removeEventListener('layout:open-chat-room', handleOpen);
+  }, [openChatRoom]);
+
+  // 채팅 푸시 주소(/?chat=<방 번호>, backend notification_service.chat_push_url)로 들어오면
+  // 그 방을 열고 주소에서 chat을 지운다(새로고침해도 다시 열리지 않게).
+  const chatQuery = router.query.chat;
+  useEffect(() => {
+    if (chatQuery === undefined) return;
+    const roomId = Number(chatQuery);
+    if (Number.isInteger(roomId) && roomId > 0) openChatRoom(roomId);
+    const { chat: _chat, ...query } = router.query;
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [chatQuery, openChatRoom]);
+
   // 마운트 시 1회 로드 + 채팅 unread 갱신 이벤트 구독
   useEffect(() => {
     refreshCounts();
@@ -477,8 +505,7 @@ export default function Layout({ children }) {
           if (noti.link) {
             // link가 있으면 해당 페이지로 이동 (router.push는 Header에서 처리)
           } else if (noti.entity_type === 'chat_room') {
-            setIsMessengerCollapsed(false);
-            window.dispatchEvent(new CustomEvent('chat:open_room', { detail: noti.entity_id }));
+            openChatRoom(noti.entity_id);
           }
         }}
       />

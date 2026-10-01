@@ -32,8 +32,9 @@ export default function UnreadMessages() {
   // 마운트-only였던 stale 문제 해소(헤더 뱃지와 같은 패턴, 공용 훅 재사용).
   useResyncOnVisible(fetchChat, ['chat:new_message', 'chat:unread_changed']);
 
+  // 메신저가 접혀 있어도 그 방이 열리게 Layout의 단일 진입점(openChatRoom)에 맡긴다.
   const openRoom = (roomId) => {
-    window.dispatchEvent(new CustomEvent('chat:open_room', { detail: roomId }));
+    window.dispatchEvent(new CustomEvent('layout:open-chat-room', { detail: roomId }));
   };
 
   const totalUnread = sumChatUnread(rooms);
