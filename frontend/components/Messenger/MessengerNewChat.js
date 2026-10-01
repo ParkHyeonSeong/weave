@@ -47,8 +47,8 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
   const filteredUsers = users.filter((u) => {
     if (selected.find((s) => s.user_id === u.user_id)) return false;
     if (!search) return true;
-    return u.username.toLowerCase().includes(search.toLowerCase()) ||
-           u.email.toLowerCase().includes(search.toLowerCase());
+    // /chat/users 응답에는 email이 없다(보안 수정 47b332b) — 이름으로만 찾는다.
+    return u.username.toLowerCase().includes(search.toLowerCase());
   });
 
   // composer 전송: 방 생성 → 원본 첨부 업로드 → 첫 메시지 전송 → 방 오픈
@@ -131,7 +131,6 @@ export default function MessengerNewChat({ wsRef, onBack, onOpenRoom }) {
             <Avatar user={user} size={28} className="MessengerNewChat__Avatar" />
             <div className="MessengerNewChat__UserInfo">
               <span className="MessengerNewChat__UserName">{user.username}</span>
-              <span className="MessengerNewChat__UserEmail">{user.email}</span>
             </div>
           </button>
         ))}

@@ -96,12 +96,4 @@
     font-weight: $font-weight-medium;
     color: $color-text;
   }
-
-  &__Email {
-    font-size: $font-size-xs;
-    color: $color-text-tertiary;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 }

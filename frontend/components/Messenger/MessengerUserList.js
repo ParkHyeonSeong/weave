@@ -66,10 +66,11 @@ export default function MessengerUserList({ onOpenRoom }) {
     myUserId = profile.user_id || 0;
   } catch {}
 
+  // /chat/users 응답에는 email이 없다(보안 수정 47b332b) — 이름으로만 찾는다.
   const keyword = search.toLowerCase();
   const filteredUsers = users
     .filter((u) => u.user_id !== myUserId)
-    .filter((u) => !keyword || u.username.toLowerCase().includes(keyword) || u.email.toLowerCase().includes(keyword))
+    .filter((u) => !keyword || u.username.toLowerCase().includes(keyword))
     .sort((a, b) => {
       const aOnline = onlineSet.has(a.user_id) ? 0 : 1;
       const bOnline = onlineSet.has(b.user_id) ? 0 : 1;
@@ -108,7 +109,6 @@ export default function MessengerUserList({ onOpenRoom }) {
               </div>
               <div className="MessengerUserList__Info">
                 <span className="MessengerUserList__Name">{user.username}</span>
-                <span className="MessengerUserList__Email">{user.email}</span>
               </div>
             </button>
           ))

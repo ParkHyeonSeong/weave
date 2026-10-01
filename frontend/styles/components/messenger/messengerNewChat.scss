@@ -146,14 +146,6 @@
     color: $color-text;
   }
 
-  &__UserEmail {
-    font-size: $font-size-xs;
-    color: $color-text-tertiary;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   &__Input {
     display: flex;
     align-items: center;
