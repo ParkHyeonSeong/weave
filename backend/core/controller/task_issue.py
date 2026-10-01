@@ -46,6 +46,21 @@ async def _notify_issue_mentions(content, branch_id, task_id, issue_id, actor_id
     )
 
 
+async def _issue_followers(issue, branch_id, db):
+    """이슈 댓글·닫기·다시 열기 알림 수신자 (본인 제외는 호출부 몫).
+
+    이슈 작성자 + 댓글 작성자 + 태스크 주·부 담당자 + 이 이슈를 닫거나 연 적이 있는 사람.
+    담당자와 닫거나 연 사람은 브랜치를 떠났을 수 있어 현재 멤버만 넣는다(비멤버 딥링크 차단).
+    """
+    followers = {issue['created_by']}
+    followers.update(await issue_model.find_commenter_ids(issue['issue_id'], db))
+    task = await task_model.find_by_id(issue['task_id'], db) or {}
+    others = [a['user_id'] for a in (task.get('assignees') or [])]
+    others += [e['actor_id'] for e in await issue_model.find_events(issue['issue_id'], db)]
+    followers.update(await member_model.filter_users_in_branch(branch_id, others, db))
+    return followers
+
+
 # -- 이슈 CRUD --
 
 async def create_issue(body, branch_id: int, task_id: int, request: Request, db: AsyncSession):
@@ -63,16 +78,18 @@ async def create_issue(body, branch_id: int, task_id: int, request: Request, db:
 
     issue_id = await issue_model.create_issue(task_id, body.title, body.body, user_id, db)
 
-    # 태스크 담당자에게 이슈 생성 알림
+    # 태스크 담당자에게 이슈 생성 알림 — 담당자가 없으면 태스크 생성자(현재 멤버일 때)에게
     task = await task_model.find_by_id(task_id, db)
     if task:
-        assignee_ids = [a['user_id'] for a in (task.get('assignees') or [])]
-        if assignee_ids:
+        recipient_ids = [a['user_id'] for a in (task.get('assignees') or [])]
+        if not recipient_ids:
+            recipient_ids = await member_model.filter_users_in_branch(branch_id, [task['created_by']], db)
+        if recipient_ids:
             display_id = task.get('display_id', '')
             username = request.state.payload.get('username', '')
             link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
             await notification_service.notify_bulk(
-                assignee_ids, 'issue_created', user_id,
+                recipient_ids, 'issue_created', user_id,
                 'issueCreated', link, 'issue', issue_id, db,
                 actor=username, displayId=display_id, issue=body.title,
             )
@@ -201,8 +218,7 @@ async def _notify_transition(issue, target_status, status_changed, comment, bran
     title = effective_title if effective_title is not None else issue.get('title', '')
     link = f'/branch/{branch_id}/task/{task_id}/issue/{issue_id}'
 
-    recipients = {issue['created_by']}
-    recipients.update(await issue_model.find_commenter_ids(issue_id, db))
+    recipients = await _issue_followers(issue, branch_id, db)
     recipients.discard(user_id)
 
     if status_changed:
@@ -321,11 +337,8 @@ async def create_comment(body, branch_id: int, task_id: int, issue_id: int, requ
 
     comment_id = await issue_model.create_comment(issue_id, user_id, body.content, db)
 
-    # 이슈 작성자 + 기존 코멘터에게 알림 (중복 제거, 본인 제외)
-    recipients = set()
-    recipients.add(issue['created_by'])
-    commenter_ids = await issue_model.find_commenter_ids(issue_id, db)
-    recipients.update(commenter_ids)
+    # 이슈 팔로워(작성자·코멘터·태스크 담당자·닫거나 연 사람)에게 알림 (중복 제거, 본인 제외)
+    recipients = await _issue_followers(issue, branch_id, db)
     recipients.discard(user_id)
 
     if recipients:

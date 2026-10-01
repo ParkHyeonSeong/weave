@@ -278,3 +278,131 @@ async def test_get_issue_timeline_comment_before_event_same_ts(db_session):
     assert [t["kind"] for t in tl] == ["comment", "event"]   # 댓글이 이벤트보다 먼저
     assert tl[0]["created_at"] == tl[1]["created_at"]        # 같은 timestamp 확인
     assert "comments" in res and len(res["comments"]) == 1   # comments 호환 유지
+
+
+# -- 후속 알림 수신자: 태스크 담당자·닫거나 연 사람 (BG-03) --
+
+async def _assign(db, task_id, user_id, role="main"):
+    await db.execute(text("""
+        INSERT INTO task_assignee (task_id, user_id, role) VALUES (:t, :u, :r)
+    """), {"t": task_id, "u": user_id, "r": role})
+
+
+async def _types(db, user_id):
+    return sorted(n["type"] for n in await noti_model.find_by_user(user_id, db=db))
+
+
+async def test_comment_notifies_main_and_sub_assignees(db_session):
+    qa = await _make_user(db_session, "na_q@t.t", "na_q")    # 이슈 작성자
+    dev = await _make_user(db_session, "na_d@t.t", "na_d")   # 주담당자, 댓글 없음
+    sub = await _make_user(db_session, "na_s@t.t", "na_s")   # 부담당자, 댓글 없음
+    branch = await _make_branch(db_session, qa, name="NA1", key="NA1")
+    for u in (qa, dev, sub):
+        await _add_member(db_session, branch, u)
+    task = await _make_task(db_session, branch, qa)
+    await _assign(db_session, task, dev, "main")
+    await _assign(db_session, task, sub, "sub")
+    issue = await _make_issue(db_session, task, qa)
+
+    res = await issue_ctrl.create_comment(SimpleNamespace(content="<p>safari too</p>"), branch, task, issue, _req(qa, "na_q"), db_session)
+    assert res["status"] is True
+
+    assert await _types(db_session, dev) == ["issue_comment"]
+    assert await _types(db_session, sub) == ["issue_comment"]
+    assert await _types(db_session, qa) == []   # 본인 제외
+
+
+async def test_close_with_comment_notifies_assignee_once(db_session):
+    qa = await _make_user(db_session, "nc_q@t.t", "nc_q")
+    dev = await _make_user(db_session, "nc_d@t.t", "nc_d")
+    branch = await _make_branch(db_session, qa, name="NC1", key="NC1")
+    await _add_member(db_session, branch, qa)
+    await _add_member(db_session, branch, dev)
+    task = await _make_task(db_session, branch, qa)
+    await _assign(db_session, task, dev, "main")
+    issue = await _make_issue(db_session, task, qa)
+
+    res = await issue_ctrl.close_issue(SimpleNamespace(comment="<p>verified</p>"), branch, task, issue, _req(qa, "nc_q"), db_session)
+    assert res["status_changed"] is True
+    assert await _types(db_session, dev) == ["issue_closed"]   # folded: 댓글 알림 없이 1건
+
+
+async def test_previous_closer_notified_on_comment_and_reopen(db_session):
+    qa = await _make_user(db_session, "np_q@t.t", "np_q")    # 이슈 작성자
+    dev = await _make_user(db_session, "np_d@t.t", "np_d")   # 담당자 아님, 댓글 없이 닫기만
+    branch = await _make_branch(db_session, qa, name="NP1", key="NP1")
+    await _add_member(db_session, branch, qa)
+    await _add_member(db_session, branch, dev)
+    task = await _make_task(db_session, branch, qa)
+    issue = await _make_issue(db_session, task, qa)
+
+    await issue_ctrl.close_issue(SimpleNamespace(comment=None), branch, task, issue, _req(dev, "np_d"), db_session)
+    await issue_ctrl.create_comment(SimpleNamespace(content="<p>still broken</p>"), branch, task, issue, _req(qa, "np_q"), db_session)
+    res = await issue_ctrl.reopen_issue(SimpleNamespace(comment=None), branch, task, issue, _req(qa, "np_q"), db_session)
+    assert res["status_changed"] is True
+
+    assert await _types(db_session, dev) == ["issue_comment", "issue_reopened"]
+
+
+async def test_assignee_who_closed_gets_one_notification_per_action(db_session):
+    qa = await _make_user(db_session, "nd_q@t.t", "nd_q")
+    dev = await _make_user(db_session, "nd_d@t.t", "nd_d")   # 담당자이면서 과거에 닫은 사람
+    branch = await _make_branch(db_session, qa, name="ND1", key="ND1")
+    await _add_member(db_session, branch, qa)
+    await _add_member(db_session, branch, dev)
+    task = await _make_task(db_session, branch, qa)
+    await _assign(db_session, task, dev, "main")
+    issue = await _make_issue(db_session, task, qa)
+
+    await issue_ctrl.close_issue(SimpleNamespace(comment=None), branch, task, issue, _req(dev, "nd_d"), db_session)
+    await issue_ctrl.reopen_issue(SimpleNamespace(comment="<p>reproduced</p>"), branch, task, issue, _req(qa, "nd_q"), db_session)
+
+    assert await _types(db_session, dev) == ["issue_reopened"]   # 중복 제거 + folded
+
+
+async def test_create_issue_without_assignee_notifies_task_creator(db_session):
+    owner = await _make_user(db_session, "nf_o@t.t", "nf_o")   # 태스크 생성자
+    qa = await _make_user(db_session, "nf_q@t.t", "nf_q")
+    branch = await _make_branch(db_session, owner, name="NF1", key="NF1")
+    await _add_member(db_session, branch, owner)
+    await _add_member(db_session, branch, qa)
+    task = await _make_task(db_session, branch, owner)       # 담당자 없음
+
+    res = await issue_ctrl.create_issue(SimpleNamespace(title="Bug", body=None), branch, task, _req(qa, "nf_q"), db_session)
+    assert res["status"] is True
+    assert await _types(db_session, owner) == ["issue_created"]
+
+
+async def test_create_issue_with_assignee_does_not_notify_task_creator(db_session):
+    owner = await _make_user(db_session, "nk_o@t.t", "nk_o")
+    dev = await _make_user(db_session, "nk_d@t.t", "nk_d")
+    qa = await _make_user(db_session, "nk_q@t.t", "nk_q")
+    branch = await _make_branch(db_session, owner, name="NK1", key="NK1")
+    for u in (owner, dev, qa):
+        await _add_member(db_session, branch, u)
+    task = await _make_task(db_session, branch, owner)
+    await _assign(db_session, task, dev, "main")
+
+    await issue_ctrl.create_issue(SimpleNamespace(title="Bug", body=None), branch, task, _req(qa, "nk_q"), db_session)
+    assert await _types(db_session, dev) == ["issue_created"]
+    assert await _types(db_session, owner) == []   # 담당자가 있으면 생성자 폴백 없음
+
+
+async def test_new_follower_sources_skip_users_who_left_branch(db_session):
+    qa = await _make_user(db_session, "nx_q@t.t", "nx_q")
+    gone = await _make_user(db_session, "nx_g@t.t", "nx_g")   # 담당자·닫은 사람·태스크 생성자였다가 브랜치를 떠남
+    branch = await _make_branch(db_session, qa, name="NX1", key="NX1")
+    await _add_member(db_session, branch, qa)
+    await _add_member(db_session, branch, gone)
+    task = await _make_task(db_session, branch, qa)
+    await _assign(db_session, task, gone, "main")
+    issue = await _make_issue(db_session, task, qa)
+    await issue_ctrl.close_issue(SimpleNamespace(comment=None), branch, task, issue, _req(gone, "nx_g"), db_session)
+    orphan_task = await _make_task(db_session, branch, gone, title="Orphan")   # 담당자 없음
+    await db_session.execute(text("DELETE FROM branch_member WHERE branch_id = :b AND user_id = :u"), {"b": branch, "u": gone})
+
+    await issue_ctrl.reopen_issue(SimpleNamespace(comment="<p>again</p>"), branch, task, issue, _req(qa, "nx_q"), db_session)
+    await issue_ctrl.create_comment(SimpleNamespace(content="<p>more</p>"), branch, task, issue, _req(qa, "nx_q"), db_session)
+    await issue_ctrl.create_issue(SimpleNamespace(title="Bug", body=None), branch, orphan_task, _req(qa, "nx_q"), db_session)
+
+    assert await _types(db_session, gone) == []   # 비멤버에게는 딥링크 알림을 보내지 않음
