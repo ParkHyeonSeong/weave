@@ -79,6 +79,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    // 활성 스프린트의 상태 줄(__SprintSummary, flex-basis 100%)을 둘째 줄로 내린다.
+    // 왼쪽 묶음은 flex-basis 0이라 첫 줄에서 오른쪽 버튼 묶음과 항상 함께 선다.
+    flex-wrap: wrap;
+    column-gap: $space-3;
+    row-gap: $space-2;
     padding: $space-3 $space-4;
     background: $color-surface;
     border-radius: $radius-xl $radius-xl 0 0;
@@ -110,6 +115,10 @@
     display: flex;
     align-items: center;
     gap: $space-2;
+    // 폭이 모자라면(휴대폰·상세 패널 열림) 날짜·개수를 다음 줄로 내린다. 감싸지 않으면
+    // 줄어들지 않는 배지·날짜·개수가 오른쪽 버튼 밑으로 겹쳐 그려진다(390px 실측).
+    flex-wrap: wrap;
+    row-gap: 2px;
   }
 
   &__SprintGoal {
@@ -168,6 +177,25 @@
     border-radius: $radius-sm;
     min-width: 20px;
     text-align: center;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  // 필터가 켜져 있을 때 이 섹션에서 화면에 드러난 일치 항목 수(countMatchedTasks)
+  &__SprintMatch {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+    padding: 0 6px;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    line-height: 18px;
+    color: $color-primary;
+    background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+    border-radius: $radius-sm;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   &__SprintError {
@@ -229,6 +257,142 @@
     &:hover {
       background: $color-bg;
       color: $color-text;
+    }
+  }
+
+  // 활성 스프린트 상태 줄: 진행 막대 + 상태별 개수 + 하위 포함 토글
+  &__SprintSummary {
+    flex: 1 0 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 14px;
+    row-gap: $space-1;
+    padding-left: $space-6;     // 셰브론(16) + 간격($space-2) — 스프린트 이름 시작선에 맞춘다
+
+    // 휴대폰: [막대 + 토글] 한 줄, 범례는 그 아래 한 줄로 접어 헤더 높이를 줄인다
+    @include mobile {
+      .TaskList__SprintProgress { flex: 1 1 64px; }
+      .TaskList__SprintSubtaskToggle { order: 1; }
+      .TaskList__SprintLegend { order: 2; flex-basis: 100%; }
+    }
+  }
+
+  // 회색 트랙 = 할 일. 세그먼트(완료 → 취소됨 → 진행 중)는 JS가 폭과 카테고리 토큰색을 인라인으로 준다.
+  // 세그먼트끼리 맞붙도록 개별 radius는 두지 않는다 — 트랙의 overflow:hidden + radius가 양 끝을 자른다.
+  &__SprintProgress {
+    display: flex;
+    flex: 0 1 200px;
+    min-width: 64px;
+    height: 6px;
+    background: $color-border;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__SprintProgressSegment {
+    transition: width $transition-base;
+  }
+
+  &__SprintLegend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: $space-3;
+    row-gap: 2px;
+    font-size: $font-size-xs;
+    line-height: 18px;
+    color: $color-text-secondary;
+  }
+
+  &__SprintLegendItem {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+
+  // 색은 JS가 color(카테고리 토큰)로 주고 점은 currentColor로 칠한다.
+  // 할 일은 막대의 빈 트랙과 짝이 되게 속이 빈 고리다.
+  &__SprintLegendDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+
+    &--todo {
+      background: transparent;
+      border: 1.5px solid currentColor;
+    }
+  }
+
+  &__SprintLegendNum {
+    font-weight: $font-weight-semibold;
+    color: $color-text;
+  }
+
+  &__SprintSubtaskToggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;          // 상태 줄 오른쪽 끝(스프린트 완료 버튼 아래)
+    padding: 2px $space-2 2px 6px;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    line-height: 18px;
+    color: $color-text-secondary;
+    background: transparent;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      background: var(--color-surface-hover);
+      color: $color-text;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
+    }
+
+    &[aria-pressed='true'] {
+      color: $color-primary;
+      background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+      border-color: color-mix(in srgb, var(--color-primary) 28%, transparent);
+    }
+  }
+
+  // 스위치 모양(장식): 꺼짐 = 회색 트랙·왼쪽 손잡이, 켜짐 = primary 트랙·오른쪽 손잡이
+  &__SprintSubtaskSwitch {
+    position: relative;
+    width: 22px;
+    height: 12px;
+    border-radius: 6px;
+    background: $color-text-tertiary;
+    flex-shrink: 0;
+    transition: background $transition-fast;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: $color-bg;
+      transition: transform $transition-fast;
+    }
+  }
+
+  &__SprintSubtaskToggle[aria-pressed='true'] &__SprintSubtaskSwitch {
+    background: $color-primary;
+
+    &::after {
+      transform: translateX(10px);
     }
   }
 

@@ -1455,6 +1455,14 @@ const ko = {
       createTaskFailedRetry: '작업을 만들지 못했어요. 잠시 후 다시 시도해 주세요.',
       startFailed: '스프린트를 시작하지 못했습니다.',
       startFailedRetry: '스프린트를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+      summary: {
+        total_one: '태스크 {{count}}개',
+        total_other: '태스크 {{count}}개',
+        matched_one: '필터 일치 {{count}}',
+        matched_other: '필터 일치 {{count}}',
+        includeSubtasks_one: '하위 {{count}}개 포함',
+        includeSubtasks_other: '하위 {{count}}개 포함',
+      },
     },
     views: {
       saveError: '뷰를 저장할 수 없습니다 (조건을 확인하세요)',

@@ -1457,6 +1457,14 @@ const en = {
       createTaskFailedRetry: 'Could not create the task. Please try again shortly.',
       startFailed: 'Could not start the sprint.',
       startFailedRetry: 'Could not start the sprint. Please try again shortly.',
+      summary: {
+        total_one: '{{count}} task',
+        total_other: '{{count}} tasks',
+        matched_one: '{{count}} match',
+        matched_other: '{{count}} matches',
+        includeSubtasks_one: 'Include {{count}} subtask',
+        includeSubtasks_other: 'Include {{count}} subtasks',
+      },
     },
     views: {
       saveError: 'Could not save the view (check the conditions)',

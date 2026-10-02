@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronDown, Plus, Settings, Play, CheckCircle } from 'lucide-react';
+import { ChevronRight, ChevronDown, Plus, Settings, Play, CheckCircle, Filter } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
@@ -11,12 +11,21 @@ import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { isParentExpanded } from '@/library/subtaskProgress';
 import { countMatchedTasks } from '@/library/taskFilters';
+import { statusCategoryVar } from '@/library/themePalette';
 import { formatSprintRange } from '@/library/formatTime';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
+// 상태 줄 범례 — 막대 칠 순서(완료 → 취소됨 → 진행 중)와 같고, 남은 회색 트랙이 할 일이다
+const LEGEND = [
+  { category: 'done', countKey: 'done', labelKey: 'branch.statusCategory.done' },
+  { category: 'cancelled', countKey: 'cancelled', labelKey: 'branch.statusCategory.cancelled' },
+  { category: 'in_progress', countKey: 'inProgress', labelKey: 'branch.statusCategory.inProgress' },
+  { category: 'todo', countKey: 'todo', labelKey: 'branch.statusCategory.todo' },
+];
+
 export default function TaskListSprint({
-  sprint, branchKey, branchId, taskTypes, workflowStatuses, epics, members, sprints,
+  sprint, summary, filterActive, branchKey, branchId, taskTypes, workflowStatuses, epics, members, sprints,
   onEditTask, onTaskContextMenu, onEditSprint, onCompleteSprint, isBacklog,
   selectedTaskIds, dragOverContainerId, sortActive,
   collapsed, onToggleCollapse,
@@ -31,12 +40,17 @@ export default function TaskListSprint({
   const [startError, setStartError] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
+  const [withSubtasks, setWithSubtasks] = useState(false); // 상태 줄 집계에 하위 포함(기본 꺼짐, 저장 안 함)
   const typeDropdownRef = useRef(null);
   const inlineFormRef = useRef(null);
   const tasks = sprint.tasks || [];
   // 배지 = "자동으로 화면에 드러나는 매칭 항목 수": 직접 매칭 부모 1(하위 접힘 미카운트)
   // + 컨텍스트 부모의 펼쳐진 매칭 하위 수. 필터 비활성 시엔 플래그가 없어 tasks.length 와 동일.
   const matchCount = countMatchedTasks(tasks);
+  // 헤더 요약은 필터 전 집계(summary)로 그린다 — 필터 중에도 스프린트 전체 상태를 보여주고, 일치 수는 따로 붙인다.
+  // 상태 줄은 활성 스프린트만: 예정 스프린트·백로그 목록은 완료·취소를 내려받지 않아(find_by_branch) 분해가 반쪽이 된다.
+  const progress = withSubtasks ? summary.withSubtasks : summary.topLevel;
+  const showStatusRow = !isBacklog && sprint.status === 'active' && summary.total > 0 && progress != null;
 
   const containerId = isBacklog ? 'backlog' : `sprint-${sprint.sprint_id}`;
   const isDragOver = dragOverContainerId === containerId;
@@ -231,7 +245,15 @@ export default function TaskListSprint({
                   {formatSprintRange(sprint.start_date, sprint.end_date)}
                 </span>
               )}
-              <span className="TaskList__SprintCount">{matchCount}</span>
+              <span className="TaskList__SprintCount">
+                {t('branchTasks.sprint.summary.total', { count: summary.total })}
+              </span>
+              {filterActive && (
+                <span className="TaskList__SprintMatch">
+                  <Filter size={11} />
+                  {t('branchTasks.sprint.summary.matched', { count: matchCount })}
+                </span>
+              )}
               {startError && <span className="TaskList__SprintError">{startError}</span>}
             </div>
             {!isBacklog && sprint.goal && (
@@ -263,6 +285,46 @@ export default function TaskListSprint({
             </button>
           )}
         </div>
+        {showStatusRow && (
+          <div className="TaskList__SprintSummary">
+            {/* 장식 — 같은 수가 바로 옆 범례에 글자로 있다 */}
+            <div className="TaskList__SprintProgress" aria-hidden="true">
+              {progress.segments.map((seg) => (
+                <span
+                  key={seg.category}
+                  className="TaskList__SprintProgressSegment"
+                  style={{ width: `${seg.percent}%`, background: statusCategoryVar(seg.category) }}
+                />
+              ))}
+            </div>
+            <div className="TaskList__SprintLegend">
+              {LEGEND.filter(({ category }) => category !== 'cancelled' || progress.counts.cancelled > 0)
+                .map(({ category, countKey, labelKey }) => (
+                  <span key={category} className="TaskList__SprintLegendItem">
+                    <span
+                      className={`TaskList__SprintLegendDot TaskList__SprintLegendDot--${category}`}
+                      style={{ color: statusCategoryVar(category) }}
+                    />
+                    {t(labelKey)}{' '}
+                    <span className="TaskList__SprintLegendNum">{progress.counts[countKey]}</span>
+                  </span>
+                ))}
+            </div>
+            {summary.subtaskCount > 0 && (
+              <button
+                type="button"
+                className="TaskList__SprintSubtaskToggle"
+                aria-pressed={withSubtasks}
+                onClick={(e) => { e.stopPropagation(); setWithSubtasks((v) => !v); }}
+                onMouseDown={stopDrag}
+                onTouchStart={stopDrag}
+              >
+                <span className="TaskList__SprintSubtaskSwitch" aria-hidden="true" />
+                {t('branchTasks.sprint.summary.includeSubtasks', { count: summary.subtaskCount })}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Task 목록 */}

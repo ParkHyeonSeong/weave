@@ -20,6 +20,7 @@ import TaskFilterBar from '../TaskFilterBar';
 import TaskListRow from './TaskListRow';
 import useTaskContextMenu from './taskMenu';
 import { matchesFilters, filterTaskTree } from '@/library/taskFilters';
+import { summarizeSprintTasks } from '@/library/sprintTaskSummary';
 import { buildEffectiveSpec } from '@/library/filterSpecAdapter';
 import { groupTasks, applySort } from '@/library/taskViewState';
 import { emptyGroup, isEmptySpec } from '@/library/filterBuilderState';
@@ -986,6 +987,8 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
             <TaskListSprint
               key={sprint.sprint_id}
               sprint={{ ...sprint, tasks: applyFilterAndSort(sprint.tasks) }}
+              summary={summarizeSprintTasks(sprint.tasks, workflowStatuses)}
+              filterActive={isFilterActive}
               branchId={branchId}
               branchKey={branchKey}
               taskTypes={taskTypes}
@@ -1011,6 +1014,8 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         {/* Backlog 섹션 (sortable 아님, droppable만) */}
         <TaskListSprint
           sprint={{ sprint_name: t('branchTasks.backlog'), status: 'backlog', tasks: applyFilterAndSort(backlogTasks) }}
+          summary={summarizeSprintTasks(backlogTasks, workflowStatuses)}
+          filterActive={isFilterActive}
           branchId={branchId}
           branchKey={branchKey}
           taskTypes={taskTypes}
