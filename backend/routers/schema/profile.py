@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from library.crypto import MIN_PASSWORD_LENGTH
 from library.locale_prefs import SUPPORTED_LOCALES, normalize_time_zone
@@ -91,17 +91,53 @@ class LanguageRegion(BaseModel):
         return normalized
 
 
+class HomeWidgetSize(BaseModel):
+    model_config = {'extra': 'forbid'}
+
+    columns: int = Field(strict=True, ge=2, le=8)
+    rows: int = Field(strict=True, ge=2)
+
+
 class UpdateUiPrefs(BaseModel):
     sidebar_order: Optional[dict] = None
     hidden: Optional[dict] = None
     launchpad_order: Optional[List[str]] = None
     widget_layout: Optional[List[str]] = None
+    home_layout: Optional[List[str]] = None
+    home_sizes: Optional[dict[str, HomeWidgetSize]] = None
     home_controls: Optional[dict] = None
     saved_view_pins: Optional[dict] = None  # { "<branchId>|global": [view_id, ...] } per-user 핀 순서
     comment_sort: Optional[str] = None  # 'newest' | 'oldest' — 태스크 댓글 정렬 선호
     editor_raw_mode: Optional[bool] = None  # 비협업 에디터 raw markdown 토글 선호 — 전 표면 공통 1개
     theme: Optional[str] = None  # 'light' | 'dark' | 'system' — 다크모드 선호 (기본 system)
     language_region: Optional[LanguageRegion] = None  # { locale, time_zone } — 개인 언어·시간대(원자 저장)
+
+    @field_validator('home_sizes')
+    @classmethod
+    def validate_home_sizes(cls, value):
+        minimum_columns = {
+            'widget:scrum': 2, 'widget:mytasks': 4, 'widget:recent': 4,
+            'widget:starred': 4, 'widget:sprints': 2, 'widget:messages': 2,
+        }
+        if value is not None and any(
+            key not in minimum_columns or size.columns < minimum_columns[key]
+            for key, size in value.items()
+        ):
+            raise ValueError('home_sizes must contain available widgets at their minimum width or larger')
+        return value
+
+    @field_validator('home_layout')
+    @classmethod
+    def validate_home_layout(cls, value):
+        if value is None:
+            return value
+        allowed = {
+            'app:branch', 'app:canvas', 'app:scrum', 'app:track', 'app:mytasks', 'app:starred', 'app:browse',
+            'widget:scrum', 'widget:mytasks', 'widget:recent', 'widget:starred', 'widget:sprints', 'widget:messages',
+        }
+        if len(value) != len(set(value)) or any(item not in allowed for item in value):
+            raise ValueError('home_layout must contain unique, available home items')
+        return value
 
     @field_validator('comment_sort')
     @classmethod

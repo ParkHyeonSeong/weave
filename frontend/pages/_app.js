@@ -81,6 +81,7 @@ import "@/styles/components/home/archive-view.scss";
 import "@/styles/components/home/widget-zone.scss";
 import "@/styles/components/home/dashboard.scss";
 import "@/styles/components/home/widget.scss";
+import "@/styles/components/home/home-canvas.scss";
 import "@/styles/components/modal/createCanvas.scss";
 import "@/styles/components/branch/branchHome.scss";
 import "@/styles/components/canvas/canvasHome.scss";

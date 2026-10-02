@@ -6,6 +6,41 @@ from sqlalchemy import text
 from core.model import user as user_model
 
 
+def test_update_ui_prefs_preserves_mixed_home_layout_and_empty_home():
+    from routers.schema.profile import UpdateUiPrefs
+    for layout in (["app:canvas", "widget:recent", "app:branch"], []):
+        assert UpdateUiPrefs(home_layout=layout).model_dump(exclude_none=True) == {"home_layout": layout}
+
+
+def test_update_ui_prefs_rejects_invalid_home_items():
+    from routers.schema.profile import UpdateUiPrefs
+    for layout in (["unknown"], ["app:canvas", "app:canvas"], [42]):
+        with pytest.raises(ValidationError):
+            UpdateUiPrefs(home_layout=layout)
+
+
+def test_update_ui_prefs_keeps_widget_sizes_without_a_height_preset_limit():
+    from routers.schema.profile import UpdateUiPrefs
+    sizes = {"widget:recent": {"columns": 8, "rows": 64}}
+    assert UpdateUiPrefs(home_sizes=sizes).model_dump(exclude_none=True) == {"home_sizes": sizes}
+    assert UpdateUiPrefs(home_sizes={}).model_dump(exclude_none=True) == {"home_sizes": {}}
+
+
+@pytest.mark.parametrize("sizes", [
+    {"app:canvas": {"columns": 4, "rows": 2}},
+    {"unknown": {"columns": 4, "rows": 2}},
+    {"widget:recent": {"columns": 2, "rows": 2}},
+    {"widget:scrum": {"columns": 9, "rows": 2}},
+    {"widget:scrum": {"columns": 2, "rows": 0}},
+    {"widget:scrum": {"columns": 2, "rows": 2.5}},
+    {"widget:scrum": {"columns": True, "rows": 2}},
+])
+def test_update_ui_prefs_validates_widget_size_bounds(sizes):
+    from routers.schema.profile import UpdateUiPrefs
+    with pytest.raises(ValidationError):
+        UpdateUiPrefs(home_sizes=sizes)
+
+
 async def _make_user(db, email):
     row = await db.execute(text("""
         INSERT INTO "user" (email, password, username, status)
@@ -28,6 +63,14 @@ async def test_ui_prefs_roundtrip_and_namespace_merge(db_session):
     got2 = await user_model.get_ui_prefs(uid, db_session)
     assert got2["sidebar_order"]["branches"] == [3, 1, 2]
     assert got2["hidden"]["branches"] == [2]
+
+    await user_model.update_ui_prefs(uid, {"home_layout": ["widget:recent", "app:canvas"], "theme": "dark"}, db_session)
+    await user_model.update_ui_prefs(uid, {"home_sizes": {"widget:recent": {"columns": 8, "rows": 64}}}, db_session)
+    resized = await user_model.get_ui_prefs(uid, db_session)
+    assert resized["home_sizes"]["widget:recent"] == {"columns": 8, "rows": 64}
+    assert resized["home_layout"] == ["widget:recent", "app:canvas"]
+    assert resized["theme"] == "dark"
+    assert resized["hidden"] == {"branches": [2]}
 
 
 def test_update_ui_prefs_schema_allows_home_controls():

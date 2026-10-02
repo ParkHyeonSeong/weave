@@ -5,7 +5,7 @@ import { Star, FileText } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import NavLink from '@/components/common/NavLink';
 
-export default function StarredItems() {
+export default function StarredItems({ maxItems }) {
   const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +61,7 @@ export default function StarredItems() {
           <div className="Widget__Empty">{t('home.widgets.starred.empty')}</div>
         ) : (
           <div className="StarredItems__List">
-            {visibleItems.map((item) => {
+            {visibleItems.slice(0, maxItems).map((item) => {
               const href = item.type === 'task'
                 ? `/branch/${item.branch_id}/task/${item.task_id}`
                 : `/canvas/${item.canvas_id}/${item.page_id}`;

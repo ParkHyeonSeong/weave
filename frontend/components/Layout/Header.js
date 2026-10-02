@@ -43,7 +43,7 @@ const NOTI_TYPE_META = {
   issue_reopened:      { group: 'issue',   labelKey: 'notifications.types.reopened' },
 };
 
-export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, onSearchClick, notifications = [], unreadCount = 0, chatUnreadCount = 0, onChatClick, onClearNotifications, onMarkAllRead, onReadNotification, onNotiClick }) {
+export default function Header({ isMobile, isHome = false, hasSidebar = false, onToggleSidebar, onSearchClick, notifications = [], unreadCount = 0, chatUnreadCount = 0, onChatClick, onClearNotifications, onMarkAllRead, onReadNotification, onNotiClick }) {
   const router = useRouter();
   const { t } = useTranslation();
   const { formatMessageTime } = useDateFormat();
@@ -307,8 +307,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
             </>
           )}
         </NavLink>
-        <span className="Header__Separator">/</span>
-        <AppSwitcher />
+        {!isHome && <><span className="Header__Separator">/</span><AppSwitcher /></>}
       </div>
 
       <div className="Header__Center">
@@ -320,6 +319,7 @@ export default function Header({ isMobile, hasSidebar = false, onToggleSidebar, 
       </div>
 
       <div className="Header__Right">
+        {isHome && <div id="home-controls" />}
         <ThemeToggleButton />
         <button
           className="Header__IconBtn"

@@ -1692,6 +1692,18 @@ const en = {
     },
   },
   home: {
+    canvas: {
+      home: 'Home', edit: 'Edit', done: 'Done', add: 'Add', apps: 'Apps', widgets: 'Widgets',
+      myTasks: 'My tasks', favorites: 'Favorites', favoriteItems: 'Favorite items', browse: 'Browse',
+      todayScrum: 'Today’s Scrum', continue: 'Continue working', activeSprints: 'Active sprints', messages: 'Messages',
+      open: 'Open {{name}}', move: 'Move {{name}}', remove: 'Remove {{name}} from home',
+      addToHome: 'Add to home', addItems: 'Add apps and widgets', added: 'Added to home', shortcut: 'App shortcut', widgetSize: 'Default {{columns}} × {{rows}} · Resizable',
+      empty: 'Make this home your own.', removeHint: 'Removing an item from home keeps the app and its data.',
+      editHint: 'Drag to move. Drag a corner to resize. Use − to remove from home.', keyboardHint: 'Use arrow keys to reorder, Delete to remove from home, and Escape to finish editing.',
+      resize: 'Resize {{name}}, {{columns}} columns by {{rows}} rows', resizeHint: 'Drag the corner or use arrow keys to resize. Press Escape to cancel a drag.',
+      saving: 'Saving layout…', saveFailed: 'Could not save your layout. Check your connection and try again.', loadFailed: 'Could not load your saved home. Please refresh.',
+      dataFailed: 'Could not load this information.', scrumClear: 'One step at a time, together.', openScrum: 'Open Scrum', tasksLeft_one: 'task to work on', tasksLeft_other: 'tasks to work on', noTasks: 'No tasks left to do.',
+    },
     view: {
       greeting: 'Hello 👋',
       greetingSub: 'Have a great day.',

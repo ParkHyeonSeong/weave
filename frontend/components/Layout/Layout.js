@@ -21,6 +21,7 @@ import useResyncOnVisible from '@/hooks/useResyncOnVisible';
 import { showToast } from './Toast';
 import useMobile from '@/hooks/useMobile';
 import usePictureInPicture from '@/hooks/usePictureInPicture';
+import useHomeLaunchTransition from '@/library/useHomeLaunchTransition';
 
 const MESSENGER_MIN_WIDTH = 280;
 const MESSENGER_DEFAULT_WIDTH = 320;
@@ -43,6 +44,9 @@ export default function Layout({ children }) {
   const { t } = useTranslation();
   const router = useRouter();
   const inApp = !!getAppContext(router.pathname);
+  const isHome = router.pathname === '/';
+  const surfaceRef = useRef(null);
+  useHomeLaunchTransition(surfaceRef, router);
   const [showCreateBranch, setShowCreateBranch] = useState(false);
   const [showCreateCanvas, setShowCreateCanvas] = useState(false);
   const [showCreateTrack, setShowCreateTrack] = useState(false);
@@ -468,9 +472,10 @@ export default function Layout({ children }) {
   }, []);
 
   return (
-    <div className={`Layout ${isMobile ? 'Layout--mobile' : ''}`}>
+    <div ref={surfaceRef} className={`Layout ${isMobile ? 'Layout--mobile' : ''}${isHome ? ' Layout--home' : ''}`}>
       <Header
         isMobile={isMobile}
+        isHome={isHome}
         hasSidebar={inApp}
         onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         onSearchClick={() => setShowPalette(true)}
@@ -564,14 +569,14 @@ export default function Layout({ children }) {
           pipContainer
         )}
       </div>
-      <Footer
+      {!isHome && <Footer
         isMobile={isMobile}
         hasSidebar={inApp}
         isSidebarCollapsed={isSidebarCollapsed}
         isMessengerCollapsed={isMessengerCollapsed}
         onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
         onToggleMessenger={() => setIsMessengerCollapsed((prev) => !prev)}
-      />
+      />}
 
       {showCreateBranch && (
         <CreateBranch onClose={() => setShowCreateBranch(false)} />

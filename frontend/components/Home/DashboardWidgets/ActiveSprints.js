@@ -9,7 +9,7 @@ import { sprintProgressSegments } from '@/library/sprintProgress';
 import { statusCategoryVar } from '@/library/themePalette';
 import NavLink from '@/components/common/NavLink';
 
-export default function ActiveSprints() {
+export default function ActiveSprints({ compact = false, maxItems = compact ? 1 : undefined }) {
   const { t } = useTranslation();
   const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +74,7 @@ export default function ActiveSprints() {
   }
 
   return (
-    <div className="Widget">
+    <div className={`Widget${compact ? ' HomeSprint' : ''}`}>
       <div className="Widget__Header">
         <Zap size={16} />
         <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
@@ -83,7 +83,7 @@ export default function ActiveSprints() {
         {visibleSprints.length === 0 ? (
           <div className="Widget__Empty">{t('home.widgets.activeSprints.empty')}</div>
         ) : (
-          visibleSprints.map((sprint) => {
+          visibleSprints.slice(0, maxItems).map((sprint) => {
             // 바는 카테고리별로 나눠 칠하고, 오른쪽 x / y는 닫힘(done+cancelled) / 전체
             const { counts, segments } = sprintProgressSegments(sprint);
             const breakdown = t('home.widgets.activeSprints.progressBreakdown', counts);

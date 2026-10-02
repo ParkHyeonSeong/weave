@@ -3,6 +3,7 @@ const nextConfig = {
   reactStrictMode: false,
   transpilePackages: ['@xyflow/react', '@xyflow/system'],
   devIndicators: false,
+  allowedDevOrigins: ['127.0.0.1'],
   // Turbopack: .wasm 파일 처리 시 생성되는 loader가 'wbg' 모듈을 참조하므로 stub으로 대체
   turbopack: {
     resolveAlias: {

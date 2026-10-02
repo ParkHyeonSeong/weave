@@ -1,0 +1,167 @@
+// Home-only consumers; the palette lives in the shared theme registry.
+.Layout--home {
+  background: var(--color-home-wallpaper);
+  .Header {
+    height: 64px;
+    flex-shrink: 0;
+    padding: 0 30px;
+    background: transparent;
+    border: 0;
+    gap: 20px;
+  }
+  .Header__LogoText, .Header__WorkspaceName { color: var(--color-home-ink); }
+  .Header__Left { max-width: 30%; }
+  .Header__Logo { min-width: 0; }
+  .Header__LogoText { font-size: 18px; }
+  .Header__LogoIcon { width: 29px; height: 29px; border-radius: 9px; }
+  .Header__Center { justify-content: flex-end; padding: 0; }
+  .Header__SearchBtn { max-width: 210px; background: var(--color-home-control); border-color: transparent; color: var(--color-home-ink); border-radius: 10px; }
+  .Header__SearchShortcut { background: transparent; color: var(--color-home-muted); border: 0; }
+  .Header__IconBtn { color: var(--color-home-ink); }
+  .Header__IconBtn:hover { background: var(--color-home-control); }
+  .Header__Right { gap: 6px; }
+  .Layout__Content { container-type: inline-size; }
+}
+.HomeCanvas {
+  min-height: 100%;
+  position: relative;
+  color: var(--color-home-ink);
+  padding: 38px 36px 35px;
+  display: flex;
+  flex-direction: column;
+  &__Controls { display: flex; align-items: center; gap: 8px; margin-right: 10px; }
+  &__Date { font-size: 12px; white-space: nowrap; color: var(--color-home-ink); margin-right: 10px; }
+  &__Control { display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 14px; border-radius: 10px; min-height: 34px; background: var(--color-home-control); color: var(--color-home-ink); font-size: 12px; font-weight: 650; cursor: pointer; white-space: nowrap; }
+  &__Control:disabled { opacity: .45; cursor: default; }
+  &__Control--done { background: var(--color-home-ink); color: var(--color-home-card); }
+  &__Toolbar { align-self: flex-end; margin-bottom: 24px; }
+  &__Status { position: absolute; top: 7px; left: 30px; right: 30px; min-height: 18px; text-align: center; font-size: 12px; color: var(--color-home-ink); }
+  &__Grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-auto-rows: 94px; grid-auto-flow: row; gap: 22px 16px; width: 100%; margin: 0 auto; }
+  &__Item { position: relative; min-width: 0; }
+  &__TileContent { width: 100%; height: 100%; }
+  &__App { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 8px; padding-top: 1px; color: var(--color-home-ink); -webkit-touch-callout: none; user-select: none; }
+  &__Icon { width: 68px; height: 68px; border-radius: 19px; display: flex; align-items: center; justify-content: center; color: var(--color-home-icon-ink); box-shadow: var(--shadow-home-icon); transition: transform 160ms ease, filter 160ms ease; }
+  &__Icon--indigo { background: var(--color-home-icon-indigo); }
+  &__Icon--green { background: var(--color-home-icon-green); }
+  &__Icon--blue { background: var(--color-home-icon-blue); }
+  &__Icon--amber { background: var(--color-home-icon-amber); }
+  &__App:hover &__Icon { filter: brightness(1.06); transform: translateY(-2px); }
+  &__App:active &__Icon { transform: scale(.94); }
+  &__AppName { font-size: 12px; font-weight: 550; line-height: 17px; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &__Move { position: absolute; inset: 0; border-radius: 24px; z-index: 2; cursor: grab; touch-action: none; }
+  &__Item--app &__Move { width: 88px; left: 50%; transform: translateX(-50%); border-radius: 19px; }
+  &__Move:active { cursor: grabbing; }
+  &__Move:focus-visible { outline: 3px solid var(--color-home-accent); outline-offset: 4px; }
+  &__Remove { position: absolute; left: -7px; top: -7px; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: var(--color-home-card); color: var(--color-home-ink); box-shadow: var(--shadow-home-remove); border: 1px solid var(--color-home-line); z-index: 3; cursor: pointer; }
+  &__Item--app &__Remove { left: calc(50% - 42px); }
+  &__Resize { position: absolute; bottom: 0; right: 0; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 16px 0 24px 0; background: var(--color-home-card); color: var(--color-home-accent); border: 1px solid var(--color-home-line); z-index: 3; cursor: nwse-resize; touch-action: none; }
+  &__Resize:focus-visible { outline: 3px solid var(--color-home-accent); outline-offset: 2px; }
+  &__Size { position: absolute; right: 48px; bottom: 10px; z-index: 3; padding: 4px 8px; border-radius: 8px; background: var(--color-home-ink); color: var(--color-home-card); font-size: 11px; pointer-events: none; }
+  &--editing &__TileContent { animation: home-wiggle 440ms ease-in-out infinite alternate; pointer-events: none; user-select: none; }
+  &--editing &__Item:nth-child(even) &__TileContent { animation-delay: -260ms; animation-direction: alternate-reverse; }
+  &__Item--dragging &__TileContent { opacity: .22; animation: none; }
+  &__Item--resizing &__TileContent { animation: none; outline: 2px solid var(--color-home-accent); border-radius: 24px; }
+  &__Item--dragging &__Remove, &__Item--dragging &__Resize { visibility: hidden; }
+  &__DragPreview { color: var(--color-home-ink); transform: scale(1.045); filter: drop-shadow(var(--shadow-home-drag)); cursor: grabbing; }
+  &__Empty { grid-column: 1 / -1; grid-row: span 3; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 15px; color: var(--color-home-ink); }
+  &__Footer { display: flex; gap: 7px; align-items: center; justify-content: center; margin: auto auto 0; padding-top: 42px; color: var(--color-home-ink); opacity: .8; font-size: 11px; line-height: 18px; text-align: center; }
+  &__Footer > span { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  &__SrOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  &__Backdrop { position: fixed; inset: 0; z-index: 500; display: grid; place-items: center; padding: 24px; background: var(--color-home-backdrop); backdrop-filter: blur(10px); }
+  &__Catalog { width: min(480px, 100%); max-height: min(680px, 88dvh); overflow-y: auto; border: 1px solid var(--color-home-line); border-radius: 26px; padding: 24px; background: var(--color-home-card); box-shadow: var(--shadow-home-catalog); }
+  &__Catalog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  &__Catalog h2 { font-size: 19px; font-weight: 650; }
+  &__Close { display: grid; place-items: center; height: 32px; width: 32px; border-radius: 50%; background: var(--color-home-hover); color: var(--color-home-ink); cursor: pointer; }
+  &__CatalogTabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; margin: 20px 0 15px; background: var(--color-home-hover); }
+  &__CatalogTabs button { flex: 1; padding: 8px; border-radius: 9px; color: var(--color-home-muted); font-size: 13px; cursor: pointer; }
+  &__CatalogTabs button[aria-pressed='true'] { background: var(--color-home-card); color: var(--color-home-ink); box-shadow: var(--shadow-home-card); font-weight: 650; }
+  &__CatalogList { display: flex; flex-direction: column; gap: 5px; }
+  &__CatalogItem { display: flex; align-items: center; text-align: left; gap: 13px; width: 100%; padding: 11px; border-radius: 13px; color: var(--color-home-ink); font-size: 13px; cursor: pointer; }
+  &__CatalogItem:hover:not(:disabled) { background: var(--color-home-hover); }
+  &__CatalogItem:disabled { opacity: .45; cursor: default; }
+  &__CatalogItem > span:nth-child(2) { flex: 1; }
+  &__CatalogItem small { display: block; margin-top: 4px; font-size: 11px; color: var(--color-home-muted); }
+  &__CatalogIcon { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--color-home-hover); color: var(--color-home-accent); }
+  &__Catalog p { margin: 18px 0 0; font-size: 11px; color: var(--color-home-muted); text-align: center; }
+}
+
+.HomeCanvas, .HomeCanvas__DragPreview {
+  .Widget { height: 100%; border-radius: 24px; background: var(--color-home-card); box-shadow: var(--shadow-home-card); color: var(--color-home-ink); }
+  .Widget__Header { padding: 18px 20px 9px; gap: 8px; }
+  .Widget__Title { color: var(--color-home-ink); font-size: 13px; letter-spacing: -.15px; }
+  .Widget__Header svg { color: var(--color-home-muted); }
+  .Widget__Body { padding: 0 20px 14px; overflow: hidden; max-height: none; }
+  .Widget__Empty { color: var(--color-home-muted); font-size: 12px; padding: 22px 3px; line-height: 1.6; }
+  .HomeWidget__All { margin-left: auto; padding: 3px; border-radius: 5px; }
+  .HomeTasks__Summary { display: flex; align-items: baseline; gap: 7px; margin: 0 20px 7px; }
+  .HomeTasks__Summary b { font-size: 28px; line-height: 34px; font-weight: 650; letter-spacing: -1px; }
+  .HomeTasks__Summary span { font-size: 11px; color: var(--color-home-muted); }
+  .HomeTasks__Row { display: flex; align-items: center; gap: 8px; height: 29px; border-top: 1px solid var(--color-home-line); font-size: 12px; border-radius: 4px; }
+  .HomeTasks__Row:hover { background: var(--color-home-hover); }
+  .HomeTasks__Row svg { flex-shrink: 0; color: var(--color-home-accent); }
+  .HomeTasks__Row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .HomeTasks__Row small { font-size: 10px; color: var(--color-home-muted); white-space: nowrap; }
+  .HomeTasks__Row .HomeTasks__Due--overdue { color: var(--color-error); }
+  .HomeScrum { padding: 18px 20px 16px; display: flex; flex-direction: column; }
+  .HomeScrum__Weekday { font-size: 12px; font-weight: 600; color: var(--color-home-accent); }
+  .HomeScrum__Day { font-size: 48px; font-weight: 350; letter-spacing: -2px; line-height: 53px; }
+  .HomeScrum__Title { font-size: 13px; font-weight: 650; margin-top: 8px; }
+  .HomeScrum__Board { font-size: 11px; color: var(--color-home-muted); margin: 6px 0 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .HomeScrum__Action { margin-top: auto; display: flex; align-items: center; justify-content: space-between; color: var(--color-home-accent); font-size: 11px; font-weight: 600; border-top: 1px solid var(--color-home-line); padding-top: 10px; border-radius: 3px; }
+  .HomeScrum__More { margin-bottom: 12px; overflow: hidden; }
+  .HomeScrum__More a { display: flex; align-items: center; gap: 12px; min-height: 40px; border-top: 1px solid var(--color-home-line); font-size: 12px; }
+  .HomeScrum__More span { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .HomeScrum__More small { font-size: 10px; color: var(--color-home-accent); flex-shrink: 0; }
+  .RecentItems__Item, .StarredItems__Item { height: 46px; padding: 6px 0; gap: 8px; border-top: 1px solid var(--color-home-line); }
+  .RecentItems__Item:hover, .StarredItems__Item:hover { background: var(--color-home-hover); }
+  .RecentItems__TaskTitle, .StarredItems__TaskTitle { font-size: 12px; color: var(--color-home-ink); }
+  .RecentItems__TaskId, .StarredItems__TaskId { min-width: 0; max-width: 75px; font-size: 10px; color: var(--color-home-muted); }
+  .RecentItems__TaskTime { font-size: 10px; color: var(--color-home-muted); }
+  .RecentItems__DocIcon, .StarredItems__DocIcon { color: var(--color-home-accent); }
+  .HomeSprint .ActiveSprints__Item { padding: 2px 0; min-height: 140px; }
+  .HomeSprint .ActiveSprints__Item + .ActiveSprints__Item { border-top: 1px solid var(--color-home-line); padding-top: 10px; margin-top: 6px; }
+  .HomeSprint .ActiveSprints__Item:hover { background: var(--color-home-hover); }
+  .HomeSprint .ActiveSprints__SprintInfo { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+  .HomeSprint .ActiveSprints__SprintName { color: var(--color-home-ink); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .HomeSprint .ActiveSprints__SprintBranch { color: var(--color-home-muted); font-size: 10px; line-height: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .HomeSprint .ActiveSprints__SprintCount { color: var(--color-home-ink); font-size: 29px; line-height: 34px; letter-spacing: -1px; }
+  .HomeSprint .HChip { display: none; }
+  .UnreadMessages__Total { color: var(--color-home-ink); margin-bottom: 7px; }
+  .UnreadMessages__Room { padding: 6px 0; width: 100%; gap: 5px; text-align: left; }
+  .UnreadMessages__RoomName { color: var(--color-home-ink); font-size: 11px; }
+}
+@keyframes home-wiggle { from { transform: rotate(-.5deg); } to { transform: rotate(.5deg); } }
+@media (max-width: 1150px) { .HomeCanvas__Date { display: none; } }
+@media (max-width: 800px) {
+  .Layout--home .Header { padding: 0 20px; gap: 12px; }
+  .Layout--home .Header__WorkspaceName, .Layout--home .Header__Logo .Header__Separator { display: none; }
+  .Layout--home .Header__SearchBtn { max-width: 170px; }
+}
+@container (max-width: 760px) {
+  .HomeCanvas { padding: 34px 24px 28px; }
+  .HomeCanvas__Grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 90px; gap: 20px 14px; }
+  .HomeCanvas__Icon { width: 60px; height: 60px; border-radius: 17px; }
+  .HomeCanvas__Icon svg { width: 28px; height: 28px; }
+  .HomeCanvas__Item--app .HomeCanvas__Remove { left: calc(50% - 38px); }
+  .HomeCanvas .Widget { border-radius: 20px; }
+  .HomeCanvas .HomeScrum { padding: 16px; }
+  .HomeCanvas .Widget__Header { padding: 16px 16px 9px; }
+  .HomeCanvas .Widget__Body { padding-left: 16px; padding-right: 16px; }
+  .HomeCanvas .HomeTasks__Summary { margin-left: 16px; }
+}
+@media (max-width: 600px) {
+  .Layout--home .Header { height: 62px; padding: 0 16px; gap: 8px; }
+  .Layout--home .Header__Left { max-width: none; }
+  .Layout--home .Header__Center { flex: 0; margin-left: auto; }
+  .Layout--home .Header__SearchBtn { background: transparent; border: 0; width: 32px; padding: 8px; }
+  .Layout--home .Header__SearchText, .Layout--home .Header__SearchShortcut { display: none; }
+  .Layout--home .Header__Right { gap: 3px; }
+  .HomeCanvas__Controls { gap: 5px; margin-right: 4px; }
+  .HomeCanvas__Control { padding: 6px 10px; min-height: 32px; font-size: 11px; }
+  .HomeCanvas__Backdrop { padding: 15px; }
+  .HomeCanvas__Catalog { padding: 20px; border-radius: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .HomeCanvas--editing .HomeCanvas__TileContent { animation: none; }
+  .HomeCanvas__Icon { transition: none; }
+}

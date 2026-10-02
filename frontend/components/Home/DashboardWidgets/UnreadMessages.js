@@ -5,7 +5,7 @@ import { MessageSquare } from 'lucide-react';
 import useResyncOnVisible from '@/hooks/useResyncOnVisible';
 import { sumChatUnread } from '@/library/chatUnread';
 
-export default function UnreadMessages() {
+export default function UnreadMessages({ maxItems }) {
   const { t } = useTranslation();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,15 +66,15 @@ export default function UnreadMessages() {
           <>
             <div className="UnreadMessages__Total">{totalUnread}</div>
             <div className="UnreadMessages__Rooms">
-              {rooms.map((room) => (
-                <div
+              {rooms.slice(0, maxItems).map((room) => (
+                <button type="button"
                   key={room.room_id}
                   className="UnreadMessages__Room"
                   onClick={() => openRoom(room.room_id)}
                 >
                   <span className="UnreadMessages__RoomName">{room.room_name}</span>
                   <span className="UnreadMessages__Badge">{room.unread_count}</span>
-                </div>
+                </button>
               ))}
             </div>
           </>

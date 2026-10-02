@@ -1690,6 +1690,18 @@ const ko = {
     },
   },
   home: {
+    canvas: {
+      home: '홈', edit: '편집', done: '완료', add: '추가', apps: '앱', widgets: '위젯',
+      myTasks: '내 작업', favorites: '즐겨찾기', favoriteItems: '즐겨찾는 항목', browse: '둘러보기',
+      todayScrum: '오늘의 Scrum', continue: '이어서 하기', activeSprints: '진행 중 스프린트', messages: '메시지',
+      open: '{{name}} 열기', move: '{{name}} 이동', remove: '{{name}} 홈에서 빼기',
+      addToHome: '홈에 추가', addItems: '앱과 위젯 추가', added: '홈에 추가됨', shortcut: '앱 바로가기', widgetSize: '기본 {{columns}} × {{rows}} · 크기 조절 가능',
+      empty: '나만의 홈을 만들어 보세요.', removeHint: '홈에서 빼도 앱과 데이터는 그대로 남아요.',
+      editHint: '드래그해서 옮기고, 모서리를 당겨 크기를 바꾸세요. − 버튼으로 홈에서 뺄 수 있어요.', keyboardHint: '방향키로 순서를 바꾸고 Delete로 홈에서 뺄 수 있어요. Escape로 편집을 마칩니다.',
+      resize: '{{name}} 크기 조절, 가로 {{columns}}칸 세로 {{rows}}칸', resizeHint: '모서리를 드래그하거나 방향키로 크기를 바꾸세요. Escape로 드래그를 취소할 수 있어요.',
+      saving: '배치 저장 중…', saveFailed: '배치를 저장하지 못했어요. 연결을 확인하고 다시 시도해 주세요.', loadFailed: '저장된 홈을 불러오지 못했어요. 새로고침해 주세요.',
+      dataFailed: '정보를 불러오지 못했어요.', scrumClear: '오늘도 차근차근 함께해요.', openScrum: 'Scrum 열기', tasksLeft_one: '개의 작업이 기다려요', tasksLeft_other: '개의 작업이 기다려요', noTasks: '남은 작업이 없어요.',
+    },
     view: {
       greeting: '안녕하세요 👋',
       greetingSub: '오늘도 좋은 하루 되세요.',

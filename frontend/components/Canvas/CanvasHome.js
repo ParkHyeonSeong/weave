@@ -86,7 +86,8 @@ export default function CanvasHome() {
   const [recentDocs, setRecentDocs] = useState([]);
   const [starredDocs, setStarredDocs] = useState([]);
   const [stats, setStats] = useState(null);
-  const [activeTab, setActiveTab] = useState('recent');
+  const [activeTab, setActiveTab] = useState(router.query.homeTab === 'starred' ? 'starred' : 'recent');
+  useEffect(() => { if (router.query.homeTab === 'starred') setActiveTab('starred'); }, [router.query.homeTab]);
   const [loading, setLoading] = useState(true);
   const [me, setMe] = useState('');
 
