@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { DndContext, DragOverlay, useDraggable, useSensor, useSensors } from '@dnd-kit/core';
@@ -58,6 +58,7 @@ function HomeItem({ id, editing, onRemove, onMove, register, rect, resize, dragI
 
 export default function HomeView() {
   const { t } = useTranslation();
+  const guideId = useId();
   const { formatTimestamp } = useDateFormat();
   const { prefs, loaded, loadStatus, setNamespaceChecked } = useUiPrefs();
   const resolved = useMemo(() => loaded && loadStatus === 'success' ? resolveHomeCanvas(prefs) : null, [prefs, loaded, loadStatus]);
@@ -178,8 +179,7 @@ export default function HomeView() {
           if (next) commitPlacement(next.id, next.rect);
         }}>
           <div ref={gridRef} className="HomeCanvas__Grid" inert={catalog} aria-busy={!loaded}
-            style={{ '--home-columns': geometry.columns, '--home-column-step': `${geometry.columnStep}px`,
-              '--home-row-step': `${geometry.rowStep}px`, minHeight: Math.max(0, rows * geometry.rowStep - geometry.rowGap) }}
+            style={{ '--home-columns': geometry.columns, minHeight: Math.max(0, rows * geometry.rowStep - geometry.rowGap) }}
             onScrollCapture={clearHold}
             onPointerDown={event => {
               if (editing || !ready || event.button !== 0 || !event.target.closest('[data-home-item]')) return;
@@ -197,10 +197,17 @@ export default function HomeView() {
               const request = new CustomEvent('home:launch', { cancelable: true, detail: { href: anchor.getAttribute('href'), source: tile?.querySelector('[data-home-launch-origin]') || tile } });
               if (!window.dispatchEvent(request)) event.preventDefault();
             }}>
+            {editing && geometry.ready && <svg className="HomeCanvas__Guide" aria-hidden="true" focusable="false">
+              <defs><pattern id={guideId} width={geometry.columnStep} height={geometry.rowStep} patternUnits="userSpaceOnUse">
+                <rect className="HomeCanvas__GuideCell" x={0.5} y={0.5}
+                  width={geometry.columnStep - geometry.columnGap - 1} height={geometry.rowHeight - 1} rx={12} />
+              </pattern></defs>
+              <rect width="100%" height="100%" fill={`url(#${guideId})`} />
+            </svg>}
             {order.map(id => <HomeItem key={id} id={id} editing={editing} onRemove={remove} onMove={move}
               rect={visible.placements[id]} resize={resize} dragId={drag?.id}
               register={(key, node) => { if (node) nodes.current.set(key, node); else nodes.current.delete(key); }} />)}
-            {candidate && <div className="HomeCanvas__PlacementLayer" aria-hidden="true"><div data-home-placement data-valid={candidate.reason === 'ok'} className="HomeCanvas__Placement"
+            {candidate && <div className="HomeCanvas__PlacementLayer" aria-hidden="true"><div data-home-placement data-valid={candidate.reason === 'ok'} data-kind={HOME_ITEMS[candidate.id].kind} className="HomeCanvas__Placement"
               style={{ left: candidate.rect.x * geometry.columnStep, top: candidate.rect.y * geometry.rowStep,
                 width: candidate.rect.w * geometry.columnStep - geometry.columnGap, height: candidate.rect.h * geometry.rowStep - geometry.rowGap }} /></div>}
             {ready && order.length === 0 && <div className="HomeCanvas__Empty"><p>{t('home.canvas.empty')}</p><button type="button" data-home-empty-add className="HomeCanvas__Control" onClick={() => { setEditing(true); setCatalog(true); }}>{t('home.canvas.addItems')}</button></div>}

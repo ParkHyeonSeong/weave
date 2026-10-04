@@ -450,11 +450,11 @@ describe('전 SCSS var(--…) 참조 커버리지', () => {
   //   TaskListRow(selected·subtask) 때문에 산출을 두 벌 내리고 SCSS가 상태로 고른다.
   //   raised 변수가 없는 배지에서 무효 선언이 되지 않게 폴백으로 --et-bg/--et-fg를 쓰므로
   //   그 둘도 SCSS 참조가 생겼다. 셋 다 producer는 library/entityTint.js 인라인 style이다.
-  // HomeView가 실측 격자의 열 수와 간격을 인라인 style로 주입한다.
+  // HomeView가 실측 격자의 열 수를 인라인 style로 주입한다.
   // 테마 색 토큰이 아닌 요소별 배치 값이며 home-canvas.scss에 초기값도 정의한다.
   const RUNTIME_INJECTED = [
     'branch-color', 'status-color', 'accent', 'sticky-header-h', 'chip-color',
-    'home-columns', 'home-column-step', 'home-row-step',
+    'home-columns',
     'et-bg-dark', 'et-fg-dark', 'et-bd-dark', 'et-solid-dark',
     'et-bg', 'et-fg',
     'et-bg-raised', 'et-fg-raised', 'et-bg-raised-dark', 'et-fg-raised-dark',
