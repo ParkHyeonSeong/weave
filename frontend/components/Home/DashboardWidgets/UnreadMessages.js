@@ -5,7 +5,7 @@ import { MessageSquare } from 'lucide-react';
 import useResyncOnVisible from '@/hooks/useResyncOnVisible';
 import { sumChatUnread } from '@/library/chatUnread';
 
-export default function UnreadMessages({ maxItems }) {
+export default function UnreadMessages({ maxItems, scrollable = false }) {
   const { t } = useTranslation();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +38,8 @@ export default function UnreadMessages({ maxItems }) {
   };
 
   const totalUnread = sumChatUnread(rooms);
+  const bodyProps = scrollable ? { tabIndex: 0, role: 'region', 'aria-label': t('home.widgets.messages.title') } : {};
+  const renderedRooms = scrollable ? rooms : rooms.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -46,7 +48,7 @@ export default function UnreadMessages({ maxItems }) {
           <MessageSquare size={16} />
           <span className="Widget__Title">{t('home.widgets.messages.title')}</span>
         </div>
-        <div className="Widget__Body">
+        <div className="Widget__Body" {...bodyProps}>
           <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
@@ -59,14 +61,15 @@ export default function UnreadMessages({ maxItems }) {
         <MessageSquare size={16} />
         <span className="Widget__Title">{t('home.widgets.messages.title')}</span>
       </div>
-      <div className="Widget__Body">
+      {scrollable && rooms.length > 0 && <div className="UnreadMessages__Total">{totalUnread}</div>}
+      <div className="Widget__Body" {...bodyProps}>
         {rooms.length === 0 ? (
           <div className="Widget__Empty">{t('home.widgets.messages.empty')}</div>
         ) : (
           <>
-            <div className="UnreadMessages__Total">{totalUnread}</div>
+            {!scrollable && <div className="UnreadMessages__Total">{totalUnread}</div>}
             <div className="UnreadMessages__Rooms">
-              {rooms.slice(0, maxItems).map((room) => (
+              {renderedRooms.map((room) => (
                 <button type="button"
                   key={room.room_id}
                   className="UnreadMessages__Room"

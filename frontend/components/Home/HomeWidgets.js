@@ -23,7 +23,7 @@ function useHomeData(path) {
   return state;
 }
 
-function ScrumWidget({ height }) {
+function ScrumWidget() {
   const { t } = useTranslation();
   const { isHidden } = useUiPrefs();
   const { today, formatDateOnly } = useWorkspaceDateFormat();
@@ -31,20 +31,25 @@ function ScrumWidget({ height }) {
   const date = today();
   const pending = data?.today_pending?.filter(board => !isHidden('scrums', board.board_id)) || [];
   const retro = data?.retro_due?.filter(board => !isHidden('scrums', board.board_id)) || [];
-  const board = retro[0] || pending[0];
-  const href = board ? `/scrum/${board.board_id}${retro.length ? '?tab=retro' : ''}` : '/scrum';
-  const more = [...retro.map(item => ({ ...item, retro: true })), ...pending.map(item => ({ ...item, retro: false }))].slice(1, 1 + Math.max(0, Math.floor((height - 230) / 40)));
+  const actions = [...retro.map(item => ({ ...item, kind: 'retro' })), ...pending.map(item => ({ ...item, kind: 'daily' }))];
+  const [primary, ...secondary] = actions;
+  const hrefFor = item => `/scrum/${item.board_id}${item.kind === 'retro' ? '?tab=retro' : ''}`;
+  const actionLabel = item => t(item.kind === 'retro' ? 'home.scrumCards.writeRetro' : 'home.scrumCards.writeNow');
   return <div className="Widget HomeScrum">
-    <div className="HomeScrum__Weekday">{date ? formatDateOnly(date, { weekday: 'long' }) : t('home.canvas.todayScrum')}</div>
-    <div className="HomeScrum__Day">{date ? Number(date.slice(-2)) : '—'}</div>
-    <div className="HomeScrum__Title">{t('home.canvas.todayScrum')}</div>
-    <p className="HomeScrum__Board">{loading ? t('common.state.loading') : error ? t('home.canvas.dataFailed') : board?.name || t('home.canvas.scrumClear')}</p>
-    {more.length > 0 && <div className="HomeScrum__More">{more.map(item => <NavLink key={`${item.board_id}-${item.retro}`} href={`/scrum/${item.board_id}${item.retro ? '?tab=retro' : ''}`}><span>{item.name}</span><small>{t(item.retro ? 'home.scrumCards.writeRetro' : 'home.scrumCards.writeNow')}</small></NavLink>)}</div>}
-    <NavLink href={href} className="HomeScrum__Action">{board ? t(retro.length ? 'home.scrumCards.writeRetro' : 'home.scrumCards.writeNow') : t('home.canvas.openScrum')}<ArrowUpRight size={14} /></NavLink>
+    <div className="HomeScrum__Header">
+      <div className="HomeScrum__Date"><span className="HomeScrum__Day">{date ? Number(date.slice(-2)) : '—'}</span><span className="HomeScrum__Weekday">{date ? formatDateOnly(date, { weekday: 'long' }) : '—'}</span></div>
+      <div className="HomeScrum__Title">{t('home.canvas.todayScrum')}</div>
+    </div>
+    <div className="Widget__Body HomeScrum__List" tabIndex={0} role="region" aria-label={t('home.canvas.todayScrum')}>
+      {loading || error || !primary ? <div className="Widget__Empty">{t(loading ? 'common.state.loading' : error ? 'home.canvas.dataFailed' : 'home.canvas.scrumClear')}</div> : secondary.map(item => <NavLink key={`${item.board_id}:${item.kind}`} href={hrefFor(item)}><span>{item.name}</span><small>{actionLabel(item)}</small></NavLink>)}
+    </div>
+    <NavLink href={primary ? hrefFor(primary) : '/scrum'} className="HomeScrum__Action">
+      <span className="HomeScrum__ActionText">{primary && <span className="HomeScrum__ActionName">{primary.name}</span>}<span>{primary ? actionLabel(primary) : t('home.canvas.openScrum')}</span></span><ArrowUpRight size={14} />
+    </NavLink>
   </div>;
 }
 
-function TasksWidget({ maxItems }) {
+function TasksWidget() {
   const { t } = useTranslation();
   const { isHidden } = useUiPrefs();
   const { formatDateOnlyShort, isOverdue } = useDateFormat();
@@ -54,24 +59,23 @@ function TasksWidget({ maxItems }) {
   return <div className="Widget HomeTasks">
     <div className="Widget__Header"><ListTodo size={16} /><span className="Widget__Title">{t('home.canvas.myTasks')}</span><NavLink href="/my-tasks" className="HomeWidget__All" aria-label={t('home.canvas.open', { name: t('home.canvas.myTasks') })}><ArrowUpRight size={16} /></NavLink></div>
     <div className="HomeTasks__Summary"><b>{loading || error ? '—' : tasks.length}</b><span>{t('home.canvas.tasksLeft', { count: tasks.length })}</span></div>
-    <div className="Widget__Body">
-      {loading || error || !tasks.length ? <div className="Widget__Empty">{t(loading ? 'common.state.loading' : error ? 'home.canvas.dataFailed' : 'home.canvas.noTasks')}</div> : tasks.slice(0, maxItems).map(task => <NavLink key={task.task_id} href={`/branch/${task.branch_id}/task/${task.task_id}`} className="HomeTasks__Row">
+    <div className="Widget__Body" tabIndex={0} role="region" aria-label={t('home.canvas.myTasks')}>
+      {loading || error || !tasks.length ? <div className="Widget__Empty">{t(loading ? 'common.state.loading' : error ? 'home.canvas.dataFailed' : 'home.canvas.noTasks')}</div> : tasks.map(task => <NavLink key={task.task_id} href={`/branch/${task.branch_id}/task/${task.task_id}`} className="HomeTasks__Row">
         <Circle size={13} style={{ color: task.status_color || undefined }} /><span>{task.title}</span>{task.due_date && <small className={isOverdue(task.due_date, task.status_category || task.status) ? 'HomeTasks__Due--overdue' : ''}>{formatDateOnlyShort(task.due_date)}</small>}
       </NavLink>)}
     </div>
   </div>;
 }
 
-export default function HomeWidgets({ id, height = 210 }) {
+export default function HomeWidgets({ id }) {
   const { t } = useTranslation();
-  const capacity = (header, row, minimum) => Math.max(minimum, Math.floor((height - header) / row));
   switch (id) {
-    case 'widget:scrum': return <ScrumWidget height={height} />;
-    case 'widget:mytasks': return <TasksWidget maxItems={capacity(110, 29, 3)} />;
-    case 'widget:recent': return <RecentItems maxItems={capacity(62, 46, 3)} title={t('home.canvas.continue')} />;
-    case 'widget:starred': return <StarredItems maxItems={capacity(62, 46, 3)} />;
-    case 'widget:sprints': return <ActiveSprints compact maxItems={capacity(62, 148, 1)} />;
-    case 'widget:messages': return <UnreadMessages maxItems={capacity(104, 36, 2)} />;
+    case 'widget:scrum': return <ScrumWidget />;
+    case 'widget:mytasks': return <TasksWidget />;
+    case 'widget:recent': return <RecentItems scrollable title={t('home.canvas.continue')} />;
+    case 'widget:starred': return <StarredItems scrollable />;
+    case 'widget:sprints': return <ActiveSprints compact scrollable />;
+    case 'widget:messages': return <UnreadMessages scrollable />;
     default: return null;
   }
 }

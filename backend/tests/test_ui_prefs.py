@@ -1,4 +1,6 @@
 """통합 ui_prefs(per-user 뷰 상태) 모델 테스트."""
+from copy import deepcopy
+
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import text
@@ -41,6 +43,144 @@ def test_update_ui_prefs_validates_widget_size_bounds(sizes):
         UpdateUiPrefs(home_sizes=sizes)
 
 
+@pytest.fixture
+def home_canvas():
+    return {
+        "version": 1,
+        "items": ["widget:recent", "app:branch"],
+        "layouts": {
+            "wide": {"columns": 17, "placements": {
+                "widget:recent": {"x": 0, "y": 0, "w": 17, "h": 64},
+                "app:branch": {"x": 0, "y": 64, "w": 1, "h": 1},
+            }},
+            "compact": {"columns": 4, "placements": {
+                "widget:recent": {"x": 0, "y": 0, "w": 4, "h": 2},
+                "app:branch": {"x": 0, "y": 2, "w": 1, "h": 1},
+            }},
+        },
+    }
+
+
+def test_home_canvas_v1_accepts_more_than_eight_columns_and_tall_widgets(home_canvas):
+    from routers.schema.profile import UpdateUiPrefs
+    assert UpdateUiPrefs(home_canvas=home_canvas).model_dump(exclude_none=True) == {
+        "home_canvas": home_canvas,
+    }
+
+
+def test_home_canvas_v1_accepts_empty_home(home_canvas):
+    from routers.schema.profile import UpdateUiPrefs
+    home_canvas["items"] = []
+    for base in home_canvas["layouts"].values():
+        base["placements"] = {}
+    assert UpdateUiPrefs(home_canvas=home_canvas).model_dump(exclude_none=True) == {
+        "home_canvas": home_canvas,
+    }
+
+
+@pytest.mark.parametrize("path,value", [
+    (("version",), 2),
+    (("version",), True),
+    (("version",), 1.0),
+    (("version",), "1"),
+    (("items",), ["widget:recent", "app:branch", "app:branch"]),
+    (("items",), ["unknown", "app:branch"]),
+    (("items",), [42]),
+    (("items",), []),
+    (("extra",), True),
+    (("layouts", "mobile"), {"columns": 4, "placements": {}}),
+    (("layouts", "wide", "extra"), True),
+    (("layouts", "wide", "columns"), 3),
+    (("layouts", "wide", "columns"), True),
+    (("layouts", "wide", "columns"), 17.5),
+    (("layouts", "wide", "columns"), "17"),
+    (("layouts", "wide", "columns"), 9007199254740992),
+    (("layouts", "wide", "placements", "unknown"), {"x": 1, "y": 64, "w": 1, "h": 1}),
+    (("layouts", "wide", "placements", "widget:recent", "extra"), True),
+    (("layouts", "wide", "placements", "widget:recent", "x"), True),
+    (("layouts", "wide", "placements", "widget:recent", "x"), 0.5),
+    (("layouts", "wide", "placements", "widget:recent", "x"), "0"),
+    (("layouts", "wide", "placements", "widget:recent", "x"), -1),
+    (("layouts", "wide", "placements", "widget:recent", "x"), 9007199254740992),
+    (("layouts", "wide", "placements", "widget:recent", "y"), -1),
+    (("layouts", "wide", "placements", "widget:recent", "y"), True),
+    (("layouts", "wide", "placements", "widget:recent", "y"), 9007199254740991),
+    (("layouts", "wide", "placements", "widget:recent", "w"), 0),
+    (("layouts", "wide", "placements", "widget:recent", "w"), 3),
+    (("layouts", "wide", "placements", "widget:recent", "w"), True),
+    (("layouts", "wide", "placements", "widget:recent", "w"), 9007199254740992),
+    (("layouts", "wide", "placements", "widget:recent", "h"), 0),
+    (("layouts", "wide", "placements", "widget:recent", "h"), 1),
+    (("layouts", "wide", "placements", "widget:recent", "h"), True),
+    (("layouts", "wide", "placements", "widget:recent", "h"), 2.5),
+    (("layouts", "wide", "placements", "widget:recent", "h"), "2"),
+    (("layouts", "wide", "placements", "widget:recent", "h"), 9007199254740992),
+    (("layouts", "wide", "placements", "app:branch", "w"), 2),
+    (("layouts", "wide", "placements", "app:branch", "h"), 2),
+    (("layouts", "wide", "placements", "app:branch", "x"), 17),
+    (("layouts", "wide", "placements", "app:branch", "y"), 63),
+    (("layouts", "compact", "placements", "app:branch", "y"), 1),
+])
+def test_home_canvas_v1_rejects_invalid_payloads(home_canvas, path, value):
+    from routers.schema.profile import UpdateUiPrefs
+    payload = deepcopy(home_canvas)
+    target = payload
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+    with pytest.raises(ValidationError):
+        UpdateUiPrefs(home_canvas=payload)
+
+
+@pytest.mark.parametrize("path", [
+    ("version",), ("items",), ("layouts",),
+    ("layouts", "wide"), ("layouts", "compact"),
+    ("layouts", "wide", "columns"),
+    ("layouts", "wide", "placements"),
+    ("layouts", "wide", "placements", "app:branch"),
+    ("layouts", "compact", "placements", "app:branch"),
+])
+def test_home_canvas_v1_requires_complete_snapshots(home_canvas, path):
+    from routers.schema.profile import UpdateUiPrefs
+    target = home_canvas
+    for key in path[:-1]:
+        target = target[key]
+    del target[path[-1]]
+    with pytest.raises(ValidationError):
+        UpdateUiPrefs(home_canvas=home_canvas)
+
+
+@pytest.mark.parametrize("widget,minimum_width", [
+    ("widget:scrum", 2), ("widget:mytasks", 4), ("widget:recent", 4),
+    ("widget:starred", 4), ("widget:sprints", 2), ("widget:messages", 2),
+])
+def test_home_canvas_v1_enforces_each_widget_minimum(home_canvas, widget, minimum_width):
+    from routers.schema.profile import UpdateUiPrefs
+    home_canvas["items"] = [widget]
+    for base in home_canvas["layouts"].values():
+        base["placements"] = {widget: {"x": 0, "y": 0, "w": minimum_width, "h": 2}}
+    assert UpdateUiPrefs(home_canvas=home_canvas).model_dump(exclude_none=True) == {
+        "home_canvas": home_canvas,
+    }
+    home_canvas["layouts"]["compact"]["placements"][widget]["w"] = minimum_width - 1
+    with pytest.raises(ValidationError):
+        UpdateUiPrefs(home_canvas=home_canvas)
+
+
+def test_home_canvas_v1_keeps_safe_integer_edges(home_canvas):
+    from routers.schema.profile import UpdateUiPrefs
+    home_canvas["layouts"]["wide"] = {"columns": 9007199254740991, "placements": {
+        "widget:recent": {"x": 0, "y": 0, "w": 17, "h": 64},
+        "app:branch": {"x": 9007199254740990, "y": 9007199254740990, "w": 1, "h": 1},
+    }}
+    assert UpdateUiPrefs(home_canvas=home_canvas).model_dump(exclude_none=True) == {
+        "home_canvas": home_canvas,
+    }
+    home_canvas["layouts"]["wide"]["placements"]["app:branch"]["x"] += 1
+    with pytest.raises(ValidationError):
+        UpdateUiPrefs(home_canvas=home_canvas)
+
+
 async def _make_user(db, email):
     row = await db.execute(text("""
         INSERT INTO "user" (email, password, username, status)
@@ -49,7 +189,7 @@ async def _make_user(db, email):
     return row.scalar_one()
 
 
-async def test_ui_prefs_roundtrip_and_namespace_merge(db_session):
+async def test_ui_prefs_roundtrip_and_namespace_merge(db_session, home_canvas):
     uid = await _make_user(db_session, "uiprefs1@test.local")
     assert await user_model.get_ui_prefs(uid, db_session) is None
 
@@ -71,6 +211,25 @@ async def test_ui_prefs_roundtrip_and_namespace_merge(db_session):
     assert resized["home_layout"] == ["widget:recent", "app:canvas"]
     assert resized["theme"] == "dark"
     assert resized["hidden"] == {"branches": [2]}
+
+    from routers.schema.profile import UpdateUiPrefs
+    patch = UpdateUiPrefs(home_canvas=home_canvas).model_dump(exclude_none=True)
+    await user_model.update_ui_prefs(uid, patch, db_session)
+    positioned = await user_model.get_ui_prefs(uid, db_session)
+    assert positioned == {**resized, "home_canvas": home_canvas}
+
+    await user_model.update_ui_prefs(uid, {"comment_sort": "oldest"}, db_session)
+    merged = await user_model.get_ui_prefs(uid, db_session)
+    assert merged == {**positioned, "comment_sort": "oldest"}
+
+    empty = deepcopy(home_canvas)
+    empty["items"] = []
+    for base in empty["layouts"].values():
+        base["placements"] = {}
+    await user_model.update_ui_prefs(
+        uid, UpdateUiPrefs(home_canvas=empty).model_dump(exclude_none=True), db_session,
+    )
+    assert await user_model.get_ui_prefs(uid, db_session) == {**merged, "home_canvas": empty}
 
 
 def test_update_ui_prefs_schema_allows_home_controls():

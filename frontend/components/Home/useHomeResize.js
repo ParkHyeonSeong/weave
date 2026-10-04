@@ -1,12 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { resolveHomeSize } from '@/library/homeLayout';
+import { HOME_ITEMS, checkHomePlacement } from '@/library/homeLayout';
 
-// Size drafts stay local to the gesture. Only a completed gesture writes preferences.
-export default function useHomeResize(gridRef, sizes, save) {
-  const [columns, setColumns] = useState(8);
+// A gesture owns only a preview. One successful release saves the whole layout.
+export default function useHomeResize({ gridRef, geometry, visible, onCommit, onInvalid }) {
   const [draft, setDraft] = useState(null);
   const session = useRef(null);
-  const rowHeight = columns === 4 ? 90 : 94, rowGap = columns === 4 ? 20 : 22;
+  const latest = useRef(null);
+  latest.current = { geometry, visible, onCommit, onInvalid };
 
   const finish = (commit = false, event) => {
     const current = session.current;
@@ -15,24 +15,15 @@ export default function useHomeResize(gridRef, sizes, save) {
     cancelAnimationFrame(current.frame);
     if (current.target.hasPointerCapture?.(current.pointerId)) current.target.releasePointerCapture(current.pointerId);
     setDraft(null);
-    if (commit) {
-      // A narrow viewport is a display constraint, not a request to shrink the desktop layout.
-      const next = { ...current.next, columns: current.next.columns === current.start.columns ? current.saved.columns : current.next.columns };
-      if (next.columns !== current.saved.columns || next.rows !== current.saved.rows) save(current.id, next);
+    if (commit && current.geometry.key === latest.current.geometry.key) {
+      const reason = checkHomePlacement(latest.current.visible, current.id, current.next);
+      if (reason === 'ok') latest.current.onCommit(current.id, current.next);
+      else latest.current.onInvalid(reason);
     }
     return true;
   };
 
-  useLayoutEffect(() => {
-    const container = gridRef.current?.closest('.Layout__Content') || gridRef.current?.parentElement;
-    const measure = () => setColumns((container?.clientWidth || window.innerWidth) <= 760 ? 4 : 8);
-    measure();
-    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    if (container) observer?.observe(container);
-    window.addEventListener('resize', measure);
-    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); };
-  }, [gridRef]);
-  useEffect(() => { finish(); }, [columns]); // Cancel if the grid changes during a gesture.
+  useLayoutEffect(() => { finish(); }, [geometry.key]);
   useEffect(() => {
     const cancel = () => finish();
     window.addEventListener('blur', cancel);
@@ -40,14 +31,18 @@ export default function useHomeResize(gridRef, sizes, save) {
   }, []);
 
   const preview = current => {
+    const minimum = HOME_ITEMS[current.id];
+    const { columnStep, rowStep, columns } = current.geometry;
     const scrollDelta = (current.scroller?.scrollTop || 0) - current.scrollTop;
-    const next = resolveHomeSize(current.id, { [current.id]: {
-      columns: current.start.columns + Math.round((current.x - current.startX) / current.columnStep),
-      rows: current.start.rows + Math.round((current.y - current.startY + scrollDelta) / current.rowStep),
-    } }, columns);
-    if (next.columns !== current.next.columns || next.rows !== current.next.rows) {
-      current.next = next;
-      setDraft({ id: current.id, ...next });
+    const rect = {
+      ...current.start,
+      w: Math.min(columns - current.start.x, Math.max(minimum.columns,
+        current.start.w + Math.round((current.x - current.startX) / columnStep))),
+      h: Math.max(minimum.rows, current.start.h + Math.round((current.y - current.startY + scrollDelta) / rowStep)),
+    };
+    if (rect.w !== current.next.w || rect.h !== current.next.h) {
+      current.next = rect;
+      setDraft({ id: current.id, rect, reason: checkHomePlacement(current.visible, current.id, rect) });
     }
   };
 
@@ -65,26 +60,24 @@ export default function useHomeResize(gridRef, sizes, save) {
   };
 
   const start = (id, event) => {
-    if (event.button !== 0 || session.current) return;
-    event.preventDefault(); event.stopPropagation();
-    event.currentTarget.focus();
-    const grid = gridRef.current, css = getComputedStyle(grid);
-    const startSize = resolveHomeSize(id, sizes, columns);
-    const scroller = grid.closest('.Layout__Content');
+    const { geometry: measured, visible: base } = latest.current;
+    if (event.button !== 0 || session.current || !measured.ready || !base?.placements[id]) return;
+    event.preventDefault(); event.stopPropagation(); event.currentTarget.focus();
+    const rect = base.placements[id], scroller = gridRef.current?.closest('.Layout__Content');
     session.current = {
       id, target: event.currentTarget, pointerId: event.pointerId,
-      saved: resolveHomeSize(id, sizes), start: startSize, next: startSize,
+      geometry: measured, visible: base, start: rect, next: rect,
       startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY,
-      columnStep: (grid.getBoundingClientRect().width + (parseFloat(css.columnGap) || (columns === 4 ? 14 : 16))) / columns,
-      rowStep: (parseFloat(css.gridAutoRows) || rowHeight) + (parseFloat(css.rowGap) || rowGap),
       scroller, scrollTop: scroller?.scrollTop || 0,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDraft({ id, ...startSize });
+    setDraft({ id, rect, reason: 'ok' });
   };
+
   const move = event => {
     const current = session.current;
     if (!current || event.pointerId !== current.pointerId) return;
+    if (current.geometry.key !== latest.current.geometry.key) { finish(); return; }
     event.preventDefault(); event.stopPropagation();
     current.x = event.clientX; current.y = event.clientY;
     if (!current.moved && Math.hypot(current.x - current.startX, current.y - current.startY) >= 6) {
@@ -93,18 +86,24 @@ export default function useHomeResize(gridRef, sizes, save) {
     }
     preview(current);
   };
+
   const key = (id, event) => {
     if (event.key === 'Escape' && finish()) { event.preventDefault(); event.stopPropagation(); return; }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key) || session.current) return;
     event.preventDefault(); event.stopPropagation();
-    const saved = resolveHomeSize(id, sizes), visible = resolveHomeSize(id, sizes, columns);
-    const horizontal = event.key === 'ArrowLeft' || event.key === 'ArrowRight';
-    const next = resolveHomeSize(id, { [id]: {
-      columns: horizontal ? visible.columns + (event.key === 'ArrowRight' ? 1 : -1) : saved.columns,
-      rows: saved.rows + (event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0),
-    } }, horizontal ? columns : 8);
-    if (horizontal && next.columns === visible.columns) return;
-    if (next.columns !== saved.columns || next.rows !== saved.rows) save(id, next);
+    const { geometry: measured, visible: base } = latest.current;
+    const rect = base?.placements[id];
+    if (!measured.ready || !rect) return;
+    const item = HOME_ITEMS[id];
+    const next = {
+      ...rect,
+      w: Math.min(base.columns - rect.x, Math.max(item.columns,
+        rect.w + (event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0))),
+      h: Math.max(item.rows, rect.h + (event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0)),
+    };
+    const reason = checkHomePlacement(base, id, next);
+    if (reason === 'ok') latest.current.onCommit(id, next);
+    else latest.current.onInvalid(reason);
   };
-  return { columns, rowHeight, rowGap, draft, start, move, key, finish };
+  return { draft, start, move, key, finish };
 }

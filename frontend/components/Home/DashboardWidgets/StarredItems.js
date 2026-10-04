@@ -5,7 +5,7 @@ import { Star, FileText } from 'lucide-react';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import NavLink from '@/components/common/NavLink';
 
-export default function StarredItems({ maxItems }) {
+export default function StarredItems({ maxItems, scrollable = false }) {
   const { t } = useTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,8 @@ export default function StarredItems({ maxItems }) {
       ? !isHidden('branches', it.branch_id)
       : !isHidden('canvases', it.canvas_id)
   );
+  const bodyProps = scrollable ? { tabIndex: 0, role: 'region', 'aria-label': t('home.widgets.starred.title') } : {};
+  const renderedItems = scrollable ? visibleItems : visibleItems.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -43,7 +45,7 @@ export default function StarredItems({ maxItems }) {
           <Star size={16} />
           <span className="Widget__Title">{t('home.widgets.starred.title')}</span>
         </div>
-        <div className="Widget__Body">
+        <div className="Widget__Body" {...bodyProps}>
           <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
@@ -56,12 +58,12 @@ export default function StarredItems({ maxItems }) {
         <Star size={16} />
         <span className="Widget__Title">{t('home.widgets.starred.title')}</span>
       </div>
-      <div className="Widget__Body">
+      <div className="Widget__Body" {...bodyProps}>
         {visibleItems.length === 0 ? (
           <div className="Widget__Empty">{t('home.widgets.starred.empty')}</div>
         ) : (
           <div className="StarredItems__List">
-            {visibleItems.slice(0, maxItems).map((item) => {
+            {renderedItems.map((item) => {
               const href = item.type === 'task'
                 ? `/branch/${item.branch_id}/task/${item.task_id}`
                 : `/canvas/${item.canvas_id}/${item.page_id}`;

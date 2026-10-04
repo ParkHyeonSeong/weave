@@ -9,7 +9,7 @@ import { sprintProgressSegments } from '@/library/sprintProgress';
 import { statusCategoryVar } from '@/library/themePalette';
 import NavLink from '@/components/common/NavLink';
 
-export default function ActiveSprints({ compact = false, maxItems = compact ? 1 : undefined }) {
+export default function ActiveSprints({ compact = false, maxItems = compact ? 1 : undefined, scrollable = false }) {
   const { t } = useTranslation();
   const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +58,8 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
   };
 
   const visibleSprints = sprints.filter((s) => !isHidden('branches', s.branch_id));
+  const bodyProps = scrollable ? { tabIndex: 0, role: 'region', 'aria-label': t('home.widgets.activeSprints.title') } : {};
+  const renderedSprints = scrollable ? visibleSprints : visibleSprints.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -66,7 +68,7 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
           <Zap size={16} />
           <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
         </div>
-        <div className="Widget__Body">
+        <div className="Widget__Body" {...bodyProps}>
           <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
@@ -79,11 +81,11 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
         <Zap size={16} />
         <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
       </div>
-      <div className="Widget__Body">
+      <div className="Widget__Body" {...bodyProps}>
         {visibleSprints.length === 0 ? (
           <div className="Widget__Empty">{t('home.widgets.activeSprints.empty')}</div>
         ) : (
-          visibleSprints.slice(0, maxItems).map((sprint) => {
+          renderedSprints.map((sprint) => {
             // 바는 카테고리별로 나눠 칠하고, 오른쪽 x / y는 닫힘(done+cancelled) / 전체
             const { counts, segments } = sprintProgressSegments(sprint);
             const breakdown = t('home.widgets.activeSprints.progressBreakdown', counts);

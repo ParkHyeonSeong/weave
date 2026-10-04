@@ -6,7 +6,7 @@ import { useUiPrefs } from '@/library/UiPrefsContext';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import NavLink from '@/components/common/NavLink';
 
-export default function RecentItems({ maxItems, title }) {
+export default function RecentItems({ maxItems, title, scrollable = false }) {
   const { t } = useTranslation();
   const { formatRelative } = useDateFormat();
   const [items, setItems] = useState([]);
@@ -40,6 +40,8 @@ export default function RecentItems({ maxItems, title }) {
       ? !isHidden('branches', it.branch_id)
       : !isHidden('canvases', it.canvas_id)
   );
+  const bodyProps = scrollable ? { tabIndex: 0, role: 'region', 'aria-label': title || t('home.widgets.recent.title') } : {};
+  const renderedItems = scrollable ? visibleItems : visibleItems.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -48,7 +50,7 @@ export default function RecentItems({ maxItems, title }) {
           <Clock size={16} />
           <span className="Widget__Title">{title || t('home.widgets.recent.title')}</span>
         </div>
-        <div className="Widget__Body">
+        <div className="Widget__Body" {...bodyProps}>
           <div className="Widget__Empty">{t('common.state.loading')}</div>
         </div>
       </div>
@@ -61,12 +63,12 @@ export default function RecentItems({ maxItems, title }) {
         <Clock size={16} />
         <span className="Widget__Title">{title || t('home.widgets.recent.title')}</span>
       </div>
-      <div className="Widget__Body">
+      <div className="Widget__Body" {...bodyProps}>
         {visibleItems.length === 0 ? (
           <div className="Widget__Empty">{t('home.widgets.recent.empty')}</div>
         ) : (
           <div className="RecentItems__List">
-            {visibleItems.slice(0, maxItems).map((item) => {
+            {renderedItems.map((item) => {
               const href = item.type === 'task'
                 ? `/branch/${item.branch_id}/task/${item.task_id}`
                 : `/canvas/${item.canvas_id}/${item.page_id}`;

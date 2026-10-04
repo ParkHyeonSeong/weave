@@ -1,9 +1,20 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from library.crypto import MIN_PASSWORD_LENGTH
 from library.locale_prefs import SUPPORTED_LOCALES, normalize_time_zone
 from library.user_avatar import AVATAR_COLORS
+
+
+MAX_SAFE_INTEGER = 9007199254740991
+HOME_WIDGET_MINIMUM_COLUMNS = {
+    'widget:scrum': 2, 'widget:mytasks': 4, 'widget:recent': 4,
+    'widget:starred': 4, 'widget:sprints': 2, 'widget:messages': 2,
+}
+HOME_ITEMS = {
+    'app:branch', 'app:canvas', 'app:scrum', 'app:track', 'app:mytasks', 'app:starred', 'app:browse',
+    *HOME_WIDGET_MINIMUM_COLUMNS,
+}
 
 
 class UpdateUsername(BaseModel):
@@ -98,6 +109,63 @@ class HomeWidgetSize(BaseModel):
     rows: int = Field(strict=True, ge=2)
 
 
+class HomePlacement(BaseModel):
+    model_config = {'extra': 'forbid'}
+
+    x: int = Field(strict=True, ge=0, le=MAX_SAFE_INTEGER)
+    y: int = Field(strict=True, ge=0, le=MAX_SAFE_INTEGER)
+    w: int = Field(strict=True, ge=1, le=MAX_SAFE_INTEGER)
+    h: int = Field(strict=True, ge=1, le=MAX_SAFE_INTEGER)
+
+
+class HomeBase(BaseModel):
+    model_config = {'extra': 'forbid'}
+
+    columns: int = Field(strict=True, ge=4, le=MAX_SAFE_INTEGER)
+    placements: dict[str, HomePlacement]
+
+
+class HomeModes(BaseModel):
+    model_config = {'extra': 'forbid'}
+
+    wide: HomeBase
+    compact: HomeBase
+
+
+class HomeCanvasV1(BaseModel):
+    model_config = {'extra': 'forbid'}
+
+    version: int = Field(strict=True, ge=1, le=1)
+    items: List[str]
+    layouts: HomeModes
+
+    @model_validator(mode='after')
+    def validate_layouts(self):
+        item_ids = set(self.items)
+        if len(self.items) != len(item_ids) or not item_ids <= HOME_ITEMS:
+            raise ValueError('home_canvas must contain unique, available home items')
+
+        for base in (self.layouts.wide, self.layouts.compact):
+            if set(base.placements) != item_ids:
+                raise ValueError('home_canvas placements must match items in both modes')
+            for item_id, rect in base.placements.items():
+                if item_id.startswith('app:'):
+                    if rect.w != 1 or rect.h != 1:
+                        raise ValueError('home_canvas apps must occupy exactly one cell')
+                elif rect.w < HOME_WIDGET_MINIMUM_COLUMNS[item_id] or rect.h < 2:
+                    raise ValueError('home_canvas widgets must meet their minimum size')
+                if rect.x + rect.w > base.columns or rect.y + rect.h > MAX_SAFE_INTEGER:
+                    raise ValueError('home_canvas placements must fit columns and safe integer bounds')
+
+            rectangles = list(base.placements.values())
+            for index, rect in enumerate(rectangles):
+                for other in rectangles[index + 1:]:
+                    if (rect.x < other.x + other.w and rect.x + rect.w > other.x
+                            and rect.y < other.y + other.h and rect.y + rect.h > other.y):
+                        raise ValueError('home_canvas placements must not overlap')
+        return self
+
+
 class UpdateUiPrefs(BaseModel):
     sidebar_order: Optional[dict] = None
     hidden: Optional[dict] = None
@@ -105,6 +173,7 @@ class UpdateUiPrefs(BaseModel):
     widget_layout: Optional[List[str]] = None
     home_layout: Optional[List[str]] = None
     home_sizes: Optional[dict[str, HomeWidgetSize]] = None
+    home_canvas: Optional[HomeCanvasV1] = None
     home_controls: Optional[dict] = None
     saved_view_pins: Optional[dict] = None  # { "<branchId>|global": [view_id, ...] } per-user 핀 순서
     comment_sort: Optional[str] = None  # 'newest' | 'oldest' — 태스크 댓글 정렬 선호
@@ -115,12 +184,8 @@ class UpdateUiPrefs(BaseModel):
     @field_validator('home_sizes')
     @classmethod
     def validate_home_sizes(cls, value):
-        minimum_columns = {
-            'widget:scrum': 2, 'widget:mytasks': 4, 'widget:recent': 4,
-            'widget:starred': 4, 'widget:sprints': 2, 'widget:messages': 2,
-        }
         if value is not None and any(
-            key not in minimum_columns or size.columns < minimum_columns[key]
+            key not in HOME_WIDGET_MINIMUM_COLUMNS or size.columns < HOME_WIDGET_MINIMUM_COLUMNS[key]
             for key, size in value.items()
         ):
             raise ValueError('home_sizes must contain available widgets at their minimum width or larger')
@@ -131,11 +196,7 @@ class UpdateUiPrefs(BaseModel):
     def validate_home_layout(cls, value):
         if value is None:
             return value
-        allowed = {
-            'app:branch', 'app:canvas', 'app:scrum', 'app:track', 'app:mytasks', 'app:starred', 'app:browse',
-            'widget:scrum', 'widget:mytasks', 'widget:recent', 'widget:starred', 'widget:sprints', 'widget:messages',
-        }
-        if len(value) != len(set(value)) or any(item not in allowed for item in value):
+        if len(value) != len(set(value)) or any(item not in HOME_ITEMS for item in value):
             raise ValueError('home_layout must contain unique, available home items')
         return value
 
