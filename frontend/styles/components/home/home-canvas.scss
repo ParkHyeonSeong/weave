@@ -96,7 +96,7 @@
 
 .HomeCanvas, .HomeCanvas__DragPreview {
   .Widget { display: flex; flex-direction: column; height: 100%; min-height: 0; border-radius: 24px; background: var(--color-home-card); box-shadow: var(--shadow-home-card); color: var(--color-home-ink); }
-  .Widget__Header, .HomeTasks__Summary, .UnreadMessages__Total, .HomeScrum__Header, .HomeScrum__Action { flex-shrink: 0; }
+  .Widget__Header, .HomeTasks__Overview, .UnreadMessages__Total, .HomeScrum__Header, .HomeScrum__Primary { flex-shrink: 0; }
   .Widget__Header { padding: 18px 20px 9px; gap: 8px; }
   .Widget__Title { color: var(--color-home-ink); font-size: 13px; letter-spacing: -.15px; }
   .Widget__Header svg { color: var(--color-home-muted); }
@@ -104,9 +104,16 @@
   .Widget__Body:focus-visible { outline: 2px solid var(--color-home-accent); outline-offset: -2px; }
   .Widget__Empty { color: var(--color-home-muted); font-size: 12px; padding: 22px 3px; line-height: 1.6; }
   .HomeWidget__All { margin-left: auto; padding: 3px; border-radius: 5px; }
-  .HomeTasks__Summary { display: flex; align-items: baseline; gap: 7px; margin: 0 20px 7px; }
-  .HomeTasks__Summary b { font-size: 28px; line-height: 34px; font-weight: 650; letter-spacing: -1px; }
-  .HomeTasks__Summary span { font-size: 11px; color: var(--color-home-muted); }
+  .HomeTasks__Overview { display: flex; align-items: center; gap: 12px; margin: 0 20px 10px; }
+  .HomeTasks__Summary { display: flex; flex-direction: column; flex: 0 1 95px; min-width: 0; }
+  .HomeTasks__Summary b { font-size: 24px; line-height: 29px; font-weight: 650; letter-spacing: -.6px; }
+  .HomeTasks__Summary span { font-size: 10px; line-height: 14px; color: var(--color-home-muted); }
+  .HomeTasks__Stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; flex: 1; min-width: 0; }
+  .HomeTasks__Stat { display: flex; flex-direction: column; min-width: 0; padding: 3px 4px; border-radius: 6px; }
+  .HomeTasks__Stat b { font-size: 16px; line-height: 21px; font-weight: 650; }
+  .HomeTasks__Stat span { font-size: 10px; line-height: 13px; color: var(--color-home-muted); overflow-wrap: anywhere; }
+  .HomeTasks__Stat:hover { background: var(--color-home-hover); }
+  .HomeTasks__Stat:focus-visible, .HomeScrum__Dismiss:focus-visible, .HomeScrum__ReminderLink:focus-visible, .HomeScrum__Action:focus-visible { outline: 2px solid var(--color-home-accent); outline-offset: -2px; }
   .HomeTasks__Row { display: flex; align-items: center; gap: 8px; height: 29px; border-top: 1px solid var(--color-home-line); font-size: 12px; border-radius: 4px; }
   .HomeTasks__Row:hover { background: var(--color-home-hover); }
   .HomeTasks__Row svg { flex-shrink: 0; color: var(--color-home-accent); }
@@ -120,12 +127,16 @@
   .HomeScrum__Day { flex-shrink: 0; font-size: 32px; font-weight: 350; letter-spacing: -1px; line-height: 36px; }
   .HomeScrum__Title { flex: 1; min-width: 0; font-size: 13px; font-weight: 650; line-height: 18px; }
   .HomeScrum .Widget__Body { padding: 0; }
-  .HomeScrum__List a { display: flex; align-items: center; gap: 8px; min-height: 40px; border-top: 1px solid var(--color-home-line); font-size: 12px; }
-  .HomeScrum__List a > span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-  .HomeScrum__List small { font-size: 10px; color: var(--color-home-accent); flex-shrink: 0; }
-  .HomeScrum__Action { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin-top: 8px; padding-top: 6px; color: var(--color-home-accent); font-size: 11px; font-weight: 600; border-top: 1px solid var(--color-home-line); border-radius: 3px; }
-  .HomeScrum__ActionText { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+  .HomeScrum__Reminder, .HomeScrum__Primary { display: flex; align-items: center; gap: 4px; border-top: 1px solid var(--color-home-line); }
+  .HomeScrum__ReminderLink { display: flex; flex: 1; min-width: 0; padding: 8px 0; border-radius: 3px; font-size: 11px; }
+  .HomeScrum__Primary { margin-top: 6px; padding-top: 4px; }
+  .HomeScrum__Action { display: flex; flex: 1; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; color: var(--color-home-accent); font-size: 11px; font-weight: 600; border-radius: 3px; }
+  .HomeScrum__ActionText { display: flex; flex-direction: column; width: 100%; min-width: 0; gap: 2px; }
   .HomeScrum__ActionName { color: var(--color-home-ink); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .HomeScrum__Period { color: var(--color-home-muted); font-size: 10px; line-height: 14px; font-weight: 400; overflow-wrap: anywhere; }
+  .HomeScrum__ActionLabel { color: var(--color-home-accent); font-size: 10px; line-height: 14px; }
+  .HomeScrum__Dismiss { display: grid; place-items: center; flex-shrink: 0; width: 24px; height: 28px; border-radius: 7px; color: var(--color-home-muted); cursor: pointer; }
+  .HomeScrum__Dismiss:hover { background: var(--color-home-hover); color: var(--color-home-ink); }
   .HomeScrum__Action svg { flex-shrink: 0; }
   .RecentItems__Item, .StarredItems__Item { flex-shrink: 0; height: 46px; padding: 6px 0; gap: 8px; border-top: 1px solid var(--color-home-line); }
   .RecentItems__Item:hover, .StarredItems__Item:hover { background: var(--color-home-hover); }
@@ -133,14 +144,15 @@
   .RecentItems__TaskId, .StarredItems__TaskId { min-width: 0; max-width: 75px; font-size: 10px; color: var(--color-home-muted); }
   .RecentItems__TaskTime { font-size: 10px; color: var(--color-home-muted); }
   .RecentItems__DocIcon, .StarredItems__DocIcon { color: var(--color-home-accent); }
-  .HomeSprint .ActiveSprints__Item { padding: 2px 0; min-height: 140px; }
+  .HomeSprint .ActiveSprints__Item { padding: 2px 0 8px; }
   .HomeSprint .ActiveSprints__Item + .ActiveSprints__Item { border-top: 1px solid var(--color-home-line); padding-top: 10px; margin-top: 6px; }
   .HomeSprint .ActiveSprints__Item:hover { background: var(--color-home-hover); }
-  .HomeSprint .ActiveSprints__SprintInfo { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-bottom: 12px; }
+  .HomeSprint .ActiveSprints__SprintInfo { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin-bottom: 8px; }
+  .HomeSprint .ActiveSprints__SprintMeta { align-items: flex-start; flex-direction: column; gap: 6px; margin-top: 3px; }
   .HomeSprint .ActiveSprints__SprintName { color: var(--color-home-ink); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .HomeSprint .ActiveSprints__SprintBranch { color: var(--color-home-muted); font-size: 10px; line-height: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .HomeSprint .ActiveSprints__SprintCount { color: var(--color-home-ink); font-size: 29px; line-height: 34px; letter-spacing: -1px; }
-  .HomeSprint .HChip { display: none; }
+  .HomeSprint .ActiveSprints__SprintCount { color: var(--color-home-ink); font-size: 18px; line-height: 24px; letter-spacing: -.4px; }
+  .HomeSprint .HChip--mine { display: inline-block; max-width: 100%; padding: 3px 6px; white-space: normal; overflow-wrap: anywhere; line-height: 16px; background: var(--color-home-hover); color: var(--color-home-accent); }
   .UnreadMessages__Total { color: var(--color-home-ink); margin-bottom: 7px; }
   .Widget > .UnreadMessages__Total { margin: 0 20px 7px; }
   .UnreadMessages__Room { padding: 6px 0; width: 100%; gap: 5px; text-align: left; }
@@ -167,7 +179,8 @@
   .HomeCanvas .Widget__Body { padding-left: 16px; padding-right: 16px; }
   .HomeCanvas .HomeScrum .Widget__Body { padding: 0; }
   .HomeCanvas .Widget > .UnreadMessages__Total { margin-left: 16px; margin-right: 16px; }
-  .HomeCanvas .HomeTasks__Summary { margin-left: 16px; }
+  .HomeCanvas .HomeTasks__Overview { margin-left: 16px; margin-right: 16px; gap: 8px; }
+  .HomeCanvas .HomeTasks__Summary { flex-basis: 84px; }
 }
 @media (max-width: 600px) {
   .Layout--home .Header { height: 62px; padding: 0 16px; gap: 8px; }
@@ -180,6 +193,9 @@
   .HomeCanvas__Control { padding: 6px 10px; min-height: 32px; font-size: 11px; }
   .HomeCanvas__Backdrop { padding: 15px; }
   .HomeCanvas__Catalog { padding: 20px; border-radius: 22px; }
+  .HomeCanvas .HomeTasks__Stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .HomeCanvas .HomeTasks__Stat { flex-direction: row; align-items: baseline; gap: 5px; padding-inline: 2px; }
+  .HomeCanvas .HomeTasks__Stat span { overflow-wrap: normal; }
 }
 @media (prefers-reduced-motion: reduce) {
   .HomeCanvas--editing .HomeCanvas__Item--app .HomeCanvas__TileContent { animation: none; }

@@ -1722,6 +1722,7 @@ const ko = {
       browseSub: '채널 탐색',
     },
     scrumCards: {
+      dismiss: '{{name}} · {{action}} 알림 닫기',
       todayPending: '오늘 데일리스크럼 아직 안 썼어요',
       writeNow: '지금 쓰기 →',
       retroDue: '회고할 시간이에요',

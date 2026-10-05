@@ -1724,6 +1724,7 @@ const en = {
       browseSub: 'Explore channels',
     },
     scrumCards: {
+      dismiss: 'Dismiss {{name}} · {{action}} reminder',
       todayPending: 'You haven\'t written today\'s daily scrum yet',
       writeNow: 'Write now →',
       retroDue: 'Time to write your retrospective',
