@@ -1744,6 +1744,9 @@ const ko = {
       activeSprints: {
         title: '진행 중 스프린트',
         empty: '진행 중인 스프린트가 없어요',
+        emptyMine: '참여 중인 스프린트가 없어요',
+        includeOthers_one: '다른 스프린트 {{count}}개 포함',
+        includeOthers_other: '다른 스프린트 {{count}}개 포함',
         myTasks_one: '내 태스크 {{count}}개',
         myTasks_other: '내 태스크 {{count}}개',
         myTasksLeft_one: '{{count}}개 남음',

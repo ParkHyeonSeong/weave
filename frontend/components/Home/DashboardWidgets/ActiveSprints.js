@@ -13,6 +13,8 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
   const { t } = useTranslation();
   const [sprints, setSprints] = useState([]);
   const [loading, setLoading] = useState(true);
+  // 저장하지 않는다 — 홈을 열 때마다 내 스프린트만으로 시작한다.
+  const [includeOthers, setIncludeOthers] = useState(false);
   const { isHidden } = useUiPrefs();
 
   useEffect(() => {
@@ -58,8 +60,13 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
   };
 
   const visibleSprints = sprints.filter((s) => !isHidden('branches', s.branch_id));
+  // 내 스프린트 = 하위태스크까지 포함해 내가 main/sub 담당인 태스크가 하나라도 있는 스프린트(완료·취소 포함)
+  const mySprints = visibleSprints.filter((s) => s.my_count > 0);
+  const otherCount = visibleSprints.length - mySprints.length;
+  // sortActiveSprints가 내 스프린트를 앞에 두므로, 켜면 나머지가 내 스프린트 아래에 붙는다
+  const shownSprints = includeOthers ? visibleSprints : mySprints;
   const bodyProps = scrollable ? { tabIndex: 0, role: 'region', 'aria-label': t('home.widgets.activeSprints.title') } : {};
-  const renderedSprints = scrollable ? visibleSprints : visibleSprints.slice(0, maxItems);
+  const renderedSprints = scrollable ? shownSprints : shownSprints.slice(0, maxItems);
 
   if (loading) {
     return (
@@ -82,8 +89,10 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
         <span className="Widget__Title">{t('home.widgets.activeSprints.title')}</span>
       </div>
       <div className="Widget__Body" {...bodyProps}>
-        {visibleSprints.length === 0 ? (
-          <div className="Widget__Empty">{t('home.widgets.activeSprints.empty')}</div>
+        {shownSprints.length === 0 ? (
+          <div className="Widget__Empty">
+            {t(visibleSprints.length === 0 ? 'home.widgets.activeSprints.empty' : 'home.widgets.activeSprints.emptyMine')}
+          </div>
         ) : (
           renderedSprints.map((sprint) => {
             // 바는 카테고리별로 나눠 칠하고, 오른쪽 x / y는 닫힘(done+cancelled) / 전체
@@ -135,6 +144,18 @@ export default function ActiveSprints({ compact = false, maxItems = compact ? 1 
           })
         )}
       </div>
+      {/* 목록 밖에 고정해 스크롤해도 보인다 */}
+      {otherCount > 0 && (
+        <button
+          type="button"
+          className="ActiveSprints__OthersToggle"
+          aria-pressed={includeOthers}
+          onClick={() => setIncludeOthers((v) => !v)}
+        >
+          <span className="ActiveSprints__OthersSwitch" aria-hidden="true" />
+          {t('home.widgets.activeSprints.includeOthers', { count: otherCount })}
+        </button>
+      )}
     </div>
   );
 }

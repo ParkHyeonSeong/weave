@@ -96,7 +96,7 @@
 
 .HomeCanvas, .HomeCanvas__DragPreview {
   .Widget { display: flex; flex-direction: column; height: 100%; min-height: 0; border-radius: 24px; background: var(--color-home-card); box-shadow: var(--shadow-home-card); color: var(--color-home-ink); }
-  .Widget__Header, .HomeTasks__Overview, .UnreadMessages__Total, .HomeScrum__Header, .HomeScrum__Primary { flex-shrink: 0; }
+  .Widget__Header, .HomeTasks__Overview, .UnreadMessages__Total, .HomeScrum__Header, .HomeScrum__Primary, .ActiveSprints__OthersToggle { flex-shrink: 0; }
   .Widget__Header { padding: 18px 20px 9px; gap: 8px; }
   .Widget__Title { color: var(--color-home-ink); font-size: 13px; letter-spacing: -.15px; }
   .Widget__Header svg { color: var(--color-home-muted); }
@@ -153,6 +153,14 @@
   .HomeSprint .ActiveSprints__SprintBranch { color: var(--color-home-muted); font-size: 10px; line-height: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .HomeSprint .ActiveSprints__SprintCount { color: var(--color-home-ink); font-size: 18px; line-height: 24px; letter-spacing: -.4px; }
   .HomeSprint .HChip--mine { display: inline-block; max-width: 100%; padding: 3px 6px; white-space: normal; overflow-wrap: anywhere; line-height: 16px; background: var(--color-home-hover); color: var(--color-home-accent); }
+  // 위젯 맨 아래 고정 줄. 스위치는 aria-pressed를 따라가는 장식이다.
+  .HomeSprint .ActiveSprints__OthersToggle { display: flex; align-items: center; gap: 6px; margin: 0 20px 8px; padding: 6px 0; border-top: 1px solid var(--color-home-line); color: var(--color-home-muted); font-size: 11px; line-height: 16px; text-align: left; }
+  .HomeSprint .ActiveSprints__OthersToggle:hover, .HomeSprint .ActiveSprints__OthersToggle[aria-pressed='true'] { color: var(--color-home-ink); }
+  .HomeSprint .ActiveSprints__OthersToggle:focus-visible { outline: 2px solid var(--color-home-accent); outline-offset: 2px; border-radius: 3px; }
+  .HomeSprint .ActiveSprints__OthersSwitch { position: relative; flex-shrink: 0; width: 22px; height: 12px; border-radius: 6px; background: var(--color-home-muted); transition: background 160ms ease; }
+  .HomeSprint .ActiveSprints__OthersSwitch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--color-home-card); transition: transform 160ms ease; }
+  .HomeSprint .ActiveSprints__OthersToggle[aria-pressed='true'] .ActiveSprints__OthersSwitch { background: var(--color-home-accent); }
+  .HomeSprint .ActiveSprints__OthersToggle[aria-pressed='true'] .ActiveSprints__OthersSwitch::after { transform: translateX(10px); }
   .UnreadMessages__Total { color: var(--color-home-ink); margin-bottom: 7px; }
   .Widget > .UnreadMessages__Total { margin: 0 20px 7px; }
   .UnreadMessages__Room { padding: 6px 0; width: 100%; gap: 5px; text-align: left; }
@@ -178,7 +186,7 @@
   .HomeCanvas .Widget__Header { padding: 16px 16px 9px; }
   .HomeCanvas .Widget__Body { padding-left: 16px; padding-right: 16px; }
   .HomeCanvas .HomeScrum .Widget__Body { padding: 0; }
-  .HomeCanvas .Widget > .UnreadMessages__Total { margin-left: 16px; margin-right: 16px; }
+  .HomeCanvas .Widget > .UnreadMessages__Total, .HomeCanvas .HomeSprint .ActiveSprints__OthersToggle { margin-left: 16px; margin-right: 16px; }
   .HomeCanvas .HomeTasks__Overview { margin-left: 16px; margin-right: 16px; gap: 8px; }
   .HomeCanvas .HomeTasks__Summary { flex-basis: 84px; }
 }
@@ -200,4 +208,5 @@
 @media (prefers-reduced-motion: reduce) {
   .HomeCanvas--editing .HomeCanvas__Item--app .HomeCanvas__TileContent { animation: none; }
   .HomeCanvas__Icon { transition: none; }
+  .HomeCanvas .HomeSprint .ActiveSprints__OthersSwitch, .HomeCanvas .HomeSprint .ActiveSprints__OthersSwitch::after { transition: none; }
 }

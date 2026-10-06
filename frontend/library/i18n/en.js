@@ -1746,6 +1746,9 @@ const en = {
       activeSprints: {
         title: 'Active Sprints',
         empty: 'No active sprints',
+        emptyMine: "No active sprints you're part of",
+        includeOthers_one: 'Include {{count}} other',
+        includeOthers_other: 'Include {{count}} others',
         myTasks_one: '{{count}} my task',
         myTasks_other: '{{count}} my tasks',
         myTasksLeft_one: '{{count}} left',

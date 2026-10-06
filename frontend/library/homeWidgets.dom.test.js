@@ -27,11 +27,17 @@ const expectRegion = label => { expect(region(label)).not.toBeNull(); expect(reg
 const dismissButton = (name, action) => [...container.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === `home.scrumCards.dismiss ${name} home.scrumCards.${action}`);
 const documents = () => Array.from({ length: 20 }, (_, i) => ({ type: 'doc', page_id: i + 1, canvas_id: 1, canvas_name: 'Canvas', title: `Document ${i + 1}`, viewed_at: '2026-10-04T00:00:00Z' }));
 const rooms = () => [...Array.from({ length: 5 }, (_, i) => ({ room_id: i + 1, room_name: `Room ${i + 1}`, unread_count: i + 1 })), { room_id: 6, room_name: 'Read room', unread_count: 0 }];
-const seedSprints = () => {
-  replies['/branches'] = { branches: [{ branch_id: 1, branch_name: 'Branch', key: 'B' }] };
-  replies['/branches/1/sprints'] = { sprints: Array.from({ length: 3 }, (_, i) => ({ sprint_id: i + 1, sprint_name: `Sprint ${i + 1}`, status: 'active' })) };
-  for (let id = 1; id <= 3; id++) replies[`/branches/1/sprints/${id}/task-counts`] = { all_done_count: 1, all_total_count: 5, all_in_progress_count: 1, all_cancelled_count: 0, my_count: 1, my_incomplete_count: 1 };
+// { [branchId]: [[sprintId, myCount, endDate?], ...] } → 브랜치·활성 스프린트·task-counts 응답
+const seedActiveSprints = branches => {
+  replies['/branches'] = { branches: Object.keys(branches).map(id => ({ branch_id: Number(id), branch_name: `Branch ${id}`, key: `B${id}` })) };
+  for (const [branchId, sprints] of Object.entries(branches)) {
+    replies[`/branches/${branchId}/sprints`] = { sprints: sprints.map(([sprintId, , endDate = null]) => ({ sprint_id: sprintId, sprint_name: `Sprint ${sprintId}`, status: 'active', start_date: null, end_date: endDate })) };
+    for (const [sprintId, mine] of sprints) replies[`/branches/${branchId}/sprints/${sprintId}/task-counts`] = { done_count: 1, incomplete_count: 4, all_done_count: 1, all_total_count: 5, all_in_progress_count: 1, all_cancelled_count: 0, my_count: mine, my_incomplete_count: mine };
+  }
 };
+const seedSprints = () => seedActiveSprints({ 1: [[1, 1], [2, 1], [3, 1]] });
+const shownSprintIds = () => [...container.querySelectorAll('.ActiveSprints__Item')].map(card => Number(card.getAttribute('href').split('sprint=')[1]));
+const othersToggle = () => container.querySelector('.ActiveSprints__OthersToggle');
 
 beforeEach(() => {
   prefs = {}; replies = {};
@@ -113,19 +119,66 @@ describe('home widget scroll contents', () => {
     expectRegion('home.widgets.activeSprints.title');
   });
 
-  it('includes personal task counts and zero remaining tasks on home sprint cards', async () => {
-    seedSprints();
-    replies['/branches/1/sprints/1/task-counts'].my_count = 3;
+  it('shows only sprints with my tasks by default, even when all of my tasks there are closed', async () => {
+    seedActiveSprints({ 1: [[1, 3], [2, 1], [3, 0]] });
     replies['/branches/1/sprints/1/task-counts'].my_incomplete_count = 0;
-    replies['/branches/1/sprints/3/task-counts'].my_count = 0;
-    replies['/branches/1/sprints/3/task-counts'].my_incomplete_count = 0;
     await mountHome('widget:sprints');
-    const cards = [...container.querySelectorAll('.ActiveSprints__Item')];
-    const completed = cards.find(card => card.getAttribute('href') === '/branch/1?tab=board&sprint=1');
+    expect(shownSprintIds()).toEqual([1, 2]);
+    const completed = container.querySelector('.ActiveSprints__Item');
     expect(completed.textContent).toContain('home.widgets.activeSprints.myTasks 3');
     expect(completed.textContent).toContain('home.widgets.activeSprints.myTasksLeft 0');
-    const unassigned = cards.find(card => card.getAttribute('href') === '/branch/1?tab=board&sprint=3');
-    expect(unassigned.textContent).not.toContain('home.widgets.activeSprints.myTasks');
+  });
+
+  it('adds the other sprints below mine while the pinned toggle is on', async () => {
+    seedActiveSprints({ 1: [[1, 1, '2026-10-20'], [2, 0, '2026-10-08'], [3, 2, '2026-10-15'], [4, 0, '2026-10-12']] });
+    await mountHome('widget:sprints');
+    expect(shownSprintIds()).toEqual([3, 1]);
+    expect(othersToggle().textContent).toContain('home.widgets.activeSprints.includeOthers 2');
+    expect(othersToggle().getAttribute('aria-pressed')).toBe('false');
+    expect(region('home.widgets.activeSprints.title').contains(othersToggle())).toBe(false);
+    await act(async () => othersToggle().click());
+    expect(othersToggle().getAttribute('aria-pressed')).toBe('true');
+    expect(shownSprintIds()).toEqual([3, 1, 2, 4]);
+    const others = [...container.querySelectorAll('.ActiveSprints__Item')].slice(2);
+    for (const card of others) expect(card.textContent).not.toContain('home.widgets.activeSprints.myTasks');
+    await act(async () => othersToggle().click());
+    expect(shownSprintIds()).toEqual([3, 1]);
+  });
+
+  it('offers no toggle when every visible sprint has my tasks', async () => {
+    seedSprints();
+    await mountHome('widget:sprints');
+    expect(shownSprintIds()).toEqual([1, 2, 3]);
+    expect(othersToggle()).toBeNull();
+  });
+
+  it('leaves hidden branches out of the list and the other-sprint count', async () => {
+    prefs = { hidden: { branches: [2] } };
+    seedActiveSprints({ 1: [[1, 1], [2, 0]], 2: [[3, 0], [4, 1]] });
+    await mountHome('widget:sprints');
+    expect(shownSprintIds()).toEqual([1]);
+    expect(othersToggle().textContent).toContain('home.widgets.activeSprints.includeOthers 1');
+    await act(async () => othersToggle().click());
+    expect(shownSprintIds()).toEqual([1, 2]);
+  });
+
+  it('says I am in no active sprint and keeps the toggle when only other sprints are active', async () => {
+    seedActiveSprints({ 1: [[1, 0]] });
+    await mountHome('widget:sprints');
+    expect(container.querySelector('.Widget__Empty').textContent).toBe('home.widgets.activeSprints.emptyMine');
+    await act(async () => othersToggle().click());
+    expect(container.querySelector('.Widget__Empty')).toBeNull();
+    expect(shownSprintIds()).toEqual([1]);
+  });
+
+  it.each([
+    ['nothing is active', () => {}],
+    ['only hidden branches have active sprints', () => { prefs = { hidden: { branches: [2] } }; seedActiveSprints({ 2: [[1, 0], [2, 1]] }); }],
+  ])('keeps the no-active-sprint message without a toggle when %s', async (_, seed) => {
+    seed();
+    await mountHome('widget:sprints');
+    expect(container.querySelector('.Widget__Empty').textContent).toBe('home.widgets.activeSprints.empty');
+    expect(othersToggle()).toBeNull();
   });
 
   it('pins the total outside the five unread rooms and opens the last room', async () => {
