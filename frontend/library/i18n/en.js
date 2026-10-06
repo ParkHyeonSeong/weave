@@ -1730,18 +1730,6 @@ const en = {
       retroDue: 'Time to write your retrospective',
       writeRetro: 'Write retro →',
     },
-    widgetZone: {
-      title: 'My workspace',
-      done: 'Done',
-      empty: 'No widgets to show. Add one from Edit.',
-    },
-    widgetRegistry: {
-      mytasks: 'My Tasks',
-      recent: 'Recent',
-      starred: 'Starred',
-      sprints: 'Active sprints',
-      messages: 'Unread messages',
-    },
     widgets: {
       activeSprints: {
         title: 'Active Sprints',

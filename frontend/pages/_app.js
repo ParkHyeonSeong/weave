@@ -78,7 +78,6 @@ import "@/styles/components/branch/settingsGithub.scss";
 import "@/styles/components/browse/browseBranches.scss";
 import "@/styles/components/home/launchpad.scss";
 import "@/styles/components/home/archive-view.scss";
-import "@/styles/components/home/widget-zone.scss";
 import "@/styles/components/home/dashboard.scss";
 import "@/styles/components/home/widget.scss";
 import "@/styles/components/home/home-canvas.scss";

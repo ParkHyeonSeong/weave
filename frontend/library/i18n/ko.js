@@ -1728,18 +1728,6 @@ const ko = {
       retroDue: '회고할 시간이에요',
       writeRetro: '회고 쓰기 →',
     },
-    widgetZone: {
-      title: '내 워크스페이스',
-      done: '완료',
-      empty: '표시할 위젯이 없어요. 편집에서 위젯을 추가하세요.',
-    },
-    widgetRegistry: {
-      mytasks: '내 작업',
-      recent: '최근',
-      starred: '즐겨찾기',
-      sprints: '진행중 스프린트',
-      messages: '읽지 않은 메시지',
-    },
     widgets: {
       activeSprints: {
         title: '진행 중 스프린트',
