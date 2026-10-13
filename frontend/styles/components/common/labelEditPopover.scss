@@ -1,0 +1,186 @@
+@use '../../variables' as *;
+
+// 라벨 이름·색 편집창. DropdownPortal(fixed, z 2000)이 라벨 입력칸 아래(자리가 없으면 위)에 띄운다.
+// 낮은 화면에서는 편집창 안에서 스크롤한다.
+.LabelEditPopover {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  width: min(320px, calc(100vw - 16px));
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  padding: $space-4;
+  background: $color-bg;
+  border: 1px solid $color-input-border;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-lg;
+  color: $color-text;
+
+  // 편집창 자신은 포커스를 받아 두기 위한 것이라(빈 곳 클릭·저장 중) 테두리를 그리지 않는다
+  &:focus {
+    outline: none;
+  }
+
+  &__Header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__Title {
+    margin: 0;
+    font-size: $font-size-base;
+    font-weight: $font-weight-semibold;
+  }
+
+  &__Close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: $radius-md;
+    color: $color-text-tertiary;
+
+    &:hover:not(:disabled) {
+      background: $color-surface;
+      color: $color-text;
+    }
+  }
+
+  &__Label {
+    margin-top: $space-1;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-semibold;
+    color: $color-text-secondary;
+  }
+
+  &__NameInput {
+    width: 100%;
+    padding: 6px $space-2;
+    border: 1px solid $color-input-border;
+    border-radius: $radius-md;
+    background: $color-input-bg;
+    color: $color-text;
+    font-size: $font-size-sm;
+
+    &:focus {
+      outline: none;
+      border-color: $color-border-focus;
+      box-shadow: $shadow-focus;
+    }
+
+    &--error,
+    &--error:focus {
+      border-color: $color-error;
+    }
+  }
+
+  &__FieldError,
+  &__SaveError {
+    margin: 0;
+    font-size: $font-size-xs;
+    color: $color-error;
+  }
+
+  &__Previews {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-2;
+  }
+
+  &__Preview {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+    min-width: 0;
+  }
+
+  &__PreviewCaption {
+    font-size: 11px;
+    color: $color-text-tertiary;
+  }
+
+  // 바탕색은 인라인(두 테마의 실제 표면값). 칩은 LabelTagInput__Chip과 같은 모양
+  &__PreviewSurface {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: $space-2;
+    border: 1px solid $color-border;
+    border-radius: $radius-md;
+    overflow: hidden;
+  }
+
+  &__PreviewChip {
+    max-width: 100%;
+    padding: 1px 6px;
+    border: 1px solid;
+    border-radius: $radius-sm;
+    font-size: 11px;
+    font-weight: $font-weight-semibold;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__Note {
+    margin: 0;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+    color: $color-text-secondary;
+  }
+
+  // 낮은 화면에서 편집창 안이 스크롤돼도 실패 이유와 적용·취소는 편집창 아래에 붙어 보인다(sticky).
+  // 편집창의 안쪽 여백까지 덮도록 그만큼 바깥으로 넓히고 같은 바탕을 깐다 — 넉넉한 화면에서는 모양이 그대로다.
+  &__Footer {
+    position: sticky;
+    bottom: calc(-1 * #{$space-4});
+    display: flex;
+    flex-direction: column;
+    gap: $space-2;
+    margin: calc(-1 * #{$space-2}) calc(-1 * #{$space-4}) calc(-1 * #{$space-4});
+    padding: $space-2 $space-4 $space-4;
+    background: $color-bg;
+  }
+
+  &__Actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-2;
+    margin-top: $space-1;
+  }
+
+  &__Cancel,
+  &__Apply {
+    height: 32px;
+    border-radius: $radius-md;
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__Cancel {
+    border: 1px solid $color-input-border;
+    background: $color-bg;
+    color: $color-text;
+
+    &:hover:not(:disabled) {
+      background: $color-surface-hover;
+    }
+  }
+
+  &__Apply {
+    background: $color-primary;
+    color: $color-text-inverse;
+
+    &:hover:not(:disabled) {
+      background: $color-primary-hover;
+    }
+  }
+}

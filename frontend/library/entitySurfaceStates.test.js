@@ -16,7 +16,7 @@ import { TIPTAP_COLOR_MAP } from './tiptapColorMap.js';
 // 표 셀처럼 **사용자가 부모 색을 고르는** 자리도 있다.
 //
 // 네 가지를 한 파일에서 물린다. 하나라도 빠지면 계약이 공허해진다:
-//   ① 호출부 소스가 그 옵션을 실제로 넘기는가   (AST 호출 원장 17곳 exact)
+//   ① 호출부 소스가 그 옵션을 실제로 넘기는가   (AST 호출 원장 18곳 exact)
 //   ② 그 상태에서 **CSS가 실제로 이기는 배경**이 무엇인가 (컴파일 산출 캐스케이드)
 //   ③ 그 배경 위에서 산출이 서는가              (코퍼스 전건)
 //   ④ 그 부모가 임의 색·조상 opacity로 새지 않는가 (표 셀 · --context)
@@ -223,7 +223,7 @@ describe('호출부 소스가 이 옵션을 실제로 넘긴다', () => {
   });
 });
 
-// ①-b 제품 호출 17곳 exact 원장 (AST) ───────────────────────────────────────
+// ①-b 제품 호출 18곳 exact 원장 (AST) ───────────────────────────────────────
 // ⛔ 문자열/정규식 스캐너를 쓰지 마라 — 주석·문자열 리터럴에 같은 텍스트가 있으면 호출로 오인한다.
 //    acorn(+acorn-jsx)으로 파싱해 **import 바인딩을 호출하는 CallExpression만** 센다.
 const JsxParser = Parser.extend(jsx());
@@ -303,20 +303,23 @@ const EXPECTED_CALLS = [
   ["components/Track/Tree/TrackTree.js", "entityTintStyle(ws.color, { from: 8, alpha: '14', surface: 'track-card' })"],
   // ⚠️ 라벨 입력 칩. 종전 원장이 이 호출을 빠뜨려 16으로 셌다.
   ["components/common/LabelTagInput.js", "entityTintStyle(label.color, { alpha: '20' })"],
+  // 라벨 편집창 미리보기 칩. 부모 = 미리보기 타일이고 그 바탕을 default 프로파일 값(양 테마 --color-surface)으로
+  // 칠하므로 default 그대로다. 테마별 산출값을 인라인으로 직접 고르고 EntityTint 클래스는 붙이지 않는다.
+  ["components/common/LabelEditPopover.js", "entityTintStyle(color, { alpha: '20' })"],
   ["library/refHydration.js", "entityTintStyle(color, { alpha: '20', surface: 'task-ref' })"],
 ].map(([f, c]) => `${f}\t${c}`);
 
-describe('entityTintStyle 제품 호출 원장 — 17곳/15파일 exact (AST)', () => {
+describe('entityTintStyle 제품 호출 원장 — 18곳/16파일 exact (AST)', () => {
   const realFiles = PRODUCT_ROOTS
     .flatMap((r) => walkJs(resolve(frontendDir, r)))
     .filter((f) => f !== resolve(frontendDir, 'library/entityTint.js'))
     .map((f) => [relative(frontendDir, f), readFileSync(f, 'utf8')]);
   const actual = inventoryOf(realFiles);
 
-  it('호출 17곳 · 파일 15개다', () => {
-    expect(EXPECTED_CALLS).toHaveLength(17);
-    expect(actual, `실제 호출:\n${actual.join('\n')}`).toHaveLength(17);
-    expect(new Set(actual.map((k) => k.split('\t')[0])).size).toBe(15);
+  it('호출 18곳 · 파일 16개다', () => {
+    expect(EXPECTED_CALLS).toHaveLength(18);
+    expect(actual, `실제 호출:\n${actual.join('\n')}`).toHaveLength(18);
+    expect(new Set(actual.map((k) => k.split('\t')[0])).size).toBe(16);
   });
 
   it('누락 0 · 잉여 0 — (파일, 호출문) multiset이 exact다', () => {

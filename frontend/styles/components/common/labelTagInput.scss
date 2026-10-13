@@ -38,6 +38,26 @@
     line-height: 1.4;
   }
 
+  // 칩의 이름 = 라벨 편집 열기 버튼(해제 ×와 분리). 색은 칩의 틴트 글자색을 그대로 물려받는다
+  &__ChipEdit {
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+
+    &:hover {
+      text-decoration: underline;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $color-border-focus;
+      outline-offset: 1px;
+      border-radius: 2px;
+    }
+  }
+
   &__ChipRemove {
     display: inline-flex;
     align-items: center;
@@ -128,6 +148,32 @@
     white-space: nowrap;
   }
 
+  // 미할당 라벨 편집 — 삭제처럼 행에 올렸을 때 보이고, 키보드 포커스·터치 기기에서는 항상 보인다
+  &__OptionEdit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    border-radius: $radius-sm;
+    color: $color-text-tertiary;
+    opacity: 0;
+    transition: all $transition-fast;
+
+    .LabelTagInput__Option:hover &,
+    &:focus-visible {
+      opacity: 1;
+    }
+
+    &:hover {
+      color: $color-text;
+      background: $color-surface-hover;
+    }
+
+    @media (hover: none) {
+      opacity: 1;
+    }
+  }
+
   &__OptionDelete {
     display: flex;
     align-items: center;
@@ -152,40 +198,6 @@
     height: 1px;
     background: $color-border;
     margin: $space-1 0;
-  }
-}
-
-// portal로 body에 렌더되는 색상 팔레트
-.LabelTagInput__ColorPicker {
-  position: fixed;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  padding: 6px;
-  background: $color-bg;
-  border: 1px solid $color-input-border;
-  border-radius: $radius-md;
-  box-shadow: $shadow-md;
-  z-index: 10000;
-  animation: labelTagFadeIn 100ms ease;
-}
-
-.LabelTagInput__ColorSwatch {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  transition: all $transition-fast;
-
-  &:hover {
-    transform: scale(1.2);
-  }
-
-  &--active {
-    border-color: $color-text;
-    box-shadow: 0 0 0 1px $color-bg;
   }
 }
 

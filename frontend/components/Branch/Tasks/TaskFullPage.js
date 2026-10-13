@@ -27,6 +27,9 @@ import TaskPageLinkSection from './TaskPageLinkSection';
 import TaskGithubRefSection from './TaskGithubRefSection';
 import TaskDescriptionEditor from './TaskDescriptionEditor';
 import TaskCustomFieldInput from './TaskCustomFieldInput';
+import TaskSectionNav from './TaskSectionNav';
+import { usePageScrollElement } from '@/components/shared/RefPanelPageLayout';
+import { FULL_PAGE_NAV } from '@/library/taskSectionNav';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import ActivityTimeline from '@/components/common/ActivityTimeline';
 import { taskDeleteMessage } from '@/library/taskDeleteMessage';
@@ -83,6 +86,10 @@ export default function TaskFullPage() {
 
   // 삭제 확인
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // 섹션 바로가기 — 스크롤 영역은 레이아웃의 __Main, 섹션은 본문 열(__Main)의 직계 자식
+  const pageScrollEl = usePageScrollElement();
+  const [mainColEl, setMainColEl] = useState(null);
 
   // readonly 설명의 ref 칩 하이드레이션 (최신 제목·상태 + 탭 내 변경 이벤트)
   const descRef = useRef(null);
@@ -192,7 +199,7 @@ export default function TaskFullPage() {
       {/* 2단 레이아웃 */}
       <div className="TaskFullPage__Layout">
         {/* 왼쪽: 제목 + 상태 + 설명 + 이슈 */}
-        <div className="TaskFullPage__Main">
+        <div className="TaskFullPage__Main" ref={setMainColEl}>
           {/* 제목 */}
           <div className="TaskFullPage__TitleWrap">
             {editingTitle ? (
@@ -231,6 +238,9 @@ export default function TaskFullPage() {
             )}
           </div>
 
+          {/* 섹션 바로가기 — 본문 열 안에서 sticky. 속성은 오른쪽 열이라 메뉴에 없다 */}
+          <TaskSectionNav nav={FULL_PAGE_NAV} scrollEl={pageScrollEl} rootEl={mainColEl} />
+
           {/* 하위태스크 — 제목/상태 바로 아래. 긴 설명을 지나 스크롤하지 않고 바로 체크하기 위해서다. */}
           <TaskSubtaskSection
             key={`${branchId}:${task.task_id}`}
@@ -249,7 +259,7 @@ export default function TaskFullPage() {
           <div className="TaskFullPage__Divider" />
 
           {/* 설명 */}
-          <div className="TaskFullPage__Section">
+          <div className="TaskFullPage__Section" data-task-section="description">
             <div className="TaskFullPage__SectionLabel">
               {t('branchTasks.detail.description')}
               {!editingDesc && task.description && (
@@ -332,11 +342,13 @@ export default function TaskFullPage() {
 
           <div className="TaskFullPage__Divider" />
 
-          {/* 활동 이력 */}
-          <ActivityTimeline
-            apiUrl={`/branches/${branchId}/tasks/${task.task_id}/activity`}
-            expanded
-          />
+          {/* 활동 이력 — 공용 컴포넌트라 바로가기 표지는 감싼 요소에 단다 */}
+          <div data-task-section="activity">
+            <ActivityTimeline
+              apiUrl={`/branches/${branchId}/tasks/${task.task_id}/activity`}
+              expanded
+            />
+          </div>
         </div>
 
         {/* 오른쪽: 세부 사항 */}
@@ -442,7 +454,7 @@ export default function TaskFullPage() {
                 onToggle={toggleLabel}
                 onCreate={createLabel}
                 onDelete={deleteLabel}
-                onUpdateColor={(labelId, color) => updateLabel(labelId, { color })}
+                onUpdateLabel={updateLabel}
               />
             </FieldRow>
 

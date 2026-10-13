@@ -222,7 +222,8 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
   }, [branchId]);
 
   useEffect(() => {
-    const handleRefresh = () => fetchData();
+    // 라벨 이름·색 변경도 task:updated로 온다 — 행과 함께 필터·「라벨로 묶기」 머리가 쓰는 라벨 목록도 다시 받는다
+    const handleRefresh = () => { fetchData(); fetchLabels(); };
     window.addEventListener('task:updated', handleRefresh);
     return () => window.removeEventListener('task:updated', handleRefresh);
   }, [branchId]);
@@ -283,6 +284,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
       const memberRes = await axios.get(`/branches/${branchId}/members`);
       if (memberRes.data.status) setMembers(memberRes.data.members);
     } catch {}
+    await fetchLabels();
+  };
+
+  const fetchLabels = async () => {
     try {
       const labelRes = await axios.get(`/branches/${branchId}/labels`);
       if (labelRes.data.status) setLabels(labelRes.data.labels);

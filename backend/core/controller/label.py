@@ -1,4 +1,5 @@
 from fastapi import Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.errors import error_response, ErrorCode
@@ -45,12 +46,18 @@ async def update(label_id: int, body, branch_id: int, request: Request, db: Asyn
     if not label or label['branch_id'] != branch_id:
         return error_response(ErrorCode.LABEL_NOT_FOUND)
 
-    await label_model.update(
-        label_id,
-        body.label_name or label['label_name'],
-        body.color or label['color'],
-        db,
-    )
+    try:
+        # 같은 브랜치의 같은 이름(UNIQUE(branch_id, label_name)) 위반은 바깥 트랜잭션을 abort시키므로
+        # savepoint 안에서 수정한다(github_ref·github_integration과 같은 패턴). 예전에는 500이었다.
+        async with db.begin_nested():
+            await label_model.update(
+                label_id,
+                body.label_name or label['label_name'],
+                body.color or label['color'],
+                db,
+            )
+    except IntegrityError:
+        return error_response(ErrorCode.LABEL_ALREADY_EXISTS)
     return {'status': True}
 
 

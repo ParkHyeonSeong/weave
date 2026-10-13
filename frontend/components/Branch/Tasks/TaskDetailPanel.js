@@ -25,6 +25,9 @@ import TaskPageLinkSection from './TaskPageLinkSection';
 import TaskDescriptionEditor from './TaskDescriptionEditor';
 import TaskCommentSection from './TaskCommentSection';
 import TaskCustomFieldInput from './TaskCustomFieldInput';
+import TaskSectionNav from './TaskSectionNav';
+import ScrollTopButton from '@/components/common/ScrollTopButton';
+import { PANEL_NAV } from '@/library/taskSectionNav';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import ActivityTimeline from '@/components/common/ActivityTimeline';
 import NavLink from '@/components/common/NavLink';
@@ -93,6 +96,10 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
   // 삭제 확인
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // 섹션 바로가기·맨 위로 버튼이 쓰는 요소 — 태스크가 로드된 뒤에야 생겨 ref 대신 state로 받는다
+  const [bodyEl, setBodyEl] = useState(null);
+  const [panelEl, setPanelEl] = useState(null);
+
   // readonly 설명의 ref 칩 하이드레이션 (최신 제목·상태 + 탭 내 변경 이벤트)
   const descRef = useRef(null);
   useRefHydration(descRef, [task?.description, editingDesc], !editingDesc);
@@ -146,7 +153,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
     || (branchKey ? `${branchKey}-${task.display_number}` : `#${task.display_number}`);
 
   return (
-    <div className="TaskDetailPanel">
+    <div className="TaskDetailPanel" ref={setPanelEl}>
       {/* 헤더 */}
       <div className="TaskDetailPanel__Header">
         <div className="TaskDetailPanel__HeaderLeft">
@@ -178,7 +185,10 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         </div>
       </div>
 
-      <div className="TaskDetailPanel__Body">
+      {/* 섹션 바로가기 — 헤더 바로 아래, 스크롤 영역 밖이라 본문을 가리지 않고 늘 보인다 */}
+      <TaskSectionNav nav={PANEL_NAV} scrollEl={bodyEl} rootEl={bodyEl} />
+
+      <div className="TaskDetailPanel__Body" ref={setBodyEl}>
         {task?.parent && (
           <NavLink
             href={`/branch/${branchId}/task/${task.parent.task_id}`}
@@ -245,7 +255,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         <div className="TaskDetailPanel__Divider" />
 
         {/* 설명 */}
-        <div className="TaskDetailPanel__Section">
+        <div className="TaskDetailPanel__Section" data-task-section="description">
           <div className="TaskDetailPanel__SectionLabel">
             {t('branchTasks.detail.description')}
             {!editingDesc && task.description && (
@@ -302,7 +312,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
         <div className="TaskDetailPanel__Divider" />
 
         {/* 세부 사항 */}
-        <div className="TaskDetailPanel__Section">
+        <div className="TaskDetailPanel__Section" data-task-section="details">
           <div className="TaskDetailPanel__SectionLabel">{t('branchTasks.detail.details')}</div>
           <div className="TaskDetailPanel__Fields">
             {/* 타입 */}
@@ -411,7 +421,7 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
                 onToggle={toggleLabel}
                 onCreate={createLabel}
                 onDelete={deleteLabel}
-                onUpdateColor={(labelId, color) => updateLabel(labelId, { color })}
+                onUpdateLabel={updateLabel}
               />
             </DetailRow>
 
@@ -518,19 +528,24 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
 
         <div className="TaskDetailPanel__Divider" />
 
-        {/* 활동 이력 */}
-        <ActivityTimeline
-          apiUrl={`/branches/${branchId}/tasks/${task.task_id}/activity`}
-        />
+        {/* 활동 이력 — 공용 컴포넌트라 바로가기 표지는 감싼 요소에 단다 */}
+        <div data-task-section="activity">
+          <ActivityTimeline
+            apiUrl={`/branches/${branchId}/tasks/${task.task_id}/activity`}
+          />
+        </div>
 
         <div className="TaskDetailPanel__Divider" />
 
         {/* 삭제 */}
-        <button className="TaskDetailPanel__DeleteBtn" onClick={() => setShowDeleteConfirm(true)}>
+        <button className="TaskDetailPanel__DeleteBtn" data-scroll-top-avoid onClick={() => setShowDeleteConfirm(true)}>
           <Trash2 size={14} />
           {t('branchTasks.detail.deleteTask')}
         </button>
       </div>
+
+      {/* 맨 위로 — 패널 기준 우하단(본문 영역과 같은 오른쪽·아래 경계) */}
+      <ScrollTopButton scrollEl={bodyEl} regionEl={panelEl} />
 
       <ConfirmModal
         isOpen={showDeleteConfirm}

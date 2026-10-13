@@ -42,7 +42,7 @@ export default function TaskIssueSection({ branchId, taskId, expanded = false })
   const closedCount = issues.length - openCount;
 
   return (
-    <div className="TaskIssueSection">
+    <div className="TaskIssueSection" data-task-section="issues">
       <div className="TaskIssueSection__Header">
         <span className="TaskIssueSection__Label">
           {t('branchTasks.issue.sectionTitle')}

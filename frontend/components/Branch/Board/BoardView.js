@@ -138,7 +138,8 @@ export default function BoardView({
 
   // task:updated 이벤트
   useEffect(() => {
-    const handleRefresh = () => fetchActiveSprints();
+    // 라벨 이름·색 변경도 task:updated로 온다 — 카드와 함께 필터·「라벨로 묶기」 머리가 쓰는 라벨 목록도 다시 받는다
+    const handleRefresh = () => { fetchActiveSprints(); fetchLabels(); };
     window.addEventListener('task:updated', handleRefresh);
     return () => window.removeEventListener('task:updated', handleRefresh);
   }, [branchId, selectedSprintId]); // ← selectedSprintId 추가 (stale closure 방지)
@@ -162,6 +163,13 @@ export default function BoardView({
     setSprintsLoaded(true);
   };
 
+  const fetchLabels = async () => {
+    try {
+      const res = await axios.get(`/branches/${branchId}/labels`);
+      if (res.data.status) setLabels(res.data.labels);
+    } catch {}
+  };
+
   const fetchOptions = async () => {
     try {
       const res = await axios.get(`/branches/${branchId}/members`);
@@ -171,10 +179,7 @@ export default function BoardView({
       const res = await axios.get(`/branches/${branchId}/epics`);
       if (res.data.status) setEpics(res.data.epics);
     } catch {}
-    try {
-      const res = await axios.get(`/branches/${branchId}/labels`);
-      if (res.data.status) setLabels(res.data.labels);
-    } catch {}
+    await fetchLabels();
     // custom field 메타 — 고급 빌더 cf 조건용 (task type별 엔드포인트 병합, 실패 시 [] 폴백)
     try {
       const typeIds = (taskTypes || []).map((t) => t.type_id).filter((id) => id != null);

@@ -765,6 +765,23 @@
   }
 }
 
+// 맨 위로 버튼(RefPanelPageLayout__MainWrap 우하단) 보정 — 실제로 덮는 Canvas 고정 UI가 열렸을 때만.
+// 기록(340px)·주석(380px) 사이드바는 뷰포트 오른쪽 끝에 붙는다(position: fixed). ref 패널이 없으면 본문 영역의
+// 오른쪽 끝을 덮으므로 그 폭만큼 왼쪽으로 옮긴다 — ref 패널이 있으면 사이드바가 ref 패널 쪽을 덮어 버튼과
+// 겹치지 않는다. 둘 다 열리면 넓은 주석 사이드바가 이기도록 주석 규칙을 뒤에 둔다. 모바일은 사이드바가
+// 화면 전체(주석 100vw)라 옮길 자리가 없어 그대로 둔다.
+@media (min-width: $bp-mobile) {
+  .RefPanelPageLayout:not(:has(> .TaskDetailPanel, > .RefPreviewPanel)) {
+    .RefPanelPageLayout__MainWrap:has(.CanvasPageView__HistorySidebar) > .ScrollTopButton {
+      right: calc(#{$space-4} + 340px);
+    }
+
+    .RefPanelPageLayout__MainWrap:has(.AnnotationSidebar) > .ScrollTopButton {
+      right: calc(#{$space-4} + 380px);
+    }
+  }
+}
+
 // 빈 콘텐츠 안내 — 번역 문구를 __html로 흘리지 않기 위해 별도 요소로 그린다(storedHtmlInvariance).
 .CanvasPageView__EmptyHint {
   color: $color-text-secondary;

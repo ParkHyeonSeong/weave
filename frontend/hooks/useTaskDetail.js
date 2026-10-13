@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
 import { getErrorCode, getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { labelSaveFailure } from '@/library/labelEdit';
 import { showToast } from '@/components/Layout/Toast';
 
 /**
@@ -510,16 +511,27 @@ export default function useTaskDetail(branchId, taskId) {
     } catch {}
   };
 
-  // 라벨 수정 (색상 변경 등)
+  // 라벨 이름·색 수정 — 결과를 돌려준다({ ok:true } | { ok:false, code, category, network }).
+  // 편집창이 실패를 그 자리에 보이고 초안을 지키려면 성공·실패를 알아야 한다(예전엔 실패를 삼켰다).
+  // 성공하면 브랜치 라벨 목록과 이 태스크를 다시 받은 뒤 돌려준다 — 편집창이 닫힐 때 칩이 이미 새 값이게.
+  // 다른 화면은 task:updated로 다시 읽는다 — 목록·보드는 행·카드와 라벨 목록(필터·「라벨로 묶기」 머리)을,
+  // 내 작업·브랜치 홈·아카이브는 행을. label_id는 그대로라
+  // 태스크 연결(task_label)은 바뀌지 않는다.
   const updateLabel = async (labelId, updates) => {
+    let res;
     try {
-      const res = await axios.patch(`/branches/${branchId}/labels/${labelId}`, updates);
-      if (res.data.status) {
-        await fetchOptions();
-        resync();
-        emitTaskUpdated();
-      }
-    } catch {}
+      res = await axios.patch(`/branches/${branchId}/labels/${labelId}`, updates);
+    } catch (err) {
+      return labelSaveFailure(err);
+    }
+    if (!res.data?.status) {
+      // 컨트롤러 거절은 200 + {status:false} (silent-200 계약) — 호출부에서 확인
+      const { code, category } = getError(res.data);
+      return { ok: false, code, category, network: false };
+    }
+    await Promise.all([fetchOptions(), resync()]);
+    emitTaskUpdated();
+    return { ok: true };
   };
 
   // 브랜치에서 라벨 삭제

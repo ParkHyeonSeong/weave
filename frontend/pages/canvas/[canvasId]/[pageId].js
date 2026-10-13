@@ -11,7 +11,7 @@ export default function CanvasPageRoute() {
         <title>{t('misc.pageTitles.canvasPage')}</title>
       </Head>
       {/* 읽기 모드 칩은 window 이벤트를 안 쏘므로 onRefClick으로 직접 전달 */}
-      <RefPanelPageLayout>
+      <RefPanelPageLayout scrollTopButton>
         {(setPreviewRef) => <CanvasPageView onRefClick={setPreviewRef} />}
       </RefPanelPageLayout>
     </>

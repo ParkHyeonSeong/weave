@@ -113,7 +113,8 @@ export default function TaskDescriptionEditor({ content, onSave, branchId }) {
   if (!editor) return null;
 
   return (
-    <div className="TaskDescEditor">
+    // data-scroll-top-avoid: 맨 위로 버튼이 편집기·툴바를 덮을 자리에 오면 숨는다
+    <div className="TaskDescEditor" data-scroll-top-avoid>
       <CanvasEditorToolbar
         editor={editor}
         rawModeEnabled

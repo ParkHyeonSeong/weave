@@ -75,7 +75,7 @@ export default function TaskGithubRefSection({ branchId, taskId }) {
   };
 
   return (
-    <div className="TaskGithubRefSection">
+    <div className="TaskGithubRefSection" data-task-section="pullRequests">
       <div className="TaskGithubRefSection__Header">
         <span className="TaskGithubRefSection__Label">{t('branchTasks.github.pullRequests')}</span>
         <button

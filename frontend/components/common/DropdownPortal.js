@@ -18,8 +18,11 @@ import { createPortal } from 'react-dom';
  * @param {'left'|'right'} [align='left'] - anchor 기준 정렬(오른쪽 정렬 시 anchor 우측에 맞춤)
  * @param {React.ReactNode} children - 드롭다운 내용
  * @param {React.RefObject<HTMLElement>} dropdownRef - 포털된 드롭다운 루트에 부착할 ref(외부 클릭 판정용)
+ * @param {boolean} [keepInViewport=false] - 세로로도 화면 안(8px 여백)에 붙잡아 두고, 내용 높이가 바뀌면 다시 맞춘다.
+ *   트리거가 스크롤로 화면 밖에 나가도 입력·버튼이 화면 밖으로 나가지 않아야 하는 편집창용(라벨 편집창).
+ *   끄면(기본) 지금 동작 그대로다.
  */
-export default function DropdownPortal({ anchorRef, open, align = 'left', children, dropdownRef }) {
+export default function DropdownPortal({ anchorRef, open, align = 'left', children, dropdownRef, keepInViewport = false }) {
   const [pos, setPos] = useState(null);
 
   useLayoutEffect(() => {
@@ -27,6 +30,7 @@ export default function DropdownPortal({ anchorRef, open, align = 'left', childr
       setPos(null);
       return;
     }
+    let ro = null;
     const update = () => {
       const r = anchorRef.current.getBoundingClientRect();
       const dd = dropdownRef.current;
@@ -36,6 +40,14 @@ export default function DropdownPortal({ anchorRef, open, align = 'left', childr
       left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
       let top = r.bottom + 4;
       if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4); // 아래 안 맞으면 위로 플립
+      if (keepInViewport) {
+        // 트리거가 화면 위로 나가면 top이 음수가 된다 — 위·아래 8px 안으로 붙잡는다(높이가 화면보다 크면 위에 붙인다)
+        top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+        if (dd && !ro && typeof ResizeObserver === 'function') {
+          ro = new ResizeObserver(() => { if (anchorRef.current) update(); });   // 실패 문구 등으로 높이가 바뀌면 다시 맞춘다
+          ro.observe(dd);
+        }
+      }
       setPos({ left, top, minWidth: r.width });
     };
     update();
@@ -46,8 +58,9 @@ export default function DropdownPortal({ anchorRef, open, align = 'left', childr
       cancelAnimationFrame(raf);
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
+      ro?.disconnect();
     };
-  }, [open, align, anchorRef, dropdownRef]);
+  }, [open, align, anchorRef, dropdownRef, keepInViewport]);
 
   if (!open || !pos) return null;
 

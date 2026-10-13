@@ -7,9 +7,19 @@
   height: 100%;
   @include panel-host-container;
 
-  &__Main {
+  // 본문 열 — 스크롤하지 않는 위치 기준. 맨 위로 버튼이 여기 붙어 본문 영역의 오른쪽·아래를 따라간다
+  // (ref 패널이 열려 본문이 좁아져도). fixed 자손(주석·기록 사이드바)의 기준은 그대로 이 레이아웃이다.
+  &__MainWrap {
+    position: relative;
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__Main {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
   }
 }

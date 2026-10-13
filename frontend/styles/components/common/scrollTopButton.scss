@@ -1,0 +1,66 @@
+@use '../../variables' as *;
+
+// 스크롤 영역의 맨 위로 버튼. 위치 기준 요소(패널 / RefPanelPageLayout__MainWrap)의 오른쪽·아래 16px.
+// 그 요소의 오른쪽·아래 경계가 곧 스크롤 영역의 경계다. 실제로 겹치는 고정 UI가 있는 자리만
+// 그 화면 SCSS가 right/bottom을 덧씌운다(taskDetailPanel·canvasPageView).
+.ScrollTopButton {
+  position: absolute;
+  right: $space-4;
+  bottom: $space-4;
+  z-index: 25;   // 본문·바로가기(20) 위, 열린 드롭다운(100)·패널 오버레이(120)·사이드바 아래
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid $color-border;
+  border-radius: 999px;
+  background: $color-bg;
+  color: $color-text-secondary;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  box-shadow: $shadow-md;
+  cursor: pointer;
+  transition: color $transition-fast, border-color $transition-fast;
+
+  // 숨김 — 자리는 그대로 두고(그 자리에 입력기가 겹치는지 잰다) 보이지도 눌리지도 않게
+  &--hidden {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  // 나타날 때마다 페이드(숨김 클래스가 빠질 때 애니메이션이 다시 걸린다)
+  &:not(.ScrollTopButton--hidden) {
+    animation: scrollTopFadeIn 150ms ease-out;
+
+    @media (prefers-reduced-motion: reduce) {
+      animation: none;
+    }
+  }
+
+  &:hover {
+    color: $color-text;
+    border-color: $color-border-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $color-border-focus;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+@keyframes scrollTopFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

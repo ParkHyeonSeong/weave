@@ -31,7 +31,7 @@ export default function TaskDependencySection({ branchId, taskId, onSelectTask }
   };
 
   return (
-    <div className="TaskDependencySection">
+    <div className="TaskDependencySection" data-task-section="dependencies">
       <div className="TaskDependencySection__Title">{t('branchTasks.dependencies.title')}</div>
       <div className="TaskDependencySection__List">
         {deps.map((dep) => (

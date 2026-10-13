@@ -1,6 +1,7 @@
 @use '../../variables' as *;
 
 .TaskDetailPanel {
+  position: relative;   // 맨 위로 버튼의 기준 — 오버레이(absolute)·모바일(fixed) 규칙이 아래에서 덮는다
   width: 420px;
   height: 100%;
   max-height: 100%;
@@ -605,6 +606,24 @@
   &__Inherited {
     font-size: $font-size-sm;
     color: $color-text-secondary;
+  }
+
+  // 맨 위로 버튼 — 패널 우하단 16px(기본값). 모바일 전체 화면 패널은 화면 끝에 닿으므로 기기 안전 영역만큼 더 띄운다
+  > .ScrollTopButton {
+    @include mobile {
+      right: calc(#{$space-4} + env(safe-area-inset-right, 0px));
+      bottom: calc(#{$space-4} + env(safe-area-inset-bottom, 0px));
+    }
+  }
+
+  // 끝까지 내렸을 때 마지막 조작 요소(태스크 삭제)가 버튼 자리(아래 16 + 높이 36) 위로 8px 떨어져 오도록 본문 끝을 비운다.
+  // 같은 클래스를 쓰는 에픽 패널은 버튼이 없어 그대로다.
+  &:has(> .ScrollTopButton) > .TaskDetailPanel__Body {
+    padding-bottom: calc(#{$space-4} + 36px + #{$space-2});
+
+    @include mobile {
+      padding-bottom: calc(#{$space-4} + 36px + #{$space-2} + env(safe-area-inset-bottom, 0px));
+    }
   }
 }
 

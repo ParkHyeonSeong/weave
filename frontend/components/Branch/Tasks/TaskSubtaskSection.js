@@ -110,7 +110,7 @@ export default function TaskSubtaskSection({
   };
 
   return (
-    <div className="TaskSubtaskSection">
+    <div className="TaskSubtaskSection" data-task-section="subtasks">
       <div className="TaskSubtaskSection__Header">
         <span className="TaskSubtaskSection__Label">
           {t('branchTasks.subtasks.title')}

@@ -79,7 +79,7 @@ export default function TaskPageLinkSection({ branchId, taskId }) {
   };
 
   return (
-    <div className="TaskPageLinkSection">
+    <div className="TaskPageLinkSection" data-task-section="pageLinks">
       <div className="TaskPageLinkSection__Header">
         <span className="TaskPageLinkSection__Label">{t('branchTasks2.pageLinks.title')}</span>
         <button

@@ -157,7 +157,8 @@ export default function CommentEditor({
     ? (errorText(submitError.code, submitError.category) ?? t('branchTasks.commentEditor.submitFailed'))
     : null;
   return (
-    <div className={`CommentEditor${submitting ? ' CommentEditor--submitting' : ''}`}>
+    // data-scroll-top-avoid: 맨 위로 버튼이 이 입력기(등록·취소 버튼 포함)를 덮을 자리에 오면 숨는다
+    <div className={`CommentEditor${submitting ? ' CommentEditor--submitting' : ''}`} data-scroll-top-avoid>
       {isRaw && <RawModeBadge warnings={warnings} parseError={parseError} />}
       {isRaw && (
         <div onKeyDownCapture={handleRawKeyDown}>

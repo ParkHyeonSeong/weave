@@ -85,7 +85,7 @@ export default function TaskCommentSection({
   };
 
   return (
-    <div className="TaskCommentSection">
+    <div className="TaskCommentSection" data-task-section="comments">
       <div className="TaskCommentSection__Header">
         <span>{t('branchTasks.comments.heading')}</span>
         <button

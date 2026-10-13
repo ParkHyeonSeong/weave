@@ -10,7 +10,7 @@ export default function TaskPage() {
       <Head>
         <title>{t('pageTitles.task')}</title>
       </Head>
-      <RefPanelPageLayout>
+      <RefPanelPageLayout scrollTopButton>
         <TaskFullPage />
       </RefPanelPageLayout>
     </>

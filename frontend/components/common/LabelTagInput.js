@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Trash2, Plus } from 'lucide-react';
+import { X, Trash2, Plus, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { entityBorderStyle, entityTintStyle } from '@/library/entityTint';
+import LabelEditPopover from '@/components/common/LabelEditPopover';
 
 const PRESET_COLORS = [
   '#5E6AD2', '#DC2626', '#F59E0B', '#16A34A', '#2563EB',
@@ -15,12 +15,20 @@ function getRandomColor() {
   return PRESET_COLORS[Math.floor(Math.random() * PRESET_COLORS.length)];
 }
 
-export default function LabelTagInput({ assignedLabels = [], allLabels = [], onToggle, onCreate, onDelete, onUpdateColor }) {
+// 편집 열기 버튼의 마우스 누름이 행의 부착(onMouseDown)으로 번지지 않게 막는다
+const stopMouseDown = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+/**
+ * onUpdateLabel(labelId, changes) → Promise<{ ok } | { ok:false, code, category, network }>
+ * 편집은 부착·해제·삭제와 다른 버튼에서만 열린다 — 칩의 이름 버튼(할당된 라벨), 목록의 점·연필(미할당 라벨).
+ */
+export default function LabelTagInput({ assignedLabels = [], allLabels = [], onToggle, onCreate, onDelete, onUpdateLabel }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [colorPickerLabelId, setColorPickerLabelId] = useState(null);
-  const [pickerPos, setPickerPos] = useState({ top: 0, left: 0 });
+  const [editing, setEditing] = useState(null);   // { label, returnFocus } — 편집창이 열린 라벨(연 순간의 값)
+  const editingRef = useRef(null);                 // 지금 열린 편집창 — 늦게 온 닫기·완료가 다른 편집창을 건드리지 않게 비교한다
+  const savingRef = useRef(false);                 // 저장 응답을 기다리는 중 — 그동안은 편집 대상을 바꾸지 않는다
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -29,12 +37,8 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
     if (!open) return;
     const handle = (e) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target)) {
-        // 포탈로 렌더된 팔레트 내부 클릭은 무시
-        const picker = document.getElementById('label-color-picker-portal');
-        if (picker && picker.contains(e.target)) return;
         setOpen(false);
         setQuery('');
-        setColorPickerLabelId(null);
       }
     };
     document.addEventListener('mousedown', handle);
@@ -62,7 +66,6 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
   const handleSelect = (labelId) => {
     onToggle(labelId);
     setQuery('');
-    setColorPickerLabelId(null);
     inputRef.current?.focus();
   };
 
@@ -88,25 +91,46 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
     }
   };
 
-  const openColorPicker = useCallback((labelId, dotEl) => {
-    if (colorPickerLabelId === labelId) {
-      setColorPickerLabelId(null);
-      return;
-    }
-    const rect = dotEl.getBoundingClientRect();
-    setPickerPos({ top: rect.bottom + 4, left: rect.left });
-    setColorPickerLabelId(labelId);
-  }, [colorPickerLabelId]);
-
-  const handleColorChange = (labelId, color) => {
-    if (onUpdateColor) onUpdateColor(labelId, color);
-    setColorPickerLabelId(null);
+  // returnFocus = 편집을 연 버튼. 목록에서 열었으면 목록이 닫혀 버튼이 사라지므로 null(입력칸으로 돌아온다).
+  // 저장 응답을 기다리는 동안에는 다른 라벨(칩·연필)을 눌러도 편집 대상을 바꾸지 않는다 — 초안·저장 대상·
+  // 늦게 온 응답이 서로 다른 라벨에 섞이지 않게(편집창은 그동안 '적용 중…'으로 남아 있다).
+  const openEditor = (label, returnFocus) => {
+    if (savingRef.current) return;
+    setOpen(false);
+    setQuery('');
+    const session = { label, returnFocus };
+    editingRef.current = session;
+    setEditing(session);
   };
 
-  // 현재 색상 팔레트 대상 라벨
-  const pickerLabel = colorPickerLabelId
-    ? allLabels.find((l) => l.label_id === colorPickerLabelId)
-    : null;
+  // session = 닫으려는 편집창(연 순간의 값). 이미 닫혔거나 다른 편집창으로 바뀌었으면 아무것도 하지 않는다.
+  const closeEditor = (session, reason) => {
+    if (editingRef.current !== session) return;
+    editingRef.current = null;
+    // 저장을 기다리는 사이 사용자가 다른 곳(댓글 입력기 등)으로 옮겨 갔다면 포커스를 빼앗지 않는다 —
+    // 편집창이 사라지기 전에, 포커스가 아직 편집창 안이거나 문서에 있는지 본다
+    const active = document.activeElement;
+    const focusInEditor = !active || active === document.body || !!active.closest?.('.LabelEditPopover');
+    setEditing(null);
+    if (reason === 'outside' || !focusInEditor) return;   // 다른 곳을 눌러 닫혔으면 그 자리의 포커스를 둔다
+    requestAnimationFrame(() => {
+      const back = session.returnFocus;
+      const target = back?.isConnected ? back : inputRef.current;
+      target?.focus({ preventScroll: true });
+    });
+  };
+
+  // 저장 대상은 그 편집창이 연 라벨이다(누른 순간의 값)
+  const applyEdit = async (session, changes) => {
+    savingRef.current = true;
+    try {
+      return await onUpdateLabel(session.label.label_id, changes);
+    } finally {
+      savingRef.current = false;
+    }
+  };
+  const onEditorApply = useCallback((changes) => applyEdit(editing, changes), [editing, onUpdateLabel]);
+  const onEditorClose = useCallback((reason) => closeEditor(editing, reason), [editing]);
 
   return (
     <div className="LabelTagInput" ref={wrapRef}>
@@ -120,11 +144,20 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
               className={`LabelTagInput__Chip${chipTint?.['--et-on'] ? ' EntityTint EntityBorder' : ''}`}
               style={{ ...chipTint, ...chipBd }}
             >
-              {label.label_name}
+              <button
+                type="button"
+                className="LabelTagInput__ChipEdit"
+                onClick={(e) => { e.stopPropagation(); openEditor(label, e.currentTarget); }}
+                title={t('common.labelEdit.title')}
+                aria-label={t('common.labelEdit.editAria', { name: label.label_name })}
+              >
+                {label.label_name}
+              </button>
               <button
                 type="button"
                 className={`LabelTagInput__ChipRemove${chipTint?.['--et-on'] ? ' EntityInk' : ''}`}
                 onClick={(e) => { e.stopPropagation(); onToggle(label.label_id); }}
+                aria-label={t('common.labelEdit.removeAria', { name: label.label_name })}
                 // 배경이 칩의 틴트라 부모가 내려놓은 --et-fg를 상속으로 쓴다.
                 // passthrough면 변수가 없어 치환 실패(initial)이므로 원 색을 그대로 쓴다.
                 style={{ color: chipTint?.['--et-on'] ? 'var(--et-fg)' : label.color }}
@@ -154,17 +187,24 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
               className="LabelTagInput__Option"
               onMouseDown={(e) => { e.preventDefault(); handleSelect(label.label_id); }}
             >
-              <button
-                type="button"
+              <span
                 className="LabelTagInput__OptionDot"
                 style={{ backgroundColor: label.color }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  openColorPicker(label.label_id, e.currentTarget);
-                }}
+                aria-hidden="true"
+                onMouseDown={stopMouseDown}
+                onClick={(e) => { e.stopPropagation(); openEditor(label, null); }}
               />
               <span className="LabelTagInput__OptionName">{label.label_name}</span>
+              <button
+                type="button"
+                className="LabelTagInput__OptionEdit"
+                onMouseDown={stopMouseDown}
+                onClick={(e) => { e.stopPropagation(); openEditor(label, null); }}
+                title={t('common.labelEdit.title')}
+                aria-label={t('common.labelEdit.editAria', { name: label.label_name })}
+              >
+                <Pencil size={12} />
+              </button>
               <button
                 type="button"
                 className="LabelTagInput__OptionDelete"
@@ -193,29 +233,17 @@ export default function LabelTagInput({ assignedLabels = [], allLabels = [], onT
         </div>
       )}
 
-      {/* 색상 팔레트 — portal로 body에 렌더 */}
-      {colorPickerLabelId && pickerLabel && createPortal(
-        <div
-          id="label-color-picker-portal"
-          className="LabelTagInput__ColorPicker"
-          style={{ top: pickerPos.top, left: pickerPos.left }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {PRESET_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`LabelTagInput__ColorSwatch ${c === pickerLabel.color ? 'LabelTagInput__ColorSwatch--active' : ''}`}
-              style={{ backgroundColor: c }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleColorChange(pickerLabel.label_id, c);
-              }}
-            />
-          ))}
-        </div>,
-        document.body,
+      {editing && onUpdateLabel && (
+        <LabelEditPopover
+          // 라벨마다 새 편집창 — 앞 라벨의 초안을 다른 라벨로 가져가지 않는다
+          key={editing.label.label_id}
+          label={editing.label}
+          labels={allLabels}
+          presets={PRESET_COLORS}
+          anchorRef={wrapRef}
+          onApply={onEditorApply}
+          onClose={onEditorClose}
+        />
       )}
     </div>
   );
