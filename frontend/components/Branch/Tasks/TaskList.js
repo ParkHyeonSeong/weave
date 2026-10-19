@@ -6,7 +6,6 @@ import { Plus } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
   MouseSensor,
   TouchSensor,
   useSensor,
@@ -21,6 +20,7 @@ import TaskListRow from './TaskListRow';
 import useTaskContextMenu from './taskMenu';
 import { matchesFilters, filterTaskTree } from '@/library/taskFilters';
 import { summarizeSprintTasks } from '@/library/sprintTaskSummary';
+import { taskListCollisionDetection, sprintSortableId, isSprintSortableId } from '@/library/taskListDnd';
 import { buildEffectiveSpec } from '@/library/filterSpecAdapter';
 import { groupTasks, applySort } from '@/library/taskViewState';
 import { emptyGroup, isEmptySpec } from '@/library/filterBuilderState';
@@ -615,7 +615,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
     const { active } = event;
     const id = active.id;
 
-    if (String(id).startsWith('sprint-')) {
+    if (isSprintSortableId(id)) {
       setActiveType('sprint');
       setActiveId(id);
     } else {
@@ -654,10 +654,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
 
     if (!over || active.id === over.id) return;
 
-    if (String(active.id).startsWith('sprint-')) {
+    if (isSprintSortableId(active.id)) {
       // 스프린트 순서 변경
-      const oldIndex = sprints.findIndex((s) => `sprint-${s.sprint_id}` === active.id);
-      const newIndex = sprints.findIndex((s) => `sprint-${s.sprint_id}` === over.id);
+      const oldIndex = sprints.findIndex((s) => sprintSortableId(s.sprint_id) === active.id);
+      const newIndex = sprints.findIndex((s) => sprintSortableId(s.sprint_id) === over.id);
       if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
       const reordered = arrayMove(sprints, oldIndex, newIndex);
@@ -893,7 +893,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--color-text-secondary)', fontSize: 14 }}>{t('common.state.loading')}</div>;
 
-  const sprintIds = sprints.map((s) => `sprint-${s.sprint_id}`);
+  const sprintIds = sprints.map((s) => sprintSortableId(s.sprint_id));
 
   return (
     <div className="TaskList">
@@ -981,7 +981,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
       ) : (
       <DndContext
         sensors={sortActive ? [] : sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={taskListCollisionDetection}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}

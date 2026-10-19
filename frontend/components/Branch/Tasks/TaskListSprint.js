@@ -15,6 +15,7 @@ import { statusCategoryVar } from '@/library/themePalette';
 import { formatSprintRange } from '@/library/formatTime';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
+import { BACKLOG_SORTABLE_ID, sprintSortableId } from '@/library/taskListDnd';
 
 // 상태 줄 범례 — 막대 칠 순서(완료 → 취소됨 → 진행 중)와 같고, 남은 회색 트랙이 할 일이다
 const LEGEND = [
@@ -55,7 +56,8 @@ export default function TaskListSprint({
   const containerId = isBacklog ? 'backlog' : `sprint-${sprint.sprint_id}`;
   const isDragOver = dragOverContainerId === containerId;
 
-  // Sprint 자체의 sortable (백로그 제외)
+  // Sprint 자체의 sortable (백로그 제외). 아래 본문 droppable(containerId)과 id를 나눠야
+  // 카드 전체(헤더 포함)가 판정 영역으로 남는다 — 같은 id면 나중에 등록한 본문이 카드를 덮어쓴다.
   const {
     listeners: sprintListeners,
     setNodeRef: setSprintNodeRef,
@@ -63,7 +65,7 @@ export default function TaskListSprint({
     transition: sprintTransition,
     isDragging: isSprintDragging,
   } = useSortable({
-    id: containerId,
+    id: isBacklog ? BACKLOG_SORTABLE_ID : sprintSortableId(sprint.sprint_id),
     disabled: isBacklog || sortActive,
   });
 
