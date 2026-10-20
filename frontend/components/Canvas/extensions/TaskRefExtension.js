@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
 import TaskRefPopup from './TaskRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
+import { TaskRefArrowUp } from './taskRefArrowUp';
 import { numAttr, strAttr } from './refAttr';
 import { entityTintStyle } from '@/library/entityTint';
 import { internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, ISSUE_PATH, TASK_PATH, encodeMarkdownUrl } from './refMarkdown';
@@ -17,6 +18,11 @@ const TaskRefNode = Node.create({
   group: 'inline',
   inline: true,
   atom: true,
+
+  // 여러 줄로 접힌 칩 위로 ↑ / Shift+↑ 를 누를 때의 커서 보정 — 이 칩을 쓰는 모든 편집기에 함께 등록된다
+  addExtensions() {
+    return [TaskRefArrowUp];
+  },
 
   // attr 정의·불변식(per-attr 렌더 억제)은 refAttr.js 참고
   addAttributes() {
