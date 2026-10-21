@@ -295,7 +295,7 @@
     }
   }
   .task-ref {
-    display:inline; padding:2px 7px; margin:1px 0;
+    display:inline; padding:2px 7px; margin:1px .25em 1px 0;
     border-radius:$radius-md; font-size:$font-size-xs; font-weight:$font-weight-medium;
     background:$color-primary-subtle; color:$color-primary; border:1px solid transparent;
     cursor:pointer; line-height:1.8; -webkit-box-decoration-break:clone; box-decoration-break:clone;
