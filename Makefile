@@ -67,7 +67,7 @@ test-backend:          ## Run backend tests inside the container (installs pytes
 # neither of which exists in the frontend container. `npm ci` runs when the lockfile is
 # newer than npm's own install stamp (node_modules/.package-lock.json), so a pulled
 # dependency bump is picked up instead of testing against a stale node_modules.
-test-frontend:         ## Run frontend tests on the host (Node 22; npm ci when package-lock.json changed)
+test-frontend:         ## Run frontend tests on the host (Node version from .nvmrc; npm ci when package-lock.json changed)
 	cd frontend && if [ ! node_modules/.package-lock.json -nt package-lock.json ]; then npm ci --legacy-peer-deps; fi && npm test
 
 # Same idea for the MCP venv: reinstall when pyproject.toml is newer than the install stamp.

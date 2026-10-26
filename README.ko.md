@@ -239,7 +239,7 @@ nginx/      프로덕션 컨테이너용 Nginx 설정과 호스트 프록시 예
 
 ```bash
 make test-backend    # 백엔드 컨테이너 안에서 pytest (처음 한 번 pytest를 컨테이너에 설치)
-make test-frontend   # 호스트에서 vitest — Node 22 필요 (일부 패리티 테스트가 백엔드 소스와 git을 읽는데 컨테이너엔 없음)
+make test-frontend   # 호스트에서 .nvmrc의 Node로 vitest — nvm use 먼저 (일부 패리티 테스트가 백엔드 소스와 git을 읽는데 컨테이너엔 없음)
 make test-mcp        # mcp/.venv 에서 pytest (없으면 생성, pyproject.toml이 바뀌면 재설치)
 make check-docs      # 문서 ↔ 코드 드리프트: MCP 도구 목록, 라이선스, 영/한 구조, 링크
 ```
@@ -258,7 +258,7 @@ make check-docs      # 문서 ↔ 코드 드리프트: MCP 도구 목록, 라이
 | 실시간 | 채팅·알림·동시 편집용 WebSocket |
 | 알림 | 앱 내 + Web Push (VAPID) |
 | 연동 | GitHub App 웹훅, Jira CSV 가져오기, Anthropic / OpenAI |
-| 인프라 | Docker Compose, Nginx (프로덕션); Node 22·Python 3.13 이미지 |
+| 인프라 | Docker Compose, Nginx (프로덕션); Node 24·Python 3.13 이미지 |
 
 ## 라이선스
 

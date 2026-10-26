@@ -150,6 +150,7 @@ make prod-ps
 - **백엔드 워커 1개**: 협업 방과 실시간 알림 연결은 프로세스 메모리에 있습니다. `--workers 1`을 유지하고, 워커를 늘리려면 먼저 프로세스 간 상태 공유를 설계하세요. 비밀번호의 bcrypt 계산은 별도 스레드에서 실행해 서버의 요청 처리를 붙잡지 않도록 합니다.
 - **WebSocket 메시지 상한 2 MiB**: 운영·개발 모두 `--ws-max-size 2097152`입니다. 이를 넘는 메시지는 연결 종료 코드 `1009`로 거절됩니다. 채팅도 UTF-8 바이트 수로 계산합니다.
 - **백엔드 패키지 고정**: 개발·운영 Dockerfile은 [backend/constraints.txt](backend/constraints.txt)를 사용합니다. 의존성이나 보안 패치를 갱신할 때는 목록을 수정하고 새 이미지로 테스트·시작 확인을 다시 실행하세요.
+- **프론트 Node 버전 고정**: [frontend/Dockerfile](frontend/Dockerfile)·[frontend/Dockerfile.prod](frontend/Dockerfile.prod)·[.nvmrc](.nvmrc)가 같은 정확한 Node 버전을 씁니다. `make prod-verify`(`make prod-deploy`도 같음)는 빌드마다 프론트 베이스만 새로 받아 같은 태그의 Alpine 갱신은 반영하지만 새 Node 패치는 반영하지 않습니다. Node 패치가 나오면 `FROM node:` 줄 전부와 `.nvmrc`를 새 버전으로 함께 바꾸고 테스트와 `make prod-verify`를 다시 실행하세요.
 
 `make prod-ps`에서 backend·db가 healthy인지 확인한 뒤, 두 브라우저에서 스크럼 입력이 서로 보이는지와 캔버스의 저장 중·저장 결과 표시를 확인하세요. 연결 안내와 이탈 경고의 범위는 README의 [협업 편집](README.ko.md#협업-편집)에 있습니다.
 

@@ -19,7 +19,7 @@ Run the suite for whatever you touched:
 
 ```bash
 make test-backend    # pytest inside the backend container
-make test-frontend   # vitest on the host (Node 22)
+make test-frontend   # vitest on the host (Node version from .nvmrc — run nvm use)
 make test-mcp        # pytest in mcp/.venv
 make test            # all three
 make check-docs      # docs ↔ code drift: MCP tool list, licenses, en/ko structure, links

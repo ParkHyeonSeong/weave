@@ -239,7 +239,7 @@ Running the tests:
 
 ```bash
 make test-backend    # pytest inside the backend container (installs pytest there on first use)
-make test-frontend   # vitest on the host — needs Node 22 (a few parity tests read backend sources and call git, which the container lacks)
+make test-frontend   # vitest on the host with the Node in .nvmrc — run nvm use first (a few parity tests read backend sources and call git, which the container lacks)
 make test-mcp        # pytest in mcp/.venv (created, and refreshed when pyproject.toml changes)
 make check-docs      # docs ↔ code drift: MCP tool list, licenses, en/ko structure, links
 ```
@@ -258,7 +258,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions and the pull-request chec
 | Real-time | WebSocket for chat, notifications and collaborative editing |
 | Notifications | In-app + Web Push (VAPID) |
 | Integrations | GitHub App webhooks, Jira CSV import, Anthropic / OpenAI |
-| Infra | Docker Compose, Nginx (production); Node 22 and Python 3.13 images |
+| Infra | Docker Compose, Nginx (production); Node 24 and Python 3.13 images |
 
 ## License
 

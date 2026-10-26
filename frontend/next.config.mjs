@@ -4,6 +4,11 @@ const nextConfig = {
   transpilePackages: ['@xyflow/react', '@xyflow/system'],
   devIndicators: false,
   allowedDevOrigins: ['127.0.0.1'],
+  // Next 16.4부터 기본으로 켜진 공유 런타임은 운영 빌드 페이지마다 인라인 부트스트랩 <script>를 넣는다. 정적 프리렌더
+  // 페이지는 nonce가 빈 값으로 박제되므로(pages/_document.js) 그 스크립트가 CSP(unsafe-inline 없음)에 막혀 앱이 빈
+  // 화면으로 멈춘다 — 공유 런타임을 꺼서 16.2처럼 외부 청크 스크립트만으로 시작하게 한다. 업스트림이 이 플래그를 없앨
+  // 예정이라 Next를 올릴 때마다 운영 빌드를 브라우저에서 다시 확인할 것.
+  experimental: { turbopackSharedRuntime: false },
   // Turbopack: .wasm 파일 처리 시 생성되는 loader가 'wbg' 모듈을 참조하므로 stub으로 대체
   turbopack: {
     resolveAlias: {

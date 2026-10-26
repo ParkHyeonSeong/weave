@@ -1,5 +1,5 @@
 # -- Stage 1: Install dependencies --
-FROM node:22-alpine AS deps
+FROM node:24.22.1-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 # patch-package(postinstall)가 npm ci 중 적용할 로컬 패치. 이 COPY가 빠지면 빌드는
@@ -8,7 +8,7 @@ COPY patches ./patches
 RUN npm ci --legacy-peer-deps
 
 # -- Stage 2: Build --
-FROM node:22-alpine AS builder
+FROM node:24.22.1-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -19,7 +19,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # -- Stage 3: Production --
-FROM node:22-alpine
+FROM node:24.22.1-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 

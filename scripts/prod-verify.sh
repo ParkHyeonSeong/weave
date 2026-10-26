@@ -63,5 +63,7 @@ fail() {  # $1=무엇이 실패했나
 }
 trap 'fail "interrupted"' INT TERM
 
-$PROD_COMPOSE build || fail "image build failed"
+$PROD_COMPOSE build backend || fail "backend image build failed"
+# 프론트 베이스만 빌드마다 새로 받는다(--pull): 정확한 버전 태그도 Alpine 보안 갱신으로 같은 태그가 다시 올라온다.
+$PROD_COMPOSE build --pull frontend || fail "frontend image build failed"
 "$ROOT/scripts/prod-smoke.sh" "$backend_tag" || fail "backend smoke test failed"
