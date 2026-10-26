@@ -9,6 +9,7 @@ import DatePicker from '@/components/common/DatePicker';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import useTaskDetail from '@/hooks/useTaskDetail';
 import { sanitizeHtml } from '@/library/sanitize';
+import { openRefChipPanel } from '@/library/refUrl';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { selectableEpics } from '@/library/epics';
@@ -299,7 +300,10 @@ export default function TaskDetailPanel({ branchId, branchKey, taskTypes: extern
                           branch_id: refBranchId ? Number(refBranchId) : undefined,
                         });
                       }
+                      return;
                     }
+                    // 이슈·문서 칩 → 미리보기 패널(편집기 칩과 같은 이벤트)
+                    openRefChipPanel(e, ['issue', 'doc']);
                   }}
                 />
               ) : (

@@ -6,10 +6,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { ChangeSet, EditorState, Text } from '@codemirror/state';
+import { history, isolateHistory, undo } from '@codemirror/commands';
 
-const { PREFS } = vi.hoisted(() => ({
+const { PREFS, RAW } = vi.hoisted(() => ({
   // 선호 로드 완료 상태 — TaskCommentSection은 로드 전에는 댓글 fetch를 미룬다
   PREFS: { prefs: {}, loaded: true, setNamespace: () => {} },
+  RAW: { props: null }, // 원문 편집기가 받은 props — 키 입력은 onChange(글자, 편집 기록)로 흉내 낸다
 }));
 
 vi.mock('@/library/_axios', () => ({
@@ -18,7 +23,7 @@ vi.mock('@/library/_axios', () => ({
 }));
 vi.mock('@/library/UiPrefsContext', () => ({ useUiPrefs: () => PREFS }));
 // raw 편집기 본체(CodeMirror 동적 로드)는 필요 없다 — raw 제출은 진입 때 직렬화된 텍스트로 확인한다
-vi.mock('@/components/common/RawMarkdownEditor', () => ({ default: () => null }));
+vi.mock('@/components/common/RawMarkdownEditor', () => ({ default: (props) => { RAW.props = props; return null; } }));
 
 import { axios } from '@/library/_axios';
 import i18next from '@/library/i18n';
@@ -79,6 +84,24 @@ const buttonIn = (scope, text) =>
 const pmIn = (scope) => scope.querySelector('.ProseMirror');
 const ctrlEnter = () => new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true });
 
+// 원문 편집기(RawMarkdownEditor)처럼 실행 취소 기록이 있는 CodeMirror 상태에서 고친다 — 글자가 바뀔 때마다 onChange(글자, 편집 기록).
+// 맨 앞에 prefix → 전체 선택 삭제 → 실행 취소(삭제만 취소). typed = 삭제 직전 글자, restored = 실행 취소 뒤 글자
+async function prefixDeleteUndo(prefix) {
+  let state = EditorState.create({ doc: RAW.props.value, extensions: [history()] });
+  const dispatch = (tr) => {
+    state = tr.state;
+    if (tr.docChanged) RAW.props.onChange(state.doc.toString(), tr.changes);
+  };
+  let typed = null;
+  await act(async () => {
+    dispatch(state.update({ changes: { from: 0, insert: prefix }, annotations: isolateHistory.of('full') }));
+    typed = state.doc.toString();
+    dispatch(state.update({ changes: { from: 0, to: state.doc.length }, annotations: isolateHistory.of('full') }));
+    undo({ state, dispatch });
+  });
+  return { typed, restored: state.doc.toString() };
+}
+
 describe('CommentEditor — 화면의 [등록]/[취소] 버튼', () => {
   it('최상위 입력기에는 [등록]만 있고, 누르면 현재 내용을 제출한다', async () => {
     const onSubmit = vi.fn(() => Promise.resolve());
@@ -120,6 +143,137 @@ describe('CommentEditor — 화면의 [등록]/[취소] 버튼', () => {
     await click(submit);
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit.mock.calls[0][0]).toBe('<p>안녕</p>');
+  });
+
+  // 서버가 칩 버전이 1만 자를 넘어 본문 전체를 일반 링크로 저장한 댓글(A안). P는 실제 저장 함수의 결과다
+  // (backend tests/test_reserialize_bound.py::test_raw_mode_cases_are_what_the_server_stores).
+  const SERVER_CASES = JSON.parse(readFileSync(
+    resolve(__dirname, '../../backend/tests/fixtures/reserialize_growth_cases.json'), 'utf8')).cases;
+  for (const name of ['raw_doc_links_80', 'raw_issue_links_40']) {
+    it(`수정 중 원문 모드로 바꿔 고치지 않고 [등록]해도, 원문 → 일반 모드 후 [등록]해도 1만 자 안이다: ${name}`, async () => {
+      const { P } = SERVER_CASES.find((c) => c.name === name);
+      for (const backToRich of [false, true]) {
+        const onSubmit = vi.fn(() => Promise.resolve());
+        await render(<CommentEditor initialContent={P} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />);
+        const box = document.querySelector('.CommentEditor');
+        await click(box.querySelector('.CommentEditor__RawToggle'));
+        if (backToRich) await click(box.querySelector('.CommentEditor__RawToggle'));
+        await click(buttonIn(box, '등록'));
+        expect(onSubmit, `backToRich=${backToRich}`).toHaveBeenCalledTimes(1);
+        const html = onSubmit.mock.calls[0][0];
+        expect(html.length, `backToRich=${backToRich}`).toBeLessThanOrEqual(10000);
+        expect(html, `backToRich=${backToRich}`).not.toMatch(/data-(issue|doc)-ref/);
+        await settleAutofocus();
+        await act(async () => root.unmount());
+        root = null;
+      }
+    });
+
+    it(`원문에서 맨 앞에 "새 문장"을 넣고 전체 삭제 → 실행 취소한 뒤 [등록]해도(원문 → 일반 모드 후도) 일반 링크 그대로·1만 자 안이다: ${name}`, async () => {
+      const { P } = SERVER_CASES.find((c) => c.name === name);
+      const links = (P.match(/<a /g) || []).length;
+      for (const backToRich of [false, true]) {
+        const onSubmit = vi.fn(() => Promise.resolve());
+        await render(<CommentEditor initialContent={P} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />);
+        const box = document.querySelector('.CommentEditor');
+        await click(box.querySelector('.CommentEditor__RawToggle'));
+        await prefixDeleteUndo('새 문장\n\n');
+        if (backToRich) await click(box.querySelector('.CommentEditor__RawToggle'));
+        await click(buttonIn(box, '등록'));
+        const html = onSubmit.mock.calls[0][0];
+        const at = `backToRich=${backToRich}`;
+        expect(html, at).not.toMatch(/data-(issue|doc)-ref/);
+        expect((html.match(/<a /g) || []).length, at).toBe(links);
+        expect(html, at).toContain('새 문장');
+        expect(html.length, at).toBeLessThanOrEqual(10000);
+        await settleAutofocus();
+        await act(async () => root.unmount());
+        root = null;
+      }
+    });
+  }
+
+  it('같은 문서의 칩 1개와 같은 제목·주소의 일반 링크 79개: 원문 저장·원문 → 일반 모드·원문 자동 진입 모두 그대로 저장된다', async () => {
+    const chip = '<span data-doc-ref="true" data-page-id="77" data-canvas-id="5" data-title="설계" data-canvas-name="제품" class="doc-ref">설계</span>';
+    const link = `<a href="${window.location.origin}/canvas/5/77">설계</a>`;
+    const content = `<p>${chip} ${Array(79).fill(link).join(' ')}</p>`;
+    try {
+      for (const mode of ['raw', 'rawThenRich', 'auto']) {
+        PREFS.prefs = mode === 'auto' ? { editor_raw_mode: true } : {};
+        const onSubmit = vi.fn(() => Promise.resolve());
+        await render(<CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />);
+        const box = document.querySelector('.CommentEditor');
+        if (mode !== 'auto') await click(box.querySelector('.CommentEditor__RawToggle'));
+        expect(box.querySelector('.CommentEditor__RawToggle--active'), `${mode}: 원문 모드`).not.toBeNull();
+        if (mode === 'rawThenRich') await click(box.querySelector('.CommentEditor__RawToggle'));
+        await click(buttonIn(box, '등록'));
+        const html = onSubmit.mock.calls[0][0];
+        expect((html.match(/data-doc-ref=/g) || []).length, `${mode}: 칩`).toBe(1);
+        expect((html.match(/<a [^>]*href="[^"]*\/canvas\/5\/77"/g) || []).length, `${mode}: 일반 링크`).toBe(79);
+        expect(html.indexOf('data-doc-ref'), `${mode}: 칩이 맨 앞`).toBeLessThan(html.indexOf('<a '));
+        expect(html.length, `${mode}: 길이`).toBeLessThanOrEqual(10000);
+        await settleAutofocus();
+        await act(async () => root.unmount());
+        root = null;
+      }
+    } finally {
+      PREFS.prefs = {};
+    }
+  });
+
+  it('같은 문서의 칩 줄과 일반 링크 줄: 원문에서 칩 줄을 지우거나 맨 앞에 같은 링크를 넣고 [등록]해도 나머지는 제 형태다', async () => {
+    const chip = '<span data-doc-ref="true" data-page-id="77" data-canvas-id="5" data-title="설계" data-canvas-name="제품" class="doc-ref">설계</span>';
+    const href = `${window.location.origin}/canvas/5/77`;
+    const content = `<p>${chip}</p><p><a href="${href}">설계</a></p>`;
+    // 원문 편집기의 키 입력 = 바뀐 글자 + 편집 기록(ChangeSet)
+    const type = (spec) => act(async () => {
+      const md = RAW.props.value;
+      const changes = ChangeSet.of([spec(md)], md.length);
+      RAW.props.onChange(changes.apply(Text.of(md.split('\n'))).toString(), changes);
+    });
+    const seq = (html) => [...html.matchAll(/<span data-doc-ref=|<a /g)].map((m) => (m[0].startsWith('<a') ? 'L' : 'C')).join('');
+    const cases = [
+      ['첫 줄(칩) 삭제', (md) => ({ from: 0, to: md.indexOf('\n\n') + 2 }), 'L'],
+      ['맨 앞에 같은 링크 추가', () => ({ from: 0, insert: `[설계](${href})\n\n` }), 'CCL'],
+    ];
+    for (const [name, spec, expected] of cases) {
+      const onSubmit = vi.fn(() => Promise.resolve());
+      await render(<CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />);
+      const box = document.querySelector('.CommentEditor');
+      await click(box.querySelector('.CommentEditor__RawToggle'));
+      await type(spec);
+      await click(buttonIn(box, '등록'));
+      expect(seq(onSubmit.mock.calls[0][0]), name).toBe(expected);
+      await settleAutofocus();
+      await act(async () => root.unmount());
+      root = null;
+    }
+  });
+
+  it('원문에서 맨 앞에 글을 넣고 전체 삭제 → 실행 취소한 뒤 [등록]해도 되살린 칩·일반 링크가 제 형태다', async () => {
+    const chip = '<span data-doc-ref="true" data-page-id="77" data-canvas-id="5" data-title="설계" data-canvas-name="제품" class="doc-ref">설계</span>';
+    const href = `${window.location.origin}/canvas/5/77`;
+    const content = `<p>${chip}</p><p><a href="${href}">설계</a></p>`;
+    const seq = (html) => [...html.matchAll(/<span data-doc-ref=|<a /g)].map((m) => (m[0].startsWith('<a') ? 'L' : 'C')).join('');
+    const cases = [
+      ['맨 앞에 "새 문장"과 빈 줄', '새 문장\n\n', 'CL'],
+      ['맨 앞에 같은 링크와 빈 줄(새 링크는 칩)', `[설계](${href})\n\n`, 'CCL'],
+    ];
+    for (const [name, prefix, expected] of cases) {
+      const onSubmit = vi.fn(() => Promise.resolve());
+      await render(<CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />);
+      const box = document.querySelector('.CommentEditor');
+      await click(box.querySelector('.CommentEditor__RawToggle'));
+      const { typed, restored } = await prefixDeleteUndo(prefix);
+      expect(restored, `${name}: 삭제만 취소`).toBe(typed);
+      await click(buttonIn(box, '등록'));
+      const html = onSubmit.mock.calls[0][0];
+      expect(seq(html), name).toBe(expected);
+      if (!prefix.startsWith('[')) expect(html, name).toContain('새 문장');
+      await settleAutofocus();
+      await act(async () => root.unmount());
+      root = null;
+    }
   });
 
   it('영문 locale에서는 Submit/Cancel로 보인다', async () => {

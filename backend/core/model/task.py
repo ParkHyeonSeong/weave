@@ -1114,6 +1114,25 @@ async def batch_statuses(task_ids: list[int], user_id: int, db: AsyncSession) ->
     return out
 
 
+async def find_chip_refs(task_ids: list[int], user_id: int, db: AsyncSession) -> dict:
+    """마크다운 링크 → 태스크 칩 변환용 배치 조회(library/ref_chip_ingress).
+    batch_statuses(/ref-status)와 같은 범위(멤버인 미보관 브랜치)에 칩 속성에 필요한 필드를 더한다."""
+    if not task_ids:
+        return {}
+    result = await db.execute(text("""
+        SELECT t.task_id, t.branch_id, t.title, t.status, t.priority,
+               b.key || '-' || t.display_number::text AS display_id,
+               ws.label AS status_label, ws.color AS status_color, ws.category AS status_category
+        FROM task t
+        INNER JOIN branch_member bm ON bm.branch_id = t.branch_id AND bm.user_id = :user_id
+        INNER JOIN branch b ON b.branch_id = t.branch_id
+        LEFT JOIN workflow_status ws ON ws.branch_id = t.branch_id AND ws.key = t.status
+        WHERE t.task_id = ANY(:ids)
+          AND b.is_archived = FALSE
+    """), {'ids': task_ids, 'user_id': user_id})
+    return {r.task_id: dict(r._mapping) for r in result.fetchall()}
+
+
 async def find_for_calendar(branch_id: int, range_start, range_end, db: AsyncSession):
     """캘린더 표시용 Task 목록 (start_date 또는 due_date가 범위에 포함)"""
     result = await db.execute(text("""

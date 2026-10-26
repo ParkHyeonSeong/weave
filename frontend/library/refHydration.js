@@ -58,6 +58,16 @@ function cacheSet(kind, map) {
   Object.entries(map || {}).forEach(([id, data]) => cache.set(`${kind}:${id}`, { data, at }));
 }
 
+// 응답에 없던 id(삭제·권한 밖)도 같은 TTL 동안 기억한다 — 읽기 화면은 다시 그려질 때마다 다시 반영하므로(useRefHydration)
+// 같은 누락을 매번 다시 묻지 않게. 요청이 실패한 묶음은 기억하지 않는다(다음에 다시 묻는다).
+const MISSING = { missing: true };
+function cacheMissing(kind, ids, answered) {
+  const at = Date.now();
+  ids.forEach((id) => {
+    if (!answered || !(String(id) in answered)) cache.set(`${kind}:${id}`, { data: MISSING, at });
+  });
+}
+
 // root(DOM) 안의 칩들에서 종류별 ID 수집
 function collectRefIds(root) {
   const ids = { task_ids: new Set(), issue_ids: new Set(), page_ids: new Set(), user_ids: new Set() };
@@ -85,18 +95,36 @@ function collectRefIds(root) {
 // 캐시를 다시 본 뒤 남은 miss만 새로 요청해 1~2발로 수렴시킨다.
 let inflightFetch = null;
 
-// 캐시 미스만 골라 배치 요청 → { tasks, issues, pages, users } (캐시 병합본)
+// 서버(routers/ref_status.py limit_ids)는 종류별 200개를 넘으면 요청 전체를 거절한다.
+// 한 요청에 종류별 200개 이하만 싣도록 나눈다(서로 다른 종류는 같은 요청에 함께 실린다).
+const REF_STATUS_BATCH = 200;
+const MISS_KEYS = ['task_ids', 'issue_ids', 'page_ids', 'user_ids'];
+const KIND_OF_MISS_KEY = { task_ids: 'tasks', issue_ids: 'issues', page_ids: 'pages', user_ids: 'users' };
+
+function chunkMiss(miss) {
+  const count = Math.max(...MISS_KEYS.map((k) => Math.ceil(miss[k].length / REF_STATUS_BATCH)));
+  return Array.from({ length: count }, (_, i) => Object.fromEntries(
+    MISS_KEYS.map((k) => [k, miss[k].slice(i * REF_STATUS_BATCH, (i + 1) * REF_STATUS_BATCH)]),
+  ));
+}
+
+// 캐시 미스만 골라 배치 요청 → { tasks, issues, pages, users, failed } (캐시 병합본)
+// failed: 요청이 실패한 묶음의 id(종류별 Set) — 응답 누락(삭제·권한 밖)과 구분해 칩을 그대로 둔다.
 async function resolveRefs(ids) {
   const want = {
     tasks: [...ids.task_ids], issues: [...ids.issue_ids],
     pages: [...ids.page_ids], users: [...ids.user_ids],
   };
-  const out = { tasks: {}, issues: {}, pages: {}, users: {} };
+  const out = {
+    tasks: {}, issues: {}, pages: {}, users: {},
+    failed: { tasks: new Set(), issues: new Set(), pages: new Set(), users: new Set() },
+  };
   const collectMiss = () => {
     const miss = { task_ids: [], issue_ids: [], page_ids: [], user_ids: [] };
     const pick = (kind, list, missKey) => {
       list.forEach((id) => {
         const hit = cacheGet(kind, id);
+        if (hit === MISSING) return; // 누락으로 기억 — 응답 없음과 같다
         if (hit) out[kind][id] = hit;
         else miss[missKey].push(id);
       });
@@ -115,17 +143,24 @@ async function resolveRefs(ids) {
     miss = collectMiss();
   }
   if (hasMiss(miss)) {
-    const req = axios.post('/ref-status', miss).finally(() => {
+    const chunks = chunkMiss(miss);
+    // single-flight는 묶음 전체에 건다 — 기다린 쪽은 끝난 뒤 캐시를 다시 보고 남은 미스만 묻는다.
+    const req = Promise.allSettled(chunks.map((body) => axios.post('/ref-status', body))).finally(() => {
       if (inflightFetch === req) inflightFetch = null;
     });
     inflightFetch = req;
-    const res = await req;
-    if (res.data.status) {
-      ['tasks', 'issues', 'pages', 'users'].forEach((kind) => {
-        cacheSet(kind, res.data[kind]);
-        Object.assign(out[kind], res.data[kind]);
-      });
-    }
+    const results = await req;
+    results.forEach((result, i) => {
+      if (result.status === 'fulfilled' && result.value.data.status) {
+        ['tasks', 'issues', 'pages', 'users'].forEach((kind) => {
+          cacheSet(kind, result.value.data[kind]);
+          Object.assign(out[kind], result.value.data[kind]);
+        });
+        MISS_KEYS.forEach((k) => cacheMissing(KIND_OF_MISS_KEY[k], chunks[i][k], result.value.data[KIND_OF_MISS_KEY[k]]));
+        return;
+      }
+      MISS_KEYS.forEach((k) => chunks[i][k].forEach((id) => out.failed[KIND_OF_MISS_KEY[k]].add(String(id))));
+    });
   }
   return out;
 }
@@ -199,14 +234,15 @@ function setUnresolved(el, unresolved, tooltipKey) {
 // 해석 결과를 root 안 칩 DOM에 반영 (data-* 속성도 갱신해 클릭/배지 재주입이 fresh 값을 읽게).
 // 누락 칩은 멤버십과 대조해 '삭제 확정'(멤버인 곳)만 표기하고 권한 밖은 정상 모양 유지
 // — 멤버십은 누락이 실제로 있을 때만 lazy fetch 하므로 async.
-async function applyToDom(root, { tasks, issues, pages, users }) {
+async function applyToDom(root, { tasks, issues, pages, users, failed }) {
   if (!root.isConnected) return;
   const missingByBranch = []; // 누락 task/issue 칩 — data-branch-id 멤버십으로 판정
   const missingByCanvas = []; // 누락 doc 칩 — data-canvas-id 멤버십으로 판정
   root.querySelectorAll('[data-task-ref]').forEach((el) => {
-    const info = tasks[el.getAttribute('data-task-id')];
+    const id = el.getAttribute('data-task-id');
+    const info = tasks[id];
     if (!info) {
-      missingByBranch.push(el);
+      if (!failed.tasks.has(id)) missingByBranch.push(el); // 실패 묶음은 저장된 모습 유지
       return;
     }
     setUnresolved(el, false);
@@ -224,9 +260,10 @@ async function applyToDom(root, { tasks, issues, pages, users }) {
     });
   });
   root.querySelectorAll('[data-issue-ref]').forEach((el) => {
-    const info = issues[el.getAttribute('data-issue-id')];
+    const id = el.getAttribute('data-issue-id');
+    const info = issues[id];
     if (!info) {
-      missingByBranch.push(el);
+      if (!failed.issues.has(id)) missingByBranch.push(el);
       return;
     }
     setUnresolved(el, false);
@@ -237,9 +274,10 @@ async function applyToDom(root, { tasks, issues, pages, users }) {
     setBadge(el, { category: info.status, label: issueLabel(info.status), color: null });
   });
   root.querySelectorAll('[data-doc-ref]').forEach((el) => {
-    const info = pages[el.getAttribute('data-page-id')];
+    const id = el.getAttribute('data-page-id');
+    const info = pages[id];
     if (!info) {
-      missingByCanvas.push(el);
+      if (!failed.pages.has(id)) missingByCanvas.push(el);
       return;
     }
     setUnresolved(el, false);
@@ -249,7 +287,9 @@ async function applyToDom(root, { tasks, issues, pages, users }) {
     el.title = `${info.canvas_name} > ${info.title}`;
   });
   root.querySelectorAll('[data-mention]').forEach((el) => {
-    const info = users[el.getAttribute('data-user-id')];
+    const id = el.getAttribute('data-user-id');
+    const info = users[id];
+    if (!info && failed.users.has(id)) return; // 실패 묶음은 저장된 모습 유지
     // mention은 권한 개념이 없으므로 누락 = 탈퇴/비활성 확정
     setUnresolved(el, !info, GONE_USER_TITLE);
     if (!info) return;
@@ -328,6 +368,8 @@ function subscribeRefresh(fn) {
   return () => refreshSubscribers.delete(fn);
 }
 
+const HYDRATED_CHIP = '[data-task-ref],[data-issue-ref],[data-doc-ref],[data-mention]';
+
 // readonly 표면용 훅: 콘텐츠 변경 시 + task/issue 변경 이벤트 시 하이드레이션.
 // deps는 호출부가 콘텐츠 의존성을 그대로 넘긴다.
 // 주의: deps는 렌더 간 길이가 변하지 않는 고정 길이 배열이어야 한다(React hooks 규칙
@@ -335,13 +377,31 @@ function subscribeRefresh(fn) {
 export function useRefHydration(ref, deps, enabled = true) {
   useEffect(() => {
     if (!enabled || !ref.current) return;
-    hydrateDom(ref.current);
+    const root = ref.current;
+    hydrateDom(root);
+    // React 19는 화면이 다시 그려질 때마다(같은 HTML이어도) dangerouslySetInnerHTML 내용을 다시 넣어, 앞서 반영한 최신 제목·
+    // 상태·삭제 표시를 저장 당시 모습으로 되돌린다. 칩이 새로 들어오면 다시 반영한다(캐시로 — 새 조회 없음).
+    // 글자 입력처럼 칩이 없는 변화와 칩 안의 변화(배지 교체 — 하이드레이션 자신)는 무시한다.
+    const addsChips = (m) => !m.target.closest?.(HYDRATED_CHIP) && [...m.addedNodes].some(
+      (n) => n.nodeType === 1 && (n.matches(HYDRATED_CHIP) || n.querySelector(HYDRATED_CHIP)),
+    );
+    let queued = false;
+    const observer = new MutationObserver((mutations) => {
+      if (queued || !mutations.some(addsChips)) return;
+      queued = true;
+      queueMicrotask(() => {
+        queued = false;
+        hydrateDom(root);
+      });
+    });
+    observer.observe(root, { childList: true, subtree: true });
     // 칩 가운데/ctrl·cmd 클릭 → 전체 페이지를 새 탭으로 (칩은 <span>이라 네이티브 새 탭 불가)
-    const detachAuxNav = attachRefChipAuxNav(ref.current);
+    const detachAuxNav = attachRefChipAuxNav(root);
     const unsubscribe = subscribeRefresh(() => {
       if (ref.current) hydrateDom(ref.current);
     });
     return () => {
+      observer.disconnect();
       detachAuxNav();
       unsubscribe();
     };

@@ -62,7 +62,17 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
         cmView.EditorView.lineWrapping,
         cmView.placeholder(placeholder || ''),
         cmView.EditorView.updateListener.of((update) => {
-          if (update.docChanged) onChangeRef.current?.(update.state.doc.toString());
+          // 글자를 바꾼 거래마다 편집 기록(ChangeSet)·조작 종류(잘라내기·붙여넣기·줄 이동·실행 취소 등)·그 뒤 실행 취소 깊이도
+          // 넘긴다 — useRawMode가 진입 때 링크 자리와 CodeMirror 실행 취소 묶음(0.5초 안 이어 한 조작은 한 묶음)을 따라가는 데 쓴다
+          // 바뀐 글이 없는 실행 취소(입력했다 바로 지운 묶음)도 실행 취소 한 번이라 넘긴다
+          for (const tr of update.transactions) {
+            if (!tr.docChanged && !tr.isUserEvent('undo')) continue;
+            onChangeRef.current?.(tr.state.doc.toString(), tr.changes, tr.annotation(state.Transaction.userEvent), commands.undoDepth(tr.state));
+          }
+        }),
+        // 복사는 글자를 바꾸지 않지만 조작 종류('copy')만 알린다 — 그 뒤 붙여넣은 글은 잘라 둔 줄이 아니라 복사본이다
+        cmView.EditorView.domEventObservers({
+          copy: (event, view) => { onChangeRef.current?.(view.state.doc.toString(), null, 'copy'); },
         }),
         cmView.EditorView.domEventHandlers({
           blur: () => { onBlurRef.current?.(); },
@@ -71,6 +81,16 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
         // 배열 안에서 initial()을 불러도 안전하다(TypstEditor와 다른 점).
         themeBindingRef.current.initial(),
       ];
+      // 페이지에 남은 선택을 걷어 낸다 — CodeMirror는 만들어질 때 페이지 선택을 기억하고, 기억한 선택이 있으면 처음 클릭 때
+      // 화면 선택을 다시 읽지 않아 "포커스 직후 편집기 맨 앞 선택은 브라우저 포커스 부작용" 판단이 남는다. 그 상태로 클릭 직후
+      // Alt+↓로 줄을 옮기면 커서가 옮긴 줄을 따라가지 못하고 이전 줄로 돌아간다. 걷어 낼 것은 숨겨질 일반 모드 편집기 안의
+      // 선택(자동 포커스·먼저 누른 자리)과 편집을 열기 전에 누른 글자의 커서다. 다른 곳에 잡아 둔 범위 선택은 그대로 둔다.
+      const selection = hostRef.current.ownerDocument.getSelection();
+      const at = selection?.rangeCount ? selection.anchorNode : null;
+      const atElement = at?.nodeType === 1 ? at : at?.parentElement;
+      if (at && !hostRef.current.contains(at) && (selection.isCollapsed || atElement?.closest('.ProseMirror'))) {
+        selection.removeAllRanges();
+      }
       view = new cmView.EditorView({
         state: state.EditorState.create({ doc: initialValueRef.current || '', extensions }),
         parent: hostRef.current,

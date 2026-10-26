@@ -68,7 +68,7 @@ const IssueEditor = forwardRef(({ content, placeholder, minHeight = 150, branchI
         <RawMarkdownEditor
           key={session}
           value={rawText}
-          onChange={(text) => { handleRawChange(text); onChange?.(isRawEmpty()); }}
+          onChange={(text, changes, userEvent, depth) => { handleRawChange(text, changes, userEvent, depth); onChange?.(isRawEmpty()); }}
           placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: placeholder || t('branchTasks.rawEditor.defaultPlaceholder') })}
         />
       )}

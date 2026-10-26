@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Reply, Pencil, Copy, Trash2 } from 'lucide-react';
 import { sanitizeHtml } from '@/library/sanitize';
+import { openRefChipPanel } from '@/library/refUrl';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
@@ -171,6 +172,7 @@ function CommentItem({
             ref={contentRef}
             className="CommentItem__Content"
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
+            onClick={(e) => openRefChipPanel(e)}
           />
         )}
 

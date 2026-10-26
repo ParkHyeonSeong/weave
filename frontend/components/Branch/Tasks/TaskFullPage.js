@@ -10,6 +10,7 @@ import DatePicker from '@/components/common/DatePicker';
 import TaskTypeIcon from '@/components/common/TaskTypeIcon';
 import useTaskDetail from '@/hooks/useTaskDetail';
 import { sanitizeHtml } from '@/library/sanitize';
+import { openRefChipPanel } from '@/library/refUrl';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { selectableEpics } from '@/library/epics';
@@ -294,8 +295,11 @@ export default function TaskFullPage() {
                       if (ref) {
                         e.stopPropagation();
                         const taskId = ref.dataset.taskId;
-                        if (taskId) router.push(`/branch/${branchId}/task/${taskId}`);
+                        // 다른 브랜치 칩은 칩의 브랜치로 이동(현재 브랜치 id를 쓰면 없는 태스크 주소가 된다)
+                        if (taskId) router.push(`/branch/${ref.dataset.branchId || branchId}/task/${taskId}`);
+                        return;
                       }
+                      openRefChipPanel(e, ['issue', 'doc']);
                     }}
                   />
                 ) : (

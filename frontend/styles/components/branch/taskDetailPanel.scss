@@ -825,6 +825,8 @@
         &--closed { background: $color-success-bg; color: $color-success; }
       }
 
+      @include doc-issue-ref-chips;
+
       .callout {
         border-radius: $radius-md;
         padding: $space-3;
@@ -958,6 +960,8 @@
     &--open { background: $color-status-in-progress-bg; color: $color-status-in-progress; }
     &--closed { background: $color-success-bg; color: $color-success; }
   }
+
+  @include doc-issue-ref-chips;
 
   .callout {
     border-radius: $radius-md;

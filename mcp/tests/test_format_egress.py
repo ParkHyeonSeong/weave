@@ -52,11 +52,19 @@ async def test_docstring_contract():
     async with Client(_app.mcp) as client:
         tools = {t.name: t for t in await client.list_tools()}
     # 쓰기 도구: md-or-HTML ingress 계약 명문화
-    for name in ["create_task", "update_task", "add_task_comment", "update_task_comment",
-                 "create_task_issue", "update_task_issue", "add_issue_comment",
-                 "update_issue_comment", "close_task_issue", "reopen_task_issue",
-                 "create_canvas_page", "update_canvas_page"]:
+    writers = ["create_task", "update_task", "add_task_comment", "update_task_comment",
+               "create_task_issue", "update_task_issue", "add_issue_comment",
+               "update_issue_comment", "close_task_issue", "reopen_task_issue",
+               "create_canvas_page", "update_canvas_page"]
+    for name in writers:
         assert "treated as markdown" in (tools[name].description or ""), name
+        # Weave 링크 → ref 칩 저장 (설계 2026-10-22 ref-link-chip-ingress §5.6)
+        assert "become live chips" in (tools[name].description or ""), name
+    # 길이 한도가 있는 쓰기(태스크 설명 제외): A안 — 길어지면 본문 전체를 일반 링크로
+    for name in writers:
+        if name in ("create_task", "update_task"):
+            continue
+        assert "kept as plain links" in (tools[name].description or ""), name
     # 읽기 도구: format 파라미터 문서화
     for name in ["get_task", "list_task_comments", "get_task_issue", "get_canvas_page"]:
         assert '"markdown"' in (tools[name].description or ""), name

@@ -47,6 +47,8 @@ async def create_task(
     fail; digit-only strings are ids). parent_task_id makes this a subtask;
     custom_fields keys come from list_task_types. description accepts markdown or
     HTML; strings without HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
     """
     body = {"title": title}
     body.update({
@@ -71,7 +73,11 @@ async def create_task(
 @mcp.tool
 async def add_task_comment(branch_id: BranchRef, task_id: int, content: str) -> Any:
     """Add a comment to a task. content accepts markdown or HTML; strings without
-    HTML tags are treated as markdown."""
+    HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
+    If converting would make the content too long to re-save in the browser,
+    all links are kept as plain links."""
     return await get_client().call_json(
         "POST",
         f"/api/branches/{branch_id}/tasks/{task_id}/comments",
@@ -127,6 +133,8 @@ async def update_task(
     you pass change.
 
     description accepts markdown or HTML; strings without HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
     status/task_type accept the branch's key (case-insensitive) or display label;
     invalid values fail with the valid set in the error. assignee_main/assignee_sub
     accept a user id, an exact username, an email, or "me" (ambiguous matches fail).
@@ -239,7 +247,11 @@ async def update_task_comment(
     content: str,
 ) -> Any:
     """Update the content of an existing task comment. content accepts markdown or
-    HTML; strings without HTML tags are treated as markdown."""
+    HTML; strings without HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
+    If converting would make the content too long to re-save in the browser,
+    all links are kept as plain links."""
     return await get_client().call_json(
         "PATCH",
         f"/api/branches/{branch_id}/tasks/{task_id}/comments/{comment_id}",

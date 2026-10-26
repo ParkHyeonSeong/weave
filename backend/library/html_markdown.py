@@ -412,6 +412,17 @@ def markdown_to_html(md: str) -> str:
     return _PARSER.render(md)
 
 
+def parse_markdown_tokens(md: str) -> list:
+    """markdown_to_html과 같은 파서·설정으로 토큰만 만든다(ref 칩 변환 등 토큰 후처리용).
+    render_markdown_tokens(parse_markdown_tokens(md)) == markdown_to_html(md)."""
+    return _PARSER.parse(md or '')
+
+
+def render_markdown_tokens(tokens: list) -> str:
+    """parse_markdown_tokens 결과를 markdown_to_html과 같은 렌더러로 HTML로 만든다."""
+    return _PARSER.renderer.render(tokens, _PARSER.options, {})
+
+
 def is_html(text: str) -> bool:
     return bool(text) and bool(_HTML_TAG_RE.search(text))
 

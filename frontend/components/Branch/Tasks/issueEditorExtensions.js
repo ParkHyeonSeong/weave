@@ -8,6 +8,8 @@ import { checklistExtensions } from '@/components/Canvas/extensions/checklistExt
 import { common, createLowlight } from 'lowlight';
 import CalloutExtension from '@/components/Canvas/extensions/CalloutExtension';
 import TaskRefNode from '@/components/Canvas/extensions/TaskRefExtension';
+import IssueRefNode from '@/components/Canvas/extensions/IssueRefExtension';
+import DocRefNode from '@/components/Canvas/extensions/DocRefExtension';
 import MentionNode from '@/components/Canvas/extensions/MentionExtension';
 import SlashCommandsExtension from '@/components/Canvas/extensions/SlashCommandsExtension';
 import { ResizableImage } from '@/components/Canvas/extensions/ResizableImageExtension';
@@ -32,6 +34,8 @@ const makeBaseExtensions = (placeholder) => [
   ...checklistExtensions({ nested: true }),
   CalloutExtension,
   TaskRefNode,
+  IssueRefNode, // 서버가 저장한 이슈·문서 칩 보존(슬래시 명령은 추가 안 함)
+  DocRefNode,
   SlashCommandsExtension.configure({ enabled: ['/t', '/ta', '/m'] }),
   ResizableImage,
   MermaidExtension,

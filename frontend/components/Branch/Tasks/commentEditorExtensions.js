@@ -6,6 +6,8 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import { common, createLowlight } from 'lowlight';
 import MentionNode from '@/components/Canvas/extensions/MentionExtension';
 import TaskRefNode from '@/components/Canvas/extensions/TaskRefExtension';
+import IssueRefNode from '@/components/Canvas/extensions/IssueRefExtension';
+import DocRefNode from '@/components/Canvas/extensions/DocRefExtension';
 import { ResizableImage } from '@/components/Canvas/extensions/ResizableImageExtension';
 import { createImageUploadPlugin } from '@/components/Canvas/extensions/ImageUploadPlugin';
 import SlashCommandsExtension from '@/components/Canvas/extensions/SlashCommandsExtension';
@@ -27,6 +29,8 @@ export function buildCommentEditorExtensions({ placeholder = 'Add a comment...',
     CodeBlockLowlight.configure({ lowlight }),
     MentionNode.configure({ branchId }),
     TaskRefNode,
+    IssueRefNode, // 서버가 저장한 이슈·문서 칩 보존(슬래시 명령은 추가 안 함)
+    DocRefNode,
     SlashCommandsExtension.configure({ enabled: ['/t', '/ta', '/m'] }),
     ResizableImage,
     BookmarkPasteExtension,

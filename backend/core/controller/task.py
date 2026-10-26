@@ -18,7 +18,8 @@ from library.custom_field_validator import validate_custom_field_values
 from library.mention_parser import extract_mention_user_ids
 from library.time_context import personal_today
 from library.date_validator import is_valid_date_order
-from library.html_markdown import ensure_html, html_to_markdown
+from library.html_markdown import html_to_markdown
+from library.ref_chip_ingress import ingest_rich_text
 from library.assignee_cascade import cascade_main_assignee_to_subtasks, main_of
 
 
@@ -137,7 +138,7 @@ async def create(body, branch_id: int, request: Request, db: AsyncSession):
 
     # markdown ingress 휴리스틱 (§3.4) — 태그 없으면 md→HTML 변환 후 저장
     if body.description:
-        body.description = ensure_html(body.description)
+        body.description = await ingest_rich_text(body.description, user_id=user_id, db=db)
 
     # task_type 해석 — 생략 시 branch 기본값(sort_order 첫 번째), 문자열이면 key/label 해석.
     if body.task_type is None:
@@ -388,7 +389,7 @@ async def update(task_id: int, body, branch_id: int, request: Request, db: Async
     fields = body.model_dump(exclude_unset=True, exclude={'label_ids', 'assignees', 'dry_run'})
 
     if fields.get('description'):
-        fields['description'] = ensure_html(fields['description'])
+        fields['description'] = await ingest_rich_text(fields['description'], user_id=user_id, db=db)
 
     # 하위로 되는/남는 task엔 sprint/epic 자기 값을 저장하지 않는다 — 부모 라이브
     # 파생 불변식(§4). 승격(명시적 parent=null)은 최상위가 되므로 저장을 허용한다.

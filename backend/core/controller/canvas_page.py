@@ -7,7 +7,9 @@ from core.model import canvas_member as member_model
 from core.model import recent_view
 from library import notification_service
 from library import activity_service
-from library.html_markdown import ensure_html, html_to_markdown
+from library.html_markdown import html_to_markdown
+from library.ref_chip_ingress import ingest_rich_text
+from routers.schema.canvas_page import MAX_CONTENT_LENGTH
 from library.html_sanitize import sanitize_html
 from library.mention_parser import extract_mention_user_ids
 from library.ws_collab_manager import collab_manager
@@ -45,7 +47,8 @@ async def create(canvas_id: int, body, request: Request, db: AsyncSession):
         # nh3는 <intro> 같은 Typst 라벨을 미지 태그로 제거해 소스를 훼손한다.
         stored_content = body.content or ''
     elif body.type == 'document':
-        stored_content = sanitize_html(ensure_html(body.content)) or ''  # SEC-17 + md ingress
+        stored_content = await ingest_rich_text(  # SEC-17 정화 + md ingress(+ref 칩)
+            body.content, user_id=user_id, db=db, limit=MAX_CONTENT_LENGTH, sanitize=True) or ''
     else:  # folder — content 비어있는 관례, 기존대로 정화만
         stored_content = sanitize_html(body.content) or ''
 
@@ -129,7 +132,8 @@ async def update(canvas_id: int, page_id: int, body, request: Request, db: Async
         if page['type'] == 'typst':
             pass  # Typst raw 소스 보존 — 변환·정화 모두 금지 (위 create 주석 참고)
         elif page['type'] in ('document', 'overview'):
-            fields['content'] = sanitize_html(ensure_html(fields['content']))
+            fields['content'] = await ingest_rich_text(
+                fields['content'], user_id=user_id, db=db, limit=MAX_CONTENT_LENGTH, sanitize=True)
         else:  # folder
             fields['content'] = sanitize_html(fields['content'])
 

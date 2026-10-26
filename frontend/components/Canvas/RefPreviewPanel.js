@@ -4,8 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { X, ExternalLink, ArrowRight, Loader } from 'lucide-react';
 import { axios } from '@/library/_axios';
 import { sanitizeHtml } from '@/library/sanitize';
+import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
+import { openRefChipPanel } from '@/library/refUrl';
 
 export default function RefPreviewPanel({ refType, refData, onClose }) {
   const { t } = useTranslation();
@@ -78,7 +80,8 @@ export default function RefPreviewPanel({ refType, refData, onClose }) {
         </div>
       </div>
 
-      <div className="RefPreviewPanel__Body" ref={bodyRef}>
+      {/* 본문 칩 좌클릭 → canvas:ref_click → 이 패널을 띄운 RefPanelHost가 그 대상으로 바꾼다 */}
+      <div className="RefPreviewPanel__Body" ref={bodyRef} onClick={(e) => openRefChipPanel(e)}>
         {loading ? (
           <div className="RefPreviewPanel__Loading">
             <Loader size={20} className="RefPreviewPanel__Spinner" />
@@ -124,12 +127,13 @@ function IssuePreview({ issue }) {
       </div>
       <h3 className="RefPreviewPanel__Title">{issue.title}</h3>
 
-      {issue.description && (
+      {/* 이슈 API의 본문은 body다 — 이슈 화면(TaskIssueDetail)과 같은 정화 경로로 보인다 */}
+      {issue.body && (
         <div className="RefPreviewPanel__Section">
           <span className="RefPreviewPanel__SectionTitle">{t('canvas.refPreview.description')}</span>
           <div
             className="RefPreviewPanel__HtmlContent"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(issue.description) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(issue.body)) }}
           />
         </div>
       )}

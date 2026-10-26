@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { docToMarkdown, markdownToEditorHtml, findUnsupportedFormatting } from '@/library/markdownCodec';
+import { docToMarkdown, getMarkdownManager, markdownToEditorHtml, findUnsupportedFormatting } from '@/library/markdownCodec';
+import {
+  DOC_PATH, ISSUE_PATH, encodeMarkdownUrl, internalPathname, withRawLinkForms, withRawLinkRecorder,
+} from '@/components/Canvas/extensions/refMarkdown';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import { hydrateEditor } from '@/library/refHydration';
 import { slashCommandPluginKey, SLASH_OFF } from '@/components/Canvas/extensions/SlashCommandsExtension';
@@ -52,18 +55,453 @@ export function formatUnsupportedWarning(keys) {
   return i18next.t('misc.rawMode.unsupportedWarning', { items: labels.join(', ') });
 }
 
-// WYSIWYG → raw 진입: 현재 doc의 markdown + md 미표현 서식 경고 키
+// md에서는 칩과 일반 링크가 똑같이 [글](경로)라 다시 읽으면 내부 링크는 모두 칩이 되고, 같은 제목·같은 주소면
+// 원문이 글자까지 같아 원문만으로는 구분할 수도 없다. 그래서 진입 때 이슈·문서 링크마다 md에서 차지하는 자리와
+// 형태(칩·일반 링크)를 적어 두고, 저장·복귀 때 원문 편집기의 편집 기록으로 그 자리를 따라가 그대로 남은 링크만
+// 원래 형태로 되돌린다(같은 링크를 넣거나 지워도 나머지는 제 형태). 새로 쓴 링크는 지금처럼 칩이 된다.
+// 이 세 편집기(태스크 설명·댓글·이슈)에는 전에 이슈·문서 칩이 없어 그 일반 링크는 원문 왕복 뒤에도 일반 링크였다.
+// 태스크 링크는 전부터 원문 모드에서 칩이 되었으므로 적지 않는다(그대로 둔다).
+const MARK_BASE = 9e15; // 순번 표지 — 실제 id(32비트 정수 이내)와 겹치지 않는 안전한 정수
+const markerUrl = (kind, n) => (kind === 'issue' ? `/branch/0/task/0/issue/${MARK_BASE + n}` : `/canvas/0/${MARK_BASE + n}`);
+const markOf = (token) => {
+  const id = token.issueId ?? token.pageId;
+  return id >= MARK_BASE ? id - MARK_BASE : -1;
+};
+
+// 진입: md에서 이슈·문서 링크(칩·일반 링크)가 차지하는 자리 [{ from, to, raw, kind, form }].
+// 칩의 id와 일반 링크의 주소만 순번 표지로 바꾼 문서 사본을 다시 읽을 때와 같은 파서로 읽어, 표지로 각 링크를 찾는다 —
+// 주소 말고는 글자가 같아 코드·블록·괄호 처리까지 같은 자리에서 같은 토큰이 나온다.
+function issueDocLinks(editor, markdown) {
+  const entries = []; // 순번 → { form, kind, mark(사본의 글자), real(원문의 글자) }
+  const kindOf = (href) => {
+    const pathname = internalPathname(href || '');
+    if (pathname && ISSUE_PATH.test(pathname)) return 'issue';
+    return pathname && DOC_PATH.test(pathname) ? 'doc' : null;
+  };
+  const visit = (node) => {
+    if (node.type === 'issueRef' || node.type === 'docRef') {
+      const key = node.type === 'issueRef' ? 'issueId' : 'pageId';
+      const k = entries.length;
+      entries.push({ form: 'chip', kind: node.type === 'issueRef' ? 'issue' : 'doc', mark: String(MARK_BASE + k), real: String(node.attrs?.[key]) });
+      return { ...node, attrs: { ...node.attrs, [key]: MARK_BASE + k } };
+    }
+    if (!node.content) return node;
+    let prev = null; // 바로 앞 글자 마디의 링크 — 속성이 같으면 같은 링크(한 순번)
+    const content = node.content.map((child) => {
+      const link = child.type === 'text' ? child.marks?.find((mk) => mk.type === 'link') : null;
+      const kind = link && kindOf(link.attrs?.href);
+      if (!kind) {
+        prev = null;
+        return visit(child);
+      }
+      if (!prev || JSON.stringify(prev.attrs) !== JSON.stringify(link.attrs)) {
+        const k = entries.length;
+        entries.push({ form: 'plain', kind, mark: markerUrl(kind, k), real: encodeMarkdownUrl(link.attrs.href) });
+      }
+      prev = link;
+      const href = entries[entries.length - 1].mark;
+      return { ...child, marks: child.marks.map((mk) => (mk === link ? { ...mk, attrs: { ...mk.attrs, href } } : mk)) };
+    });
+    return { ...node, content };
+  };
+  const manager = getMarkdownManager(editor.extensionManager.extensions);
+  const copy = manager.serialize(visit(editor.getJSON()));
+  // 사본의 위치 → 원문 위치: 앞쪽 표지들의 길이 차를 뺀다
+  const at = entries.map((e) => copy.indexOf(e.mark));
+  const toSource = (pos) => entries.reduce((p, e, k) => (at[k] >= 0 && at[k] < pos ? p - (e.mark.length - e.real.length) : p), pos);
+  const items = [];
+  withRawLinkRecorder((token) => {
+    const k = markOf(token);
+    const e = entries[k];
+    if (!e || at[k] < 0) return;
+    const offset = token.raw.lastIndexOf(e.mark); // 링크 원문 안에서 표지 자리
+    const raw = token.raw.slice(0, offset) + e.real + token.raw.slice(offset + e.mark.length);
+    const from = toSource(at[k] - offset);
+    if (markdown.slice(from, from + raw.length) === raw) items.push({ from, to: from + raw.length, raw, kind: e.kind, form: e.form });
+  }, () => manager.parse(copy));
+  return items;
+}
+
+// 저장·복귀: 진입 원문의 글자마다 출처(진입 원문의 자리, 새로 쓴 글은 -1)를 달고 편집 기록을 한 단계씩 따라가, 진입 때 링크의
+// 글자가 지금 원문에 빠짐없이 차례로 붙어 남은 링크를 찾는다. 지운 글은 지운 자리에 무덤으로 남겨 두고, 다시 들어온 글이 지운 글이면
+// 되살려 출처를 잇는다 — 같은 자리(실행 취소·같은 자리에 다시 입력)는 늘, 다른 자리는 옮긴 경우만(Alt+↑/↓, 실행 취소·다시 실행 —
+// 원문 편집기가 넘기는 조작 종류로 안다). 붙여넣기는 같은 자리여도 클립보드 출처로만 — 잘라 둔 줄 그대로면 되살리고, 복사해 붙이거나
+// 새로 쓴 글은 새 글(새 링크는 칩)이다 — 복사가 있었으면 그 뒤 붙여넣은 글은 잘라 둔 줄이 아니라 복사본이다(잘라 둔 자리에 붙여도).
+// 편집 기록을 하나로 이어 붙이면 '앞에 글 넣기 → 전체 삭제 → 실행 취소'가 한 구간 교체로 뭉쳐 되살린 링크가 새 링크처럼 보였다.
+// 실행 취소·다시 실행은 CodeMirror 실행 취소 묶음을 그대로 따라간다(원문 편집기가 거래마다 실행 취소 깊이를 넘길 때): 0.5초 안에
+// 이어 한 조작(잘라내기 두 번, 줄 이동 직후 입력)은 한 묶음이라 실행 취소 한 번이 여러 조작을 한꺼번에 되돌린다 — 실행 취소는 그
+// 묶음 직전, 다시 실행은 그 실행 취소 직전의 글자 출처 상태로 그대로 되돌린다(CodeMirror가 글자를 그때와 똑같이 되돌리므로 맞출
+// 필요가 없다). 깊이를 모르면 자리·글자로 맞춘다.
+// 편집 기록이 없으면 원문이 진입 때와 같을 때만 그 자리 그대로, 기록이 지금 원문과 맞지 않으면 null.
+// 원문 편집기는 { changes, userEvent, depth }를 넘긴다(depth = 그 뒤 실행 취소 깊이, 복사는 changes 없이 userEvent 'copy'만),
+// ChangeSet만 넘기면 조작 종류 모름
+const stepOf = (edit) => (edit && typeof edit === 'object' && 'userEvent' in edit ? edit : { changes: edit, userEvent: '' });
+const textOf = (group) => group.map((r) => r.text).join('');
+
+// 실행 취소 묶음 따라가기 계획: 깊이가 그대로인 편집은 앞 묶음에 이어지고(늘거나 줄면 새 묶음), 실행 취소는 맨 위 묶음을, 다시
+// 실행은 마지막 실행 취소를 되돌린다(CodeMirror history와 같은 차례). snap = 상태를 찍어 둘 단계(그 단계 직전), back = 실행 취소·
+// 다시 실행 단계 → 되돌아갈 사진의 단계. 깊이가 없거나 차례가 CodeMirror와 맞지 않으면 null(따라가지 않는다)
+function historyPlan(edits) {
+  const snap = new Set();
+  const back = new Map();
+  const done = []; // 묶음마다 첫 편집 단계
+  const undone = []; // 실행 취소마다 [그 묶음 첫 편집 단계, 그 실행 취소 단계]
+  let depth = 0;
+  for (let i = 0; i < edits.length; i += 1) {
+    const { changes, userEvent = '', depth: after } = stepOf(edits[i]);
+    if (!changes) continue;
+    if (typeof after !== 'number') return null;
+    if (userEvent === 'undo') {
+      const start = done.pop();
+      if (start === undefined || after !== depth - 1) return null;
+      if (!changes.empty) { // 바뀐 글이 없는 묶음(입력했다 바로 지움)은 되돌릴 것도 다시 실행할 몫도 없다(CodeMirror와 같이)
+        snap.add(start);
+        back.set(i, start);
+        undone.push([start, i]);
+      }
+    } else if (userEvent === 'redo') {
+      const last = undone.pop();
+      if (!last || after > depth + 1) return null;
+      snap.add(last[1]);
+      back.set(i, last[1]);
+      done.push(last[0]);
+    } else {
+      if (after !== depth || !done.length) done.push(i);
+      undone.length = 0;
+    }
+    depth = after;
+  }
+  return { snap, back };
+}
+
+function survivingLinks(md, { source, items }, edits) {
+  if (!edits?.length) return md === source ? items : null;
+  let runs = [{ text: source, src: 0, live: true, tomb: null, gone: false }]; // gone: runs에서 빠졌다(나뉘거나 상태를 되돌려) — 모든 run이 같은 모양이게 처음부터 둔다
+  let graves = []; // 무덤(한 번에 지운 글), 만든 차례대로
+  let lastCut = null; // 마지막 잘라내기로 지운 글 — 아직 지운 채로 붙여넣어지면 옮긴 것이다
+  let length = source.length;
+  // 위치 찾기는 지난번 자리에서 앞뒤로 이어 간다(편집은 대개 한곳에 몰린다): runs[0..ci)에 살아 있는 글자 cat개
+  let ci = 0;
+  let cat = 0;
+  // 살아 있는 글자 pos개 바로 뒤 run 자리(그 자리 무덤들 앞) — run 한가운데면 나눈다
+  const boundary = (pos) => {
+    let i = ci;
+    let at = cat;
+    while (i > 0 && (at > pos || (at === pos && !runs[i - 1].live))) {
+      i -= 1;
+      if (runs[i].live) at -= runs[i].text.length;
+    }
+    while (at < pos) {
+      const r = runs[i];
+      if (r.live) {
+        if (pos < at + r.text.length) {
+          const k = pos - at;
+          runs.splice(i, 1, { ...r, text: r.text.slice(0, k) }, { ...r, text: r.text.slice(k), src: r.src < 0 ? -1 : r.src + k });
+          r.gone = true; // 둘로 나뉘어 runs에서 빠졌다(이 run을 적어 둔 무덤 목록은 더 쓰지 않는다)
+          at = pos;
+        } else {
+          at += r.text.length;
+        }
+      }
+      i += 1;
+    }
+    ci = i;
+    cat = at;
+    return i;
+  };
+  // 무덤 안 run을 둘로(옮긴 줄의 줄바꿈 떼기) — 무덤·마지막 잘라내기 목록도 맞춘다. 목록은 새로 만든다(찍어 둔 상태 사진이 옛 목록을
+  // 쓴다). 목록이 바뀐 무덤은 처음 목록(original)과 함께 적어 두고 사진마다 그 무덤들의 목록을 담는다
+  const changed = [];
+  const splitDead = (r, k) => {
+    const parts = [{ ...r, text: r.text.slice(0, k) }, { ...r, text: r.text.slice(k), src: r.src < 0 ? -1 : r.src + k }];
+    const swap = (list) => list.flatMap((x) => (x === r ? parts : [x]));
+    const j = runs.indexOf(r);
+    if (j >= 0) runs.splice(j, 1, ...parts);
+    const g = r.tomb;
+    if (g) {
+      if (!g.original) {
+        g.original = g.runs;
+        changed.push(g);
+      }
+      g.runs = swap(g.runs);
+    }
+    if (lastCut?.includes(r)) lastCut = swap(lastCut);
+    r.gone = true;
+    ci = 0;
+    cat = 0;
+    return parts;
+  };
+  const valid = (g) => g.runs.every((r) => !r.live && !r.gone && r.tomb === g);
+  // 실행 취소 묶음 경계(단계 at 직전)의 상태 사진: run 목록과 run마다 살았는지·무덤·글자(새로 쓴 글은 이어 쓰며 자란다), 무덤 목록과
+  // 목록이 바뀐 무덤들의 목록, 마지막 잘라내기
+  const take = (at) => {
+    const n = runs.length;
+    const live = new Array(n);
+    const tomb = new Array(n);
+    const text = new Array(n);
+    for (let i = 0; i < n; i += 1) {
+      live[i] = runs[i].live;
+      tomb[i] = runs[i].tomb;
+      text[i] = runs[i].text;
+    }
+    return { at, runs: runs.slice(), live, tomb, text, graves: graves.slice(), lists: changed.map((g) => g.runs), lastCut };
+  };
+  const restore = (shot) => {
+    for (const r of runs) r.gone = true; // 사진에 없는 run(그 뒤 생기거나 나뉜 run)은 빠진다
+    runs = shot.runs.slice();
+    for (let i = 0; i < runs.length; i += 1) {
+      const r = runs[i];
+      r.live = shot.live[i];
+      r.tomb = shot.tomb[i];
+      r.text = shot.text[i];
+      r.gone = false;
+    }
+    graves = shot.graves.slice();
+    changed.forEach((g, i) => { g.runs = i < shot.lists.length ? shot.lists[i] : g.original; }); // 사진 뒤에 처음 바뀐 무덤은 처음 목록
+    // 클립보드는 실행 취소되지 않는다 — 사진 뒤에 자르거나 복사했으면 클립보드 글은 이 상태에서 잘라 둔 줄이 아니다(붙이면 복사본)
+    lastCut = clipAt >= shot.at ? null : shot.lastCut;
+    ci = 0;
+    cat = 0;
+  };
+
+  // 같은 자리: 그 자리 무덤 묶음을 최근 것부터 이어 모아 들어온 글과 똑같은 첫 묶음 — 이어서 지운 글은 실행 취소 한 번에 함께
+  // 돌아오고, 실행 취소로 지운 글(다시 실행 몫)처럼 더 최근 묶음이 맞지 않으면 건너뛴다. 한 실행 취소 묶음 안에서 쓰고 지운 글(새로
+  // 쓴 글만 지운 묶음)은 돌아오지 않으므로 빼고도 맞춰 보고, 묶음 안의 새로 쓴 글을 빼고 원래 글만으로도 맞춰 본다(같은 자리 잘라 붙인
+  // 뒤 실행 취소 두 번). 선택 없이 마지막 줄을 잘라(Cmd+X) 붙이면 붙인 글 끝에 줄바꿈이 하나 더 붙는다(CodeMirror 줄 단위 붙여넣기).
+  const sameSpot = (start, gapEnd, text) => {
+    if (gapEnd === start) return null;
+    const gap = runs.slice(start, gapEnd);
+    const order = new Map(gap.map((r, i) => [r, i]));
+    const tombs = [...new Set(gap.map((r) => r.tomb))]
+      .filter((t) => t.runs.every((r) => r.tomb === t && order.has(r)))
+      .sort((a, b) => b.serial - a.serial);
+    const kept = tombs.filter((t) => t.runs.some((r) => r.src >= 0));
+    const match = (want, pool, sourceOnly) => {
+      const own = (r) => !sourceOnly || r.src >= 0;
+      const sizes = pool.map((t) => t.runs.reduce((n, r) => (own(r) ? n + r.text.length : n), 0));
+      for (let s = 0; s < pool.length; s += 1) {
+        let size = 0;
+        let e = s;
+        while (e < pool.length && size < want.length) size += sizes[e++];
+        if (size !== want.length) continue;
+        const found = pool.slice(s, e).flatMap((t) => t.runs.filter(own)).sort((a, b) => order.get(a) - order.get(b));
+        if (textOf(found) === want) return found;
+      }
+      return null;
+    };
+    const cutLine = text.length > 1 && text.endsWith('\n') ? text.slice(0, -1) : null;
+    for (const want of [text, cutLine]) {
+      const found = want && (match(want, tombs, false) || match(want, kept, false) || match(want, kept, true));
+      if (found) return { group: found, before: '', after: want === text ? '' : '\n' };
+    }
+    return null;
+  };
+  // 묶음 끝('end')이나 앞('start')의 줄바꿈 한 글자를 떼어 낸 나머지(떼기 전에 나머지를 먼저 잡는다 — splitDead가 묶음 목록도 바꾼다)
+  const dropNewline = (group, side) => {
+    if (side === 'end') {
+      const head = group.slice(0, -1);
+      const last = group[group.length - 1];
+      return last.text.length > 1 ? [...head, splitDead(last, last.text.length - 1)[0]] : head;
+    }
+    const tail = group.slice(1);
+    return group[0].text.length > 1 ? [splitDead(group[0], 1)[1], ...tail] : tail;
+  };
+  // 다른 자리로 옮긴 글인지 — 지운 글 묶음(문서 차례)과 들어온 글을 맞춘다. 같은 글, 끝 줄바꿈 하나 더(마지막 줄을 잘라 줄 단위로
+  // 붙이기), 끝 줄바꿈 없이(잘라 둔 줄을 선택 위에 붙이기), 줄바꿈 자리만 바뀐 줄(Alt+↑ 'N\n'→'\nN', Alt+↓ '\nN'→'N\n'),
+  // 원래 글만(붙인 줄바꿈 없이)
+  const fit = (group, text) => {
+    const all = textOf(group);
+    if (all === text) return { group, before: '', after: '' };
+    if (`${all}\n` === text) return { group, before: '', after: '\n' };
+    if (all.length > 1 && all.endsWith('\n')) {
+      if (text === all.slice(0, -1)) return { group: dropNewline(group, 'end'), before: '', after: '' };
+      if (text === `\n${all.slice(0, -1)}`) return { group: dropNewline(group, 'end'), before: '\n', after: '' };
+    }
+    if (all.length > 1 && all.startsWith('\n') && text === `${all.slice(1)}\n`) {
+      return { group: dropNewline(group, 'start'), before: '', after: '\n' };
+    }
+    const src = group.filter((r) => r.src >= 0);
+    if (src.length && src.length < group.length) {
+      if (textOf(src) === text) return { group: src, before: '', after: '' };
+      if (`${textOf(src)}\n` === text) return { group: src, before: '', after: '\n' };
+    }
+    return null;
+  };
+  const firstFit = (groups, text) => {
+    for (const group of groups) {
+      const hit = fit(group, text);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const fresh = (text) => ({ text, src: -1, live: true, tomb: null, gone: false });
+  // 되살리기: 같은 자리면 그대로 살리고(붙는 줄바꿈은 그 자리 무덤들 뒤 — 줄 끝에서 먼저 지운 글을 떼어 놓지 않게), 다른 자리면
+  // 지금 자리로 옮긴다. 옮길 때는 묶음 사이와 바로 뒤에 붙어 있던 다른 무덤(그 줄 안을 먼저 고친 기록)도 차례 그대로 함께 옮긴다
+  // — 실행 취소로 그 고친 글이 줄과 함께 제자리에 돌아오게
+  const revive = ({ group, before, after }, pos, inPlace, gapEnd) => {
+    if (inPlace) {
+      group.forEach((r) => Object.assign(r, { live: true, tomb: null }));
+      if (after) runs.splice(gapEnd, 0, fresh(after));
+      return;
+    }
+    const owner = group[0].tomb;
+    const inGroup = new Set(group);
+    const at = group.map((r) => runs.indexOf(r));
+    const first = Math.min(...at);
+    let last = Math.max(...at);
+    while (last + 1 < runs.length && !runs[last + 1].live && runs[last + 1].tomb !== owner) last += 1;
+    const moving = runs.slice(first, last + 1).filter((r) => inGroup.has(r) || (!r.live && r.tomb !== owner));
+    const set = new Set(moving);
+    runs = runs.filter((r) => !set.has(r));
+    ci = 0;
+    cat = 0;
+    group.forEach((r) => Object.assign(r, { live: true, tomb: null }));
+    const start = boundary(pos);
+    let end = start;
+    while (end < runs.length && !runs[end].live) end += 1;
+    runs.splice(end, 0, ...(before ? [fresh(before)] : []), ...moving, ...(after ? [fresh(after)] : []));
+  };
+
+  const plan = edits.some((e) => e?.userEvent === 'undo' || e?.userEvent === 'redo') ? historyPlan(edits) : null; // 실행 취소가 없으면 따라갈 것도 없다
+  const shots = new Map();
+  let settled = null; // 실행 취소·다시 실행으로 되돌린 뒤 아직 아무것도 바뀌지 않은 상태 — 그 사진 그대로다
+  let clipAt = -1; // 마지막으로 자르거나 복사한 단계
+  for (let step = 0; step < edits.length; step += 1) {
+    const { changes, userEvent = '' } = stepOf(edits[step]);
+    if (!changes) {
+      if (userEvent === 'copy') {
+        lastCut = null;
+        clipAt = step;
+        settled = null;
+      }
+      continue;
+    }
+    if (changes.length !== length) return null;
+    if (plan?.snap.has(step)) shots.set(step, settled || take(step));
+    if (plan?.back.has(step)) { // 실행 취소·다시 실행: 그 묶음 직전(다시 실행은 그 실행 취소 직전) 상태로
+      settled = shots.get(plan.back.get(step));
+      restore(settled);
+      length = changes.newLength;
+      continue;
+    }
+    settled = null;
+    const undoRedo = userEvent === 'undo' || userEvent === 'redo';
+    const list = [];
+    changes.iterChanges((fromA, toA, fromB, toB, inserted) => list.push([fromA, toA, fromB, inserted.toString()]));
+    // 지우기 먼저(뒤쪽부터 — 앞쪽 위치가 그대로), 그다음 넣기(앞쪽부터, 새 원문 위치) — 같은 조작 안에서 옮긴 줄을 맞출 수 있다
+    const born = [];
+    for (let i = list.length - 1; i >= 0; i -= 1) {
+      const [fromA, toA] = list[i];
+      if (toA === fromA) continue;
+      const start = boundary(fromA);
+      const end = boundary(toA);
+      const killed = runs.slice(start, end).filter((r) => r.live);
+      ci = start;
+      cat = fromA;
+      if (killed.length) {
+        const grave = { serial: graves.length + 1, runs: killed, original: null };
+        killed.forEach((r) => Object.assign(r, { live: false, tomb: grave }));
+        graves.push(grave);
+        born.push(grave);
+      }
+    }
+    if (/^delete\.cut/.test(userEvent)) {
+      lastCut = born.length === 1 ? [...born[0].runs] : null;
+      clipAt = step;
+    }
+    for (const [, , fromB, text] of list) {
+      if (!text) continue;
+      const start = boundary(fromB);
+      let gapEnd = start;
+      while (gapEnd < runs.length && !runs[gapEnd].live) gapEnd += 1;
+      // 다른 자리에서 되살리는 건 옮긴 경우만: Alt+↑/↓·실행 취소·다시 실행은 같은 조작에서 지운 글이 먼저(그 자리에 같은 글의
+      // 다른 무덤 — 잘라 둔 줄 — 이 있어도), 그다음 같은 자리, 실행 취소·다시 실행은 마지막으로 최근에 지운 글(잘라 다른 자리에 붙인
+      // 줄을 되돌릴 때). 붙여넣기는 같은 자리 맞추기 없이 클립보드 출처로만: 아직 지운 채인 마지막 잘라내기면 그 줄(같은 자리든 다른
+      // 자리든), 그 뒤 복사했으면 새 글 — 같은 글자가 같은 자리에 들어왔다는 것만으로 복사본을 지운 일반 링크로 되살리지 않는다
+      const paste = /^input\.paste/.test(userEvent);
+      const pasted = paste && lastCut?.length && lastCut.every((r) => !r.live && !r.gone) ? [lastCut] : [];
+      const earlier = () => graves.filter((g) => !born.includes(g) && valid(g)).reverse().map((g) => g.runs);
+      const sameStep = userEvent === 'move.line' || undoRedo ? firstFit(born.filter(valid).map((g) => g.runs), text) : null;
+      const same = !sameStep && !paste && sameSpot(start, gapEnd, text);
+      const moved = sameStep || (!same && (firstFit(pasted, text) || (undoRedo && firstFit(earlier(), text))));
+      if (same || moved) {
+        revive(same || moved, fromB, !!same, gapEnd);
+      } else if (gapEnd === start && runs[start - 1]?.live && runs[start - 1].src === -1) {
+        runs[start - 1].text += text; // 바로 앞이 새로 쓴 글이면 이어 붙인다(타자마다 run이 늘지 않게)
+        cat += text.length;
+      } else {
+        runs.splice(gapEnd, 0, fresh(text));
+      }
+    }
+    length = changes.newLength;
+  }
+  const live = runs.filter((r) => r.live);
+  if (textOf(live) !== md) return null;
+  const posOf = new Int32Array(source.length).fill(-1); // 진입 원문 자리 → 지금 원문 자리
+  let at = 0;
+  for (const r of live) {
+    if (r.src >= 0) for (let i = 0; i < r.text.length; i += 1) posOf[r.src + i] = at + i;
+    at += r.text.length;
+  }
+  return items.flatMap((l) => {
+    const from = posOf[l.from];
+    for (let i = 0; i < l.raw.length; i += 1) if (from < 0 || posOf[l.from + i] !== from + i) return [];
+    return [{ ...l, from, to: from + l.raw.length }];
+  });
+}
+
+// 남은 링크의 주소만 표지로 바꾼 사본을 같은 파서로 읽어, 이슈·문서 칩 토큰 자리마다 형태를 정한다(표지가 없으면 새 링크 → 칩)
+function linkFormsAt(md, extensions, survivors) {
+  let copy = md;
+  survivors.map((l, i) => [l, i]).sort(([a], [b]) => b.from - a.from).forEach(([l, i]) => {
+    const urlFrom = l.from + l.raw.lastIndexOf('](') + 2; // 우리가 찾은 링크 주소에는 '](' 가 없다
+    copy = copy.slice(0, urlFrom) + markerUrl(l.kind, i) + copy.slice(l.to - 1);
+  });
+  const forms = new Map();
+  withRawLinkRecorder((token) => {
+    const i = markOf(token);
+    const l = survivors[i];
+    // 형태는 실제 토큰 원문에 단다 — 앞에 짝 없는 '['가 생기면 토큰이 링크보다 길어진다. 표지 주소만 원래 주소로 되돌린다
+    let raw = token.raw;
+    if (l) {
+      const mark = markerUrl(l.kind, i);
+      const at = raw.lastIndexOf(mark);
+      raw = raw.slice(0, at) + l.raw.slice(l.raw.lastIndexOf('](') + 2, -1) + raw.slice(at + mark.length);
+    }
+    forms.set(raw, [...(forms.get(raw) || []), l ? l.form : 'chip']);
+  }, () => getMarkdownManager(extensions).parse(copy));
+  return forms;
+}
+
+// 편집 기록을 못 쓸 때(방어): 진입 때 나온 순서대로 형태를 준다(같은 링크를 넣고 지우면 밀릴 수 있다)
+function linkFormsInOrder(items) {
+  const forms = new Map();
+  items.forEach((l) => forms.set(l.raw, [...(forms.get(l.raw) || []), l.form]));
+  return forms;
+}
+
+// WYSIWYG → raw 진입: 현재 doc의 markdown + md 미표현 서식 경고 키 + 이슈·문서 링크 자리(parseRawToHtml에 넘긴다)
 export function enterRawState(editor) {
+  const markdown = docToMarkdown(editor);
   return {
-    markdown: docToMarkdown(editor),
+    markdown,
     warnings: findUnsupportedFormatting(editor.getJSON()), // 계약: JSONContent (PM Node 아님 — S0.2 §)
+    rawLinks: { source: markdown, items: issueDocLinks(editor, markdown) },
   };
 }
 
 // raw → 에디터 HTML. 공백뿐이면 null (기존 editor.isEmpty → onSave(null) 시맨틱).
-export function parseRawToHtml(md, extensions) {
+// rawLinks: 진입 때 enterRawState가 적어 둔 링크 자리, edits: 그 뒤 원문 편집 기록 — 편집 순서대로 담은 배열(이어 붙이지 않는다),
+// 각 단계는 원문 편집기가 넘기는 { changes: ChangeSet, userEvent, depth(그 뒤 실행 취소 깊이) } 또는 ChangeSet만(조작 종류 모름
+// — 다른 자리로 옮긴 줄은 모른다). ChangeSet 하나만 넘기면 한 단계, 없으면 null.
+export function parseRawToHtml(md, extensions, rawLinks, edits = null) {
   if (!md || !md.trim()) return null;
-  return markdownToEditorHtml(md, extensions);
+  let forms = null;
+  if (rawLinks?.items.length) {
+    const survivors = survivingLinks(md, rawLinks, edits && [].concat(edits));
+    forms = survivors ? linkFormsAt(md, extensions, survivors) : linkFormsInOrder(rawLinks.items);
+  }
+  return withRawLinkForms(forms, () => markdownToEditorHtml(md, extensions));
 }
 
 // prefill(답글 자동 멘션 등) 콘텐츠를 갖고 뜨는 에디터 인스턴스는 선호가 raw여도
@@ -86,6 +524,8 @@ export function useRawMode(editor, extensions, enabled = true, { autoEnter = tru
   const isRawRef = useRef(false);
   const [rawText, setRawText] = useState('');
   const rawTextRef = useRef('');
+  const rawLinksRef = useRef(null); // 진입 때 적어 둔 이슈·문서 링크 자리(enterRawState) — 저장·복귀 파싱에 넘긴다
+  const editsRef = useRef([]); // 그 뒤 원문 편집 기록(ChangeSet 또는 { changes, userEvent, depth }, 편집 순서대로) — 링크 자리를 따라가는 데 쓴다
   // RawMarkdownEditor는 value를 마운트 초기값으로만 쓰는 uncontrolled —
   // session을 key로 넘겨 enterRaw/resetRaw마다 강제 리마운트한다.
   const [session, setSession] = useState(0);
@@ -96,13 +536,17 @@ export function useRawMode(editor, extensions, enabled = true, { autoEnter = tru
   // 초기값으로만 읽히는 uncontrolled 값이라, 타이핑 중 갱신해도 그 값을 아무도
   // 읽지 않고 표면 전체의 리렌더만 유발한다. state는 enterRaw/resetRaw(세션
   // 경계, 곧 리마운트)에서만 맞춰준다.
-  const handleRawChange = useCallback((text) => {
+  const handleRawChange = useCallback((text, changes, userEvent, depth) => {
     rawTextRef.current = text;
+    if (changes) editsRef.current.push(userEvent || depth !== undefined ? { changes, userEvent, depth } : changes);
+    else if (userEvent) editsRef.current.push({ changes: null, userEvent }); // 복사 — 글자는 그대로
   }, []);
 
   // raw 세션 텍스트 교체 + 강제 리마운트 (imperative clearContent용)
   const resetRaw = useCallback((text = '') => {
     rawTextRef.current = text;
+    rawLinksRef.current = null;
+    editsRef.current = [];
     setRawText(text);
     setSession((s) => s + 1);
   }, []);
@@ -110,8 +554,10 @@ export function useRawMode(editor, extensions, enabled = true, { autoEnter = tru
   const enterRaw = useCallback(() => {
     if (!editor || editor.isDestroyed || isRawRef.current) return;
     closeEditorPopups(editor);
-    const { markdown, warnings: warn } = enterRawState(editor);
+    const { markdown, warnings: warn, rawLinks } = enterRawState(editor);
     rawTextRef.current = markdown;
+    rawLinksRef.current = rawLinks;
+    editsRef.current = [];
     setRawText(markdown);
     setWarnings(warn);
     setParseError(false);
@@ -125,7 +571,7 @@ export function useRawMode(editor, extensions, enabled = true, { autoEnter = tru
   // 저장/복귀 공용 파싱. 실패 시 parseError 배지 on — 저장 차단은 호출부 책임.
   const parseCurrentRaw = useCallback(() => {
     try {
-      const html = parseRawToHtml(rawTextRef.current, extensions);
+      const html = parseRawToHtml(rawTextRef.current, extensions, rawLinksRef.current, editsRef.current);
       setParseError(false);
       return { ok: true, html };
     } catch (err) {

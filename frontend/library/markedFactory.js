@@ -52,8 +52,9 @@ export function weaveMarkedToHtml(marked, src) {
 // 인스턴스 전용 Lexer subclass + md.lexer 래핑(10차 리뷰). MarkdownManager는 self로
 // `new this.markedInstance.Lexer()`(dist:111·125·179)를 만들어 리스트를 재토큰화하므로
 // (this.lexer.inlineTokens dist:392), 인스턴스의 Lexer 자체를 정규화 subclass로 바꾸면
-// **모든 manager**(markdownCodec + TipTap Markdown.configure의 별도 manager, dist:966)가
-// 자동으로 정규화된다. md.Lexer는 인스턴스 간 공유(9차)라 own-property로 shadow하면
+// TipTap Markdown.configure의 별도 manager(dist:966)가 자동으로 정규화된다. markdownCodec의
+// manager는 manager.lexer를 지금 토큰화 중인 렉서 래퍼로 바꿔 그 래퍼가 같은 정규화를 한다
+// (markdownCodec.createManager). md.Lexer는 인스턴스 간 공유(9차)라 own-property로 shadow하면
 // 격리된다(md2·detectMarked 무오염 — 실측). inlineTokens(src, tokens)는 accumulator 인자를
 // mutate/반환하므로 **...args로 전량 보존**한다(10차 P1).
 export function createWeaveMarked() {
@@ -66,13 +67,12 @@ export function createWeaveMarked() {
   md.Lexer = class WeaveLexer extends BaseLexer {
     // TipTap MarkdownManager는 `new markedInstance.Lexer()`를 **인자 없이** 호출한다(dist:111)
     // → constructor가 없으면 인스턴스 defaults(breaks:true·custom tokenizer)를 잃는다
-    // (11차 실측: no-arg 생성 시 breaks=false. 리포가 markdownCodec.js:9에서 굳이
-    //  `new md.Lexer(md.defaults)`를 쓰는 이유도 같다). 기본값으로 md.defaults를 주입.
+    // (11차 실측: no-arg 생성 시 breaks=false). 기본값으로 md.defaults를 주입.
     constructor(options = md.defaults) { super(options); }
-    // inlineTokens만 오버라이드한다 — MarkdownManager.parseListToken이 이걸로 리스트 아이템을
-    // 재토큰화한다(dist:392). blockTokens 오버라이드는 두지 않는다(15차 P2 실측: 레포 custom
-    // tokenizer 중 registerTokenizer의 blockTokens 헬퍼(dist:195)를 쓰는 것이 없고, 블록 레벨은
-    // 래핑된 md.lexer(dist:291·379)가 이미 정규화한다 — 검증 불가능한 override는 곧 죽은 계약).
+    // inlineTokens만 오버라이드한다. blockTokens 오버라이드는 두지 않는다 — 블록 레벨은 래핑된
+    // md.lexer(dist:291·379)가 토큰 트리 전체를 정규화한다. 번호 목록·체크리스트·callout 토크나이저의
+    // 헬퍼와 리스트 재토큰화(dist:392)는 markdownCodec.js createManager가 지금 토큰화 중인 렉서로
+    // 돌리고, 그쪽 인라인 결과도 같은 정규화를 거친다.
     inlineTokens(...args) { return normalizeWeaveTokens(super.inlineTokens(...args), false); }
   };
   return md;

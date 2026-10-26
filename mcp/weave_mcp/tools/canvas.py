@@ -198,6 +198,10 @@ async def create_canvas_page(
 
     Only title is required. content sets the initial page body (max 300k chars);
     accepts markdown or HTML, and strings without HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
+    If converting would make the content too long to re-save in the browser,
+    all links are kept as plain links.
     parent_page_id nests the new page under an existing page. type is one of
     "document" (default), "folder", or "typst".
     """
@@ -226,8 +230,12 @@ async def update_canvas_page(
 
     WARNING: providing `content` replaces the entire page body (max 300k chars) —
     partial updates are not supported; pass the full desired content. content accepts
-    markdown or HTML; strings without HTML tags are treated as markdown. To change a
-    page's parent or order use move_canvas_page instead.
+    markdown or HTML; strings without HTML tags are treated as markdown.
+    Links to this Weave's tasks, issues and docs written as markdown links
+    become live chips showing the real ID/title (the link text is ignored).
+    If converting would make the content too long to re-save in the browser,
+    all links are kept as plain links.
+    To change a page's parent or order use move_canvas_page instead.
 
     While someone has the page open in the web editor, a `content` update is rejected
     with code PAGE_BEING_EDITED (category "conflict") and nothing is changed — not even

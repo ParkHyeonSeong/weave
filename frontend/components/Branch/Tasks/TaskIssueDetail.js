@@ -5,6 +5,7 @@ import { ArrowLeft, CircleDot, MoreHorizontal, Pencil, Copy, Trash2, XCircle, Ch
 import { axios } from '@/library/_axios';
 import { ensureRenderableHtml } from '@/library/ensureHtml';
 import { sanitizeHtml } from '@/library/sanitize';
+import { openRefChipPanel } from '@/library/refUrl';
 import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
 import Avatar from '@/components/common/Avatar';
@@ -353,7 +354,7 @@ export default function TaskIssueDetail() {
             ) : (
               <div className={`IssueDetail__CardBody ${!issue.body ? 'IssueDetail__CardBody--empty' : ''}`}>
                 {issue.body ? (
-                  <div className="TaskDescReadonly" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(issue.body)) }} />
+                  <div className="TaskDescReadonly" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(issue.body)) }} onClick={(e) => openRefChipPanel(e)} />
                 ) : (
                   isAuthor ? t('branchTasks.issue.noDescriptionAuthor') : t('branchTasks.issue.noDescription')
                 )}
@@ -429,7 +430,7 @@ export default function TaskIssueDetail() {
                   </div>
                 ) : (
                   <div className="IssueDetail__CardBody">
-                    <div className="TaskDescReadonly" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(comment.content)) }} />
+                    <div className="TaskDescReadonly" dangerouslySetInnerHTML={{ __html: sanitizeHtml(ensureRenderableHtml(comment.content)) }} onClick={(e) => openRefChipPanel(e)} />
                   </div>
                 )}
               </div>

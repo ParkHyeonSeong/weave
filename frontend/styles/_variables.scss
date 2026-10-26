@@ -137,3 +137,72 @@ $bp-desktop: 1024px;
     container-name: panel-host;
   }
 }
+
+// -- 문서·이슈 인라인 칩 -----------------------------------------------------
+// 캔버스 본문(canvasPageView.scss .CanvasPageView__Content)의 .doc-ref·.issue-ref와 같은 모양.
+// 브랜치 읽기 화면(태스크 설명·댓글·이슈 본문·이슈 댓글), 편집기(태스크 설명·이슈 편집기·댓글 편집기), 문서·이슈 미리보기가
+// 같이 쓴다 — 서버가 링크를 칩으로 저장하면서 이 화면들에도 이슈·문서 칩이 생겼다(누르면 대상이 열린다).
+// 삭제 표시는 globals.scss .ref-chip--unresolved.
+@mixin doc-issue-ref-chips {
+  // 문서 레퍼런스 인라인 칩
+  .doc-ref {
+    display: inline;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 1px 8px;
+    border-radius: $radius-md;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    background: $color-ref-doc-bg;
+    color: $color-ref-doc;
+    border: 1px solid transparent;
+    cursor: pointer;
+    vertical-align: baseline;
+    line-height: 1.8;
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 4px;
+      vertical-align: -2px;
+      background: currentColor;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='M10 13H8'/%3E%3Cpath d='M16 17H8'/%3E%3Cpath d='M16 13h-2'/%3E%3C/svg%3E") no-repeat center / contain;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z'/%3E%3Cpath d='M14 2v4a2 2 0 0 0 2 2h4'/%3E%3Cpath d='M10 13H8'/%3E%3Cpath d='M16 17H8'/%3E%3Cpath d='M16 13h-2'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
+    &:hover { border-color: $color-ref-doc; }
+  }
+
+  // 이슈 레퍼런스 인라인 칩
+  .issue-ref {
+    display: inline;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 1px 8px;
+    border-radius: $radius-md;
+    font-size: $font-size-xs;
+    font-weight: $font-weight-medium;
+    background: $color-ref-issue-bg;
+    color: $color-ref-issue;
+    border: 1px solid transparent;
+    cursor: pointer;
+    vertical-align: baseline;
+    line-height: 1.8;
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 4px;
+      vertical-align: -2px;
+      background: currentColor;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='1'/%3E%3C/svg%3E") no-repeat center / contain;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Ccircle cx='12' cy='12' r='1'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
+    &:hover { border-color: $color-ref-issue; }
+  }
+}

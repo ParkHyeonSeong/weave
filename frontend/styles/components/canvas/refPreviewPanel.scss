@@ -191,6 +191,36 @@
     }
     img { @include rich-content-img; }
 
+    // 인라인 ref 칩 — 문서·이슈 미리보기 본문 공통. 누르면 대상이 열린다(RefPreviewPanel onClick).
+    // 문서·이슈 칩과 상태 배지는 캔버스 본문과 같은 모양. 태스크 칩은 글자 크기만 맞춘다 — 태스크 칩 배경은 표 셀 배경색 대비
+    // 원장(entitySurfaceStates.test.js)에 올라야 하는 표면이라(문서 미리보기는 색칠된 표 셀을 보여 줄 수 있다) 여기서는 칠하지 않는다.
+    [data-task-ref] {
+      display: inline;
+      font-size: $font-size-xs;
+      cursor: pointer;
+    }
+
+    // Ref 상태 뱃지 (Confluence 스타일)
+    .ref-chip__badge {
+      display: inline-block;
+      vertical-align: 1px;
+      margin-left: 4px;
+      padding: 0 5px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: $font-weight-medium;
+      line-height: 1.5;
+      white-space: nowrap;
+
+      &--todo { background: color-mix(in srgb, var(--color-text) 6%, transparent); color: $color-text-secondary; }
+      &--in_progress { background: $color-status-in-progress-bg; color: $color-status-in-progress; }
+      &--done { background: $color-success-bg; color: $color-success; }
+      &--open { background: $color-status-in-progress-bg; color: $color-status-in-progress; }
+      &--closed { background: color-mix(in srgb, var(--color-text) 6%, transparent); color: $color-text-secondary; }
+    }
+
+    @include doc-issue-ref-chips;
+
     &--doc {
       max-height: none;
       max-width: 100%;
@@ -229,13 +259,6 @@
       pre {
         overflow-x: auto;
         font-size: 0.8em;
-      }
-      // 인라인 ref 칩 축소
-      [data-task-ref],
-      [data-doc-ref],
-      [data-issue-ref] {
-        display: inline;
-        font-size: $font-size-xs;
       }
     }
   }

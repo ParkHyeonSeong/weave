@@ -6,7 +6,9 @@ from core.model import task_issue as issue_model
 from core.model import branch_member as member_model
 from core.model import task as task_model
 from library import notification_service
-from library.html_markdown import ensure_html, html_to_markdown
+from library.html_markdown import html_to_markdown
+from library.ref_chip_ingress import ingest_rich_text
+from routers.schema.task_issue import BODY_MAX_LENGTH, COMMENT_MAX_LENGTH
 from library.mention_parser import extract_mention_user_ids
 
 
@@ -74,7 +76,7 @@ async def create_issue(body, branch_id: int, task_id: int, request: Request, db:
         return task_err
 
     if body.body:
-        body.body = ensure_html(body.body)
+        body.body = await ingest_rich_text(body.body, user_id=user_id, db=db, limit=BODY_MAX_LENGTH)
 
     issue_id = await issue_model.create_issue(task_id, body.title, body.body, user_id, db)
 
@@ -176,7 +178,7 @@ async def update_issue(body, branch_id: int, task_id: int, issue_id: int, reques
     target_status = fields.pop('status', None)          # status는 분리 — 모델 update로 절대 안 씀
 
     if fields.get('body'):
-        fields['body'] = ensure_html(fields['body'])
+        fields['body'] = await ingest_rich_text(fields['body'], user_id=user_id, db=db, limit=BODY_MAX_LENGTH)
 
     username = request.state.payload.get('username', '')
     effective_title = fields.get('title', issue['title'])   # title도 같이 바뀌면 새 제목(멘션·전환 알림 공용)
@@ -252,7 +254,7 @@ async def _apply_status_transition(issue, target_status, comment, effective_titl
                                    branch_id, task_id, issue_id, user_id, username, db):
     """(검증 끝난) 이슈에 대해: (댓글) → 조건부 status → 이벤트 → 알림. close/reopen·update_issue 공용."""
     if comment is not None:
-        comment = ensure_html(comment)
+        comment = await ingest_rich_text(comment, user_id=user_id, db=db, limit=COMMENT_MAX_LENGTH)
 
     comment_id = None
     if comment is not None:
@@ -333,7 +335,7 @@ async def create_comment(body, branch_id: int, task_id: int, issue_id: int, requ
     if not issue or issue['task_id'] != task_id:
         return error_response(ErrorCode.ISSUE_NOT_FOUND)
 
-    body.content = ensure_html(body.content)
+    body.content = await ingest_rich_text(body.content, user_id=user_id, db=db, limit=COMMENT_MAX_LENGTH)
 
     comment_id = await issue_model.create_comment(issue_id, user_id, body.content, db)
 
@@ -380,7 +382,7 @@ async def update_comment(body, branch_id: int, task_id: int, issue_id: int, comm
     if comment['author_id'] != user_id:
         return error_response(ErrorCode.NOT_COMMENT_AUTHOR)
 
-    body.content = ensure_html(body.content)
+    body.content = await ingest_rich_text(body.content, user_id=user_id, db=db, limit=COMMENT_MAX_LENGTH)
 
     await issue_model.update_comment(comment_id, body.content, db)
     return {'status': True}

@@ -1,8 +1,8 @@
 @use '../../variables' as *;
 
-// 인라인 task 칩 + 상태 뱃지 + 멘션 — 다른 surface와 동일한 Confluence 인라인 스타일.
+// 인라인 task·이슈·문서 칩 + 상태 뱃지 + 멘션 — 다른 surface와 동일한 Confluence 인라인 스타일.
 // 편집기(.CommentEditor)와 등록된 댓글(.CommentItem__Content)이 공유한다.
-// cursor·hover·selectednode 등 상호작용 스타일은 편집기 쪽에서만 추가.
+// 등록된 댓글의 칩도 누르면 대상이 열리므로(openRefChipPanel) cursor·hover는 여기, selectednode는 편집기 쪽에서만.
 @mixin comment-ref-chips {
   .task-ref {
     display: inline;
@@ -17,6 +17,7 @@
     color: $color-primary;
     border: 1px solid transparent;
     line-height: 1.8;
+    cursor: pointer;
 
     &::before {
       content: '';
@@ -29,6 +30,8 @@
       mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='6' height='6' rx='1'/%3E%3Cpath d='m3 17 2 2 4-4'/%3E%3Cline x1='13' y1='6' x2='21' y2='6'/%3E%3Cline x1='13' y1='12' x2='21' y2='12'/%3E%3Cline x1='13' y1='18' x2='21' y2='18'/%3E%3C/svg%3E") no-repeat center / contain;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='6' height='6' rx='1'/%3E%3Cpath d='m3 17 2 2 4-4'/%3E%3Cline x1='13' y1='6' x2='21' y2='6'/%3E%3Cline x1='13' y1='12' x2='21' y2='12'/%3E%3Cline x1='13' y1='18' x2='21' y2='18'/%3E%3C/svg%3E") no-repeat center / contain;
     }
+
+    &:hover { border-color: $color-primary; }
   }
 
   .ref-chip__badge {
@@ -57,6 +60,8 @@
     border-radius: 4px;
     font-weight: $font-weight-medium;
   }
+
+  @include doc-issue-ref-chips;
 }
 
 .TaskCommentSection {
@@ -259,11 +264,8 @@
 
   @include comment-ref-chips;
 
-  // 편집기 전용 상호작용 — readonly 댓글 칩은 클릭 동작이 없으므로 여기만
+  // 편집기 전용 — 선택된 칩 표시(cursor·hover는 comment-ref-chips에 있다)
   .task-ref {
-    cursor: pointer;
-
-    &:hover { border-color: $color-primary; }
     &.ProseMirror-selectednode { border-color: $color-primary; box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent); }
   }
 

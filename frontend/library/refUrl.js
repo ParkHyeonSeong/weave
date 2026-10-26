@@ -49,6 +49,19 @@ export function refUrlFromChipEl(el) {
 
 const CHIP_SELECTOR = '[data-task-ref],[data-doc-ref],[data-issue-ref]';
 
+// 읽기 화면(저장된 HTML)의 ref 칩 좌클릭 → 편집기 칩 NodeView와 같은 canvas:ref_click(RefPanelHost가 패널을 연다).
+// 서버(MCP·API)가 링크를 칩으로 저장하므로, 전에 클릭되던 링크 자리가 읽기 화면에서도 눌려야 한다.
+// 처리했으면 true. 수정 키·가운데 클릭은 attachRefChipAuxNav(새 탭)의 몫이라 건드리지 않는다.
+export function openRefChipPanel(event, types = ['task', 'issue', 'doc']) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
+  const el = event.target && event.target.closest ? event.target.closest(CHIP_SELECTOR) : null;
+  const ref = el ? refFromChipEl(el) : null;
+  if (!ref || !types.includes(ref.type)) return false;
+  event.stopPropagation();
+  window.dispatchEvent(new CustomEvent('canvas:ref_click', { detail: ref }));
+  return true;
+}
+
 // 본문 루트의 ref 칩(<span data-*-ref>)에 가운데/ctrl·cmd 클릭 → 새 탭 동작을 위임으로 붙인다.
 // 칩은 실제 <a>가 아니라 저장된 HTML의 <span>이라 네이티브 새 탭이 안 되기 때문.
 // 칩의 기존 좌클릭 핸들러(패널/네비)는 건드리지 않는다: 가운데는 'auxclick'이라 그 핸들러가 안 듣고,

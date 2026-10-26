@@ -3,7 +3,10 @@ import { PluginKey } from '@tiptap/pm/state';
 import IssueRefPopup from './IssueRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
 import { numAttr, strAttr } from './refAttr';
-import { internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, ISSUE_PATH, encodeMarkdownUrl } from './refMarkdown';
+import {
+  internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, issueDocChipsPaused, withPlainLinkTokens, plainLinkNodes,
+  ISSUE_PATH, encodeMarkdownUrl,
+} from './refMarkdown';
 // 라이브 노드뷰는 React 밖이라 훅 대신 i18next 인스턴스를 직접 읽는다(errorText.js와 동일 패턴).
 // ⚠️ 아래 renderHTML은 **저장 직렬화**라 그대로 둔다 — 저장 HTML에 UI 언어가 섞이면 안 된다.
 import i18next from '@/library/i18n';
@@ -41,17 +44,20 @@ const IssueRefNode = Node.create({
     name: 'issueRef',
     level: 'inline',
     start: (src) => src.indexOf('['),
-    tokenize(src) {
-      const link = matchInternalLink(src);
+    tokenize(src, tokens, helper) {
+      const link = !issueDocChipsPaused() && matchInternalLink(src);
       if (!link) return undefined;
       const m = link.pathname.match(ISSUE_PATH);
       if (!m) return undefined;
       const { displayId, title } = splitRefLinkText(link.text);
-      return { type: 'issueRef', raw: link.raw, branchId: Number(m[1]), taskId: Number(m[2]), issueId: Number(m[3]), displayId, title };
+      return withPlainLinkTokens({
+        type: 'issueRef', raw: link.raw, branchId: Number(m[1]), taskId: Number(m[2]), issueId: Number(m[3]), displayId, title,
+      }, helper);
     },
   },
   parseMarkdown(token, h) {
-    return h.createNode('issueRef', {
+    // 원문 모드에서 이 자리가 원래 일반 링크였으면 일반 링크로 (refMarkdown.withRawLinkForms)
+    return plainLinkNodes(token, h) || h.createNode('issueRef', {
       issueId: token.issueId, taskId: token.taskId, branchId: token.branchId, displayId: token.displayId, title: token.title,
     });
   },

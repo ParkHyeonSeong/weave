@@ -3,7 +3,10 @@ import { PluginKey } from '@tiptap/pm/state';
 import DocRefPopup from './DocRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
 import { numAttr, strAttr } from './refAttr';
-import { internalOrigin, escapeLinkText, matchInternalLink, DOC_PATH, encodeMarkdownUrl } from './refMarkdown';
+import {
+  internalOrigin, escapeLinkText, matchInternalLink, issueDocChipsPaused, withPlainLinkTokens, plainLinkNodes, DOC_PATH,
+  encodeMarkdownUrl,
+} from './refMarkdown';
 
 export const docRefPluginKey = new PluginKey('docRefSuggestion');
 
@@ -36,16 +39,18 @@ const DocRefNode = Node.create({
     name: 'docRef',
     level: 'inline',
     start: (src) => src.indexOf('['),
-    tokenize(src) {
-      const link = matchInternalLink(src);
+    tokenize(src, tokens, helper) {
+      const link = !issueDocChipsPaused() && matchInternalLink(src);
       if (!link) return undefined;
       const m = link.pathname.match(DOC_PATH);
       if (!m) return undefined;
-      return { type: 'docRef', raw: link.raw, canvasId: Number(m[1]), pageId: Number(m[2]), title: link.text };
+      return withPlainLinkTokens({ type: 'docRef', raw: link.raw, canvasId: Number(m[1]), pageId: Number(m[2]), title: link.text }, helper);
     },
   },
   parseMarkdown(token, h) {
-    return h.createNode('docRef', { canvasId: token.canvasId, pageId: token.pageId, title: token.title });
+    // 원문 모드에서 이 자리가 원래 일반 링크였으면 일반 링크로 (refMarkdown.withRawLinkForms)
+    return plainLinkNodes(token, h)
+      || h.createNode('docRef', { canvasId: token.canvasId, pageId: token.pageId, title: token.title });
   },
 
   renderHTML({ node, HTMLAttributes }) {

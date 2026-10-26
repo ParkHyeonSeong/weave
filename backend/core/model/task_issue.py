@@ -138,6 +138,24 @@ async def batch_statuses(issue_ids: list[int], user_id: int, db: AsyncSession) -
     return {str(r.issue_id): {'status': r.status, 'title': r.title} for r in result.fetchall()}
 
 
+async def find_chip_refs(issue_ids: list[int], user_id: int, db: AsyncSession) -> dict:
+    """마크다운 링크 → 이슈 칩 변환용 배치 조회(library/ref_chip_ingress).
+    batch_statuses와 같은 범위. display_id는 부모 태스크의 것(프론트 이슈 칩과 동일)."""
+    if not issue_ids:
+        return {}
+    result = await db.execute(text("""
+        SELECT ti.issue_id, ti.task_id, t.branch_id, ti.title, ti.status,
+               b.key || '-' || t.display_number::text AS display_id
+        FROM task_issue ti
+        INNER JOIN task t ON t.task_id = ti.task_id
+        INNER JOIN branch b ON b.branch_id = t.branch_id
+        INNER JOIN branch_member bm ON bm.branch_id = t.branch_id AND bm.user_id = :user_id
+        WHERE ti.issue_id = ANY(:ids)
+          AND b.is_archived = FALSE
+    """), {'ids': issue_ids, 'user_id': user_id})
+    return {r.issue_id: dict(r._mapping) for r in result.fetchall()}
+
+
 async def get_task_id(issue_id: int, db: AsyncSession):
     """이슈의 task_id 조회"""
     result = await db.execute(text("""
