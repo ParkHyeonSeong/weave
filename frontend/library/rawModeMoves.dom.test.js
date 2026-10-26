@@ -515,7 +515,14 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
     document.getSelection().collapse(first.firstChild || first, 0);
     view.dispatch({ selection: EditorSelection.cursor(0), userEvent: 'select.pointer' });
   };
-  // 실제 키 입력(keydown → CodeMirror 키맵). 첫 줄 맨 앞에 커서를 한 번 두고 이어 누른다 — 그 사이 커서를 다시 놓지 않는다
+  // 실제 키 입력(keydown → CodeMirror 키맵)을 차례로 보내고, 키마다 줄과 커서 줄(편집기 상태, 화면 선택)을 적는다
+  const pressKeys = (view, keys) => keys.map((k) => {
+    if (k === 'down' || k === 'up') press(view, k === 'down' ? 'ArrowDown' : 'ArrowUp', { altKey: true });
+    else if (k === 'undo') press(view, 'z', { ctrlKey: true });
+    else if (k === 'redo') press(view, 'y', { ctrlKey: true }); // jsdom은 macOS가 아니라 CodeMirror 다시 실행 키가 Mod-y(맥은 Cmd+Shift+Z)
+    return { lines: view.state.doc.toString().split('\n').map((l) => l.trim()), cursor: cursorLine(view), dom: domCursorLine(view) };
+  });
+  // 첫 줄 맨 앞에 커서를 한 번 두고 이어 누른다 — 그 사이 커서를 다시 놓지 않는다
   async function pressInComment(content, keys, { back = false } = {}) {
     const onSubmit = vi.fn(() => Promise.resolve());
     root = createRoot(document.getElementById('root'));
@@ -527,12 +534,7 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
     const trail = [];
     await act(async () => {
       clickFirstLine(view);
-      for (const k of keys) {
-        if (k === 'down' || k === 'up') press(view, k === 'down' ? 'ArrowDown' : 'ArrowUp', { altKey: true });
-        else if (k === 'undo') press(view, 'z', { ctrlKey: true });
-        else if (k === 'redo') press(view, 'y', { ctrlKey: true }); // jsdom은 macOS가 아니라 CodeMirror 다시 실행 키가 Mod-y(맥은 Cmd+Shift+Z)
-        trail.push({ lines: view.state.doc.toString().split('\n').map((l) => l.trim()), cursor: cursorLine(view), dom: domCursorLine(view) });
-      }
+      trail.push(...pressKeys(view, keys));
     });
     if (back) await click(box.querySelector('.CommentEditor__RawToggle')); // 일반 모드로 돌아와 저장
     await click([...box.querySelectorAll('button')].find((b) => b.textContent.trim() === '등록'));
@@ -575,4 +577,111 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
       }
     });
   }
+
+  // 원문 편집기가 뜬 뒤 편집기 밖 다른 본문 글자를 누르면 화면 선택이 그 글자로 가고(selectionchange), CodeMirror는 포커스가 없어도
+  // 그 선택을 기억한다. 그 뒤 원문 편집기 첫 줄을 누르면(mousedown) CodeMirror가 포커스하고, 포커스 때 Chrome이 화면 선택을 편집기 맨
+  // 앞에 둔 뒤 포인터 선택이 들어온다. 기억한 선택이 편집기 밖이면 이 포인터 선택에서 화면 선택을 다시 읽지 않아 "포커스 직후 0.2초 안
+  // 편집기 맨 앞 선택은 브라우저 포커스 부작용" 판단(lastFocusTime)이 남고, Chrome에서는 클릭 직후 Alt+↓로 빈 줄을 넘길 때 밀려난 화면
+  // 선택을 그 부작용으로 보고 커서를 1줄로 되돌린다. jsdom은 줄을 옮길 때 화면 선택을 밀어내지 않아 그 되돌림은 실제 Chrome으로
+  // 확인하고, 여기서는 클릭 뒤 그 판단이 남지 않는지와 실제 키 입력의 줄 이동·커서·저장을 확인한다.
+  describe('원문 편집기가 뜬 뒤 편집기 밖 글자를 눌렀다 돌아와도 Alt+↓ 커서가 옮긴 줄을 따라간다', () => {
+    const clickOutsideText = () => {
+      document.getSelection().collapse(outsideText(), 2);
+      document.dispatchEvent(new Event('selectionchange')); // 실제 브라우저가 보내는 선택 변경 알림
+    };
+    const rememberedOutside = (view) => {
+      const n = remembered(view);
+      return !!n && !view.dom.contains(n);
+    };
+    // 원문 편집기 첫 줄을 마우스로 누른다 — CodeMirror의 실제 mousedown 처리를 쓰고, jsdom에 없는 것만 채운다:
+    // 좌표 → 위치(레이아웃이 없다: 첫 줄 맨 앞), 포커스 때 화면 선택을 편집기 맨 앞에 두는 Chrome 동작
+    const clickFirstLineWithMouse = (view) => {
+      const first = view.contentDOM.querySelector('.cm-line');
+      view.posAndSideAtCoords = () => ({ pos: 0, assoc: 1 });
+      view.contentDOM.focus = function (options) {
+        HTMLElement.prototype.focus.call(this, options);
+        document.getSelection().collapse(first.firstChild || first, 0);
+      };
+      try {
+        first.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, detail: 1, clientX: 5, clientY: 5 }));
+        document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, button: 0, clientX: 5, clientY: 5 }));
+      } finally {
+        delete view.posAndSideAtCoords;
+        delete view.contentDOM.focus;
+      }
+    };
+    const focusJudgmentLeft = (view) => view.inputState.lastFocusTime > 0;
+
+    // surface: 'task'(태스크 댓글 CommentEditor) | 'issue'(이슈 댓글 IssueEditor), auto: 저장된 원문 모드로 바로 열림
+    async function clickAwayThenMove(surface, content, keys, { auto = false, back = false, away = true } = {}) {
+      if (auto) PREFS.prefs = { editor_raw_mode: true };
+      const onSubmit = vi.fn(() => Promise.resolve());
+      const ref = createRef();
+      root = createRoot(document.getElementById('root'));
+      await act(async () => {
+        root.render(surface === 'task'
+          ? <CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />
+          : <IssueEditor ref={ref} content={content} rawModeEnabled branchId={10} />);
+      });
+      await act(async () => { await new Promise((r) => setTimeout(r, 20)); }); // 태스크 댓글은 편집 창이 열리며 일반 모드 편집기에 자동 포커스(이슈 편집기는 없음)
+      const rawOn = surface === 'task' ? '.CommentEditor__RawToggle' : 'button[title="Markdown 소스로 편집"]';
+      const rawOff = surface === 'task' ? '.CommentEditor__RawToggle' : 'button[title="Rich text 편집으로 전환"]';
+      if (!auto) await click(document.querySelector(rawOn));
+      const view = await rawView();
+      if (away) await act(async () => { clickOutsideText(); });
+      const before = rememberedOutside(view); // 원문 편집기가 편집기 밖 선택을 기억한 상태(이번 흐름의 조건)
+      let left = null;
+      const trail = [];
+      await act(async () => {
+        clickFirstLineWithMouse(view);
+        left = focusJudgmentLeft(view);
+        trail.push(...pressKeys(view, keys));
+      });
+      if (back) await click(document.querySelector(rawOff)); // 일반 모드로 돌아와 저장
+      let html;
+      if (surface === 'task') {
+        await click([...document.querySelectorAll('.CommentEditor button')].find((b) => b.textContent.trim() === '등록'));
+        html = onSubmit.mock.calls[0][0];
+      } else html = ref.current.getHTML();
+      await act(async () => root.unmount());
+      root = null;
+      return { before, left, trail, html };
+    }
+
+    for (const surface of ['task', 'issue']) {
+      const name = surface === 'task' ? '태스크 댓글' : '이슈 댓글';
+      for (const auto of [false, true]) {
+        it(`${name}(${auto ? '원문 모드로 바로 열림' : '원문 모드로 수동 전환'}): 밖 글자 → 첫 줄 클릭 → Alt+↓ 두 번 — 커서가 따라가고 옮긴 순서로 저장`, async () => {
+          for (const back of auto ? [false] : [false, true]) {
+            const at = back ? '일반 모드로 돌아와 저장' : '원문에서 저장';
+            const r = await clickAwayThenMove(surface, paraBody, ['down', 'down'], { auto, back });
+            expect(r.before, `${at} — 클릭 전 원문 편집기가 편집기 밖 선택을 기억`).toBe(true);
+            expect(r.left, `${at} — 클릭 뒤 "포커스 직후 맨 앞 선택 무시" 판단이 남지 않음`).toBe(false);
+            expect(r.trail.map((s) => s.lines.join('/')), at).toEqual(['/첫째 줄/둘째 줄//셋째 줄', '/둘째 줄/첫째 줄//셋째 줄']);
+            expect(r.trail.map((s) => [s.cursor, s.dom]), `${at} — 커서 줄(편집기 상태, 화면 선택)`).toEqual([[2, 2], [3, 3]]);
+            expect(textOrder(r.html), `${at} — 저장된 순서`).toBe('둘째 줄 / 첫째 줄 / 셋째 줄');
+          }
+        });
+      }
+    }
+
+    it('대조: 편집기 밖을 누르지 않고 바로 첫 줄을 누르면(기존 정상 경로) 판단이 남지 않는다', async () => {
+      for (const surface of ['task', 'issue']) {
+        const r = await clickAwayThenMove(surface, paraBody, ['down', 'down'], { away: false });
+        expect(r.before, surface).toBe(false);
+        expect(r.left, surface).toBe(false);
+        expect(r.trail.map((s) => [s.cursor, s.dom]), surface).toEqual([[2, 2], [3, 3]]);
+      }
+    });
+
+    for (const kind of ['doc', 'issue']) {
+      it(`${kind}: 밖 글자 → 칩 줄 클릭 → Alt+↓ 두 번 → 실행 취소 두 번 → 다시 실행 두 번 — 커서·칩·일반 링크 형태(태스크 댓글)`, async () => {
+        const r = await clickAwayThenMove('task', paraLinks(kind), ['down', 'down', 'undo', 'undo', 'redo', 'redo']);
+        expect(r.before, '클릭 전 원문 편집기가 편집기 밖 선택을 기억').toBe(true);
+        expect(r.left, '클릭 뒤 판단이 남지 않음').toBe(false);
+        expect(r.trail.map((s) => s.cursor), '실행 취소·다시 실행의 커서 줄').toEqual([2, 3, 2, 1, 2, 3]);
+        expect(seq(r.html), '다시 실행 뒤 일반 링크 · 칩').toBe('LC');
+      });
+    }
+  });
 });

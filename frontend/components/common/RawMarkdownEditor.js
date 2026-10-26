@@ -73,6 +73,16 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
         // 복사는 글자를 바꾸지 않지만 조작 종류('copy')만 알린다 — 그 뒤 붙여넣은 글은 잘라 둔 줄이 아니라 복사본이다
         cmView.EditorView.domEventObservers({
           copy: (event, view) => { onChangeRef.current?.(view.state.doc.toString(), null, 'copy'); },
+          // 편집기 밖에 선택이 남은 채로 편집기를 누르면 그 선택을 먼저 걷어 낸다 — CodeMirror는 포커스가 없는 동안에도 페이지
+          // 선택을 기억하고(selectionchange), 기억한 선택이 편집기 밖이면 이 클릭의 포인터 선택에서 화면 선택을 다시 읽지 않아
+          // "포커스 직후 편집기 맨 앞 선택은 브라우저 포커스 부작용" 판단이 남는다. 그러면 클릭 직후 Alt+↓로 빈 줄을 넘길 때 커서가
+          // 이전 줄로 돌아간다. 관찰자는 CodeMirror의 mousedown 처리보다 먼저 불려, 그 처리가 시작하며 화면 선택을 다시 읽을 때
+          // 기억이 비워진다. 걷어 내는 선택은 이 클릭으로 어차피 편집기 안으로 옮겨질 선택이다(주 버튼, 포커스가 없을 때만).
+          mousedown: (event, view) => {
+            if (event.button !== 0 || view.hasFocus) return;
+            const selection = view.dom.ownerDocument.getSelection();
+            if (selection?.rangeCount && !view.dom.contains(selection.anchorNode)) selection.removeAllRanges();
+          },
         }),
         cmView.EditorView.domEventHandlers({
           blur: () => { onBlurRef.current?.(); },
