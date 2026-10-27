@@ -41,7 +41,7 @@ export default function TaskListSprint({
   const [startError, setStartError] = useState('');
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [showStartConfirm, setShowStartConfirm] = useState(false);
-  const [withSubtasks, setWithSubtasks] = useState(false); // 상태 줄 집계에 하위 포함(기본 꺼짐, 저장 안 함)
+  const [withSubtasks, setWithSubtasks] = useState(true); // 상태 줄 집계에 하위 포함(기본 켜짐, 저장 안 함)
   const typeDropdownRef = useRef(null);
   const inlineFormRef = useRef(null);
   const tasks = sprint.tasks || [];

@@ -103,37 +103,38 @@ afterEach(async () => {
 });
 
 describe('스프린트 헤더 개수·상태 요약', () => {
-  it('활성 스프린트: 보이는 행(상위) 기준 개수와 상태별 범례·막대를 보여준다', async () => {
+  it('활성 스프린트: 개수는 보이는 행(상위) 기준, 상태별 범례·막대는 기본으로 하위까지 포함한다', async () => {
     await mount();
     const h = header('S1');
     expect(textOf(h, '.TaskList__SprintCount')).toBe('5 tasks');
-    expect(legend(h)).toEqual(['Done 2', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
+    expect(legend(h)).toEqual(['Done 4', 'Cancelled 1', 'In Progress 1', 'To Do 2']);
     const widths = [...h.querySelectorAll('.TaskList__SprintProgressSegment')].map((el) => el.style.width);
-    expect(widths).toEqual(['40%', '20%', '20%']);
-    expect(h.querySelector('.TaskList__SprintSubtaskToggle').getAttribute('aria-pressed')).toBe('false');
+    expect(widths).toEqual(['50%', '12.5%', '12.5%']);
+    expect(h.querySelector('.TaskList__SprintSubtaskToggle').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('하위 포함 토글은 범례만 상위+하위 기준으로 바꾸고, 개수 라벨과 섹션 펼침은 그대로 둔다', async () => {
+  it('하위 포함 토글을 끄면 범례만 상위 기준으로 바뀌고, 개수 라벨과 섹션 펼침은 그대로 둔다', async () => {
     await mount();
     const h = header('S1');
     const toggle = h.querySelector('.TaskList__SprintSubtaskToggle');
     expect(toggle.textContent).toBe('Include 3 subtasks');
 
     act(() => { toggle.click(); });
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    expect(legend(h)).toEqual(['Done 4', 'Cancelled 1', 'In Progress 1', 'To Do 2']);
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(legend(h)).toEqual(['Done 2', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
     expect(textOf(h, '.TaskList__SprintCount')).toBe('5 tasks');
     expect(rowIds('S1')).toHaveLength(5);   // 헤더 클릭(접기)으로 번지지 않았다
 
     act(() => { toggle.click(); });
-    expect(legend(h)).toEqual(['Done 2', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
+    expect(legend(h)).toEqual(['Done 4', 'Cancelled 1', 'In Progress 1', 'To Do 2']);
   });
 
-  it('상태가 바뀌어 다시 불러오면 집계는 새 값이 되고, 하위 포함 토글은 켜진 채로 남는다', async () => {
+  it('상태가 바뀌어 다시 불러오면 집계는 새 값이 되고, 끈 하위 포함 토글은 꺼진 채로 남는다', async () => {
     await mount();
     const toggle = () => header('S1').querySelector('.TaskList__SprintSubtaskToggle');
+    // 기본(켜짐)이 아닌 쪽으로 바꿔 둬야 재조회 중 리마운트로 기본값에 돌아가는 회귀를 잡는다
     act(() => { toggle().click(); });
-    expect(legend(header('S1'))).toEqual(['Done 4', 'Cancelled 1', 'In Progress 1', 'To Do 2']);
+    expect(legend(header('S1'))).toEqual(['Done 2', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
 
     // 행에서 상태를 바꾸면 PATCH 뒤 task:updated가 나가고 TaskList가 목록을 다시 불러온다(TaskListRow.handleFieldChange).
     // 이벤트와 응답 처리를 다른 act로 나눠, 실제처럼 응답 전 화면이 한 번 그려지게 한다
@@ -142,8 +143,8 @@ describe('스프린트 헤더 개수·상태 요약', () => {
     act(() => { window.dispatchEvent(new Event('task:updated')); });
     await act(async () => { await flush(); });
 
-    expect(toggle().getAttribute('aria-pressed')).toBe('true');
-    expect(legend(header('S1'))).toEqual(['Done 5', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
+    expect(toggle().getAttribute('aria-pressed')).toBe('false');
+    expect(legend(header('S1'))).toEqual(['Done 3', 'Cancelled 1', 'In Progress 1', 'To Do 0']);
     expect(textOf(header('S1'), '.TaskList__SprintCount')).toBe('5 tasks');
   });
 
@@ -178,7 +179,7 @@ describe('스프린트 헤더 개수·상태 요약', () => {
     expect(rowIds('S1')).toEqual(['QA-2']);
     expect(textOf(h, '.TaskList__SprintCount')).toBe('5 tasks');
     expect(textOf(h, '.TaskList__SprintMatch')).toBe('1 match');
-    expect(legend(h)).toEqual(['Done 2', 'Cancelled 1', 'In Progress 1', 'To Do 1']);
+    expect(legend(h)).toEqual(['Done 4', 'Cancelled 1', 'In Progress 1', 'To Do 2']);
     expect(textOf(header('S2'), '.TaskList__SprintMatch')).toBe('0 matches');
     expect(textOf(header('Backlog'), '.TaskList__SprintCount')).toBe('1 task');   // 백로그도 필터 전 개수
   });
@@ -214,7 +215,7 @@ describe('스프린트 헤더 개수·상태 요약', () => {
     await mount();
     const h = header('S1');
     expect(textOf(h, '.TaskList__SprintCount')).toBe('태스크 5개');
-    expect(legend(h)).toEqual(['완료 2', '취소됨 1', '진행 중 1', '할 일 1']);
+    expect(legend(h)).toEqual(['완료 4', '취소됨 1', '진행 중 1', '할 일 2']);
     expect(textOf(h, '.TaskList__SprintSubtaskToggle')).toBe('하위 3개 포함');
   });
 });
