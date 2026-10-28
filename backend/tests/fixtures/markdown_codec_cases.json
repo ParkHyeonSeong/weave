@@ -110,6 +110,17 @@
     ]
   },
   {
+    "name": "image-in-table-cell",
+    "regen": false,
+    "markdown": "\n| h                                 |\n| --------------------------------- |\n| ![](/api/uploads/canvas/c3_x.png) |\n",
+    "html_tiptap": "<table style=\"min-width: 25px;\"><colgroup><col style=\"min-width: 25px;\"></colgroup><tbody><tr><th colspan=\"1\" rowspan=\"1\"><p>h</p></th></tr><tr><td colspan=\"1\" rowspan=\"1\"><img src=\"/api/uploads/canvas/c3_x.png\"></td></tr></tbody></table>",
+    "html_ingress": null,
+    "directions": [
+      "html->md"
+    ],
+    "note": "표 칸에 넣은 업로드 이미지(alt 없음, 편집기 getHTML 실측). markdownify 기본 규칙은 제목·표 칸 안 이미지를 alt 글자로 바꿔 통째로 지웠다 — JS 실측은 칸 안 ![](src) 유지. 문단으로 감싼 칸 이미지(<p></p><img>)는 JS가 &nbsp;·\\u001f를 섞고 왕복마다 \\u001f가 늘어 수렴하지 않으므로 md->html/roundtrip 불가, regen도 불가(손입력)"
+  },
+  {
     "name": "table-gfm",
     "markdown": "\n| 이름  | 값   |\n| --- | --- |\n| a   | 1   |\n",
     "html_tiptap": "<table style=\"min-width: 50px;\"><colgroup><col style=\"min-width: 25px;\"><col style=\"min-width: 25px;\"></colgroup><tbody><tr><th colspan=\"1\" rowspan=\"1\"><p>이름</p></th><th colspan=\"1\" rowspan=\"1\"><p>값</p></th></tr><tr><td colspan=\"1\" rowspan=\"1\"><p>a</p></td><td colspan=\"1\" rowspan=\"1\"><p>1</p></td></tr></tbody></table>",

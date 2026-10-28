@@ -134,6 +134,11 @@ class _WeaveConverter(MarkdownConverter):
     # 주의(5·7차): 라벨 text의 [·] escape는 markdownify가 text를 이미 처리한 뒤라 여기서
     # 재escape는 이중이 될 수 있어 두지 않는다 — 라벨 특수문자 왕복은 frontend와 함께 D3 한계.
 
+    # markdownify 기본값은 제목·표 칸 안의 이미지를 alt 글자로 바꾼다 — 편집기로 올린 이미지는
+    # alt가 비어 있어 주소까지 통째로 사라졌다. JS(표 칸 실측: ![](src) 유지)처럼 어디서든 이미지로 쓴다.
+    def convert_img(self, el, text, parent_tags):
+        return super().convert_img(el, text, parent_tags - {'_inline'})
+
     # Tiptap 리스트 아이템은 항상 자식을 <p>로 감싼다. markdownify 기본값은
     # p를 앞뒤 빈 줄(\n\n)로 감싸 li 안에 중첩 리스트가 있으면 그 사이에
     # 빈 줄이 끼어든다 — JS(@tiptap/markdown, tight list)는 빈 줄 없이

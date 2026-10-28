@@ -372,3 +372,18 @@ def test_html_to_markdown_pi_then_real_tag_converts():
     out = html_to_markdown(doc)
     assert out != doc
     assert 'x' in out
+
+
+# ---- 제목·표 칸 안 이미지 (markdownify 기본은 alt 글자로 바꿔 alt 없는 업로드 이미지가 통째로 사라졌다) ----
+
+def test_html_to_markdown_keeps_image_inside_heading():
+    # MCP가 쓴 `## 제목 ![](src)`는 ingress에서 <h2>제목 <img></h2>로 저장된다
+    out = html_to_markdown('<h2>제목 <img src="/api/uploads/canvas/c3_x.png"></h2>')
+    assert out == '## 제목 ![](/api/uploads/canvas/c3_x.png)'
+
+
+def test_html_to_markdown_keeps_image_in_cell_after_empty_paragraph():
+    # 편집기가 문단 속 칸 이미지를 꺼내 만든 모양 — JS 출력은 수렴하지 않아 fixture 대신 보존만 본다
+    html = ('<table><tbody><tr><th><p>h</p></th></tr><tr><td><p></p>'
+            '<img src="/api/uploads/canvas/c3_x.png" alt="화면"></td></tr></tbody></table>')
+    assert '![화면](/api/uploads/canvas/c3_x.png)' in html_to_markdown(html)
