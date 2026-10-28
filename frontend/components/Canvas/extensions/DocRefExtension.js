@@ -4,9 +4,10 @@ import DocRefPopup from './DocRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
 import { numAttr, strAttr } from './refAttr';
 import {
-  internalOrigin, escapeLinkText, matchInternalLink, issueDocChipsPaused, withPlainLinkTokens, plainLinkNodes, DOC_PATH,
+  internalOrigin, escapeLinkText, matchInternalLink, refChipsPaused, withPlainLinkTokens, plainLinkNodes, DOC_PATH,
   encodeMarkdownUrl,
 } from './refMarkdown';
+import { RAW_AUTO_CHIP } from './rawAutoChip';
 
 export const docRefPluginKey = new PluginKey('docRefSuggestion');
 
@@ -32,6 +33,7 @@ const DocRefNode = Node.create({
 
   // === raw markdown 코덱 (스펙 §3.2) ===
   renderMarkdown(node) {
+    if (node.attrs?.[RAW_AUTO_CHIP]) return node.attrs[RAW_AUTO_CHIP]; // 같은 편집에서 원문이 만든 칩 — 원문에 쓴 그대로(rawAutoChip.js)
     const { canvasId, pageId, title } = node.attrs || {};
     return `[${escapeLinkText(title)}](${encodeMarkdownUrl(`${internalOrigin()}/canvas/${canvasId}/${pageId}`)})`;
   },
@@ -40,7 +42,7 @@ const DocRefNode = Node.create({
     level: 'inline',
     start: (src) => src.indexOf('['),
     tokenize(src, tokens, helper) {
-      const link = !issueDocChipsPaused() && matchInternalLink(src);
+      const link = !refChipsPaused() && matchInternalLink(src);
       if (!link) return undefined;
       const m = link.pathname.match(DOC_PATH);
       if (!m) return undefined;

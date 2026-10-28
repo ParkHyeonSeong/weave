@@ -9,7 +9,8 @@ import { buildMarkdownExtensions } from '@/library/markdownCodec';
 import { MarkdownClipboardExtension } from '@/components/Canvas/extensions/MarkdownClipboardExtension';
 import RawMarkdownEditor from '@/components/common/RawMarkdownEditor';
 import RawModeBadge from '@/components/common/RawModeBadge';
-import { useRawMode } from '@/library/rawMode';
+import { useRawMode, htmlForSave } from '@/library/rawMode';
+import { TASK_COMMENT_MAX_LENGTH } from '@/library/contentLimits';
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
 /**
@@ -42,6 +43,7 @@ export default function CommentEditor({
   const submitRef = useRef(onSubmit);
   const cancelRef = useRef(onCancel);
   const editorRef = useRef(null);
+  const richRef = useRef(null); // 원문 모드 동안 숨겨 두는 일반 모드 편집기 영역
   // 제출 중 가드: keydown 연타는 리렌더보다 빠르므로 ref가 진실원천, state는 표시용
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,7 +101,7 @@ export default function CommentEditor({
           event.preventDefault();
           const ed = editorRef.current;
           if (!ed || ed.isEmpty) return true;
-          submitHtmlRef.current(ed.getHTML());
+          submitHtmlRef.current(htmlForSave(ed, TASK_COMMENT_MAX_LENGTH)); // 일반 모드 저장도 원문이 만든 칩은 A안
           return true;
         }
         if (event.key === 'Escape') {
@@ -122,7 +124,7 @@ export default function CommentEditor({
   const {
     isRaw, rawText, session, warnings, parseError,
     handleRawChange, toggleRaw, parseCurrentRaw, isRawEmpty,
-  } = useRawMode(editor, extensions, true, { autoEnter: rawAutoEnter });
+  } = useRawMode(editor, extensions, true, { autoEnter: rawAutoEnter, limit: TASK_COMMENT_MAX_LENGTH });
 
   // 현재 모드의 내용을 제출 — [등록] 버튼과 raw Cmd+Enter 공용.
   // 빈 내용·raw 파싱 실패 차단은 WYSIWYG 단축키(handleKeyDown)와 같은 시맨틱.
@@ -135,7 +137,7 @@ export default function CommentEditor({
       return;
     }
     if (!editor || editor.isEmpty) return;
-    submitHtml(editor.getHTML());
+    submitHtml(htmlForSave(editor, TASK_COMMENT_MAX_LENGTH));
   };
 
   // raw 모드 Cmd+Enter/Esc — CodeMirror defaultKeymap의 Mod-Enter(빈 줄 삽입)보다
@@ -167,10 +169,11 @@ export default function CommentEditor({
             value={rawText}
             onChange={handleRawChange}
             placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: resolvedPlaceholder })}
+            hiddenRef={richRef}
           />
         </div>
       )}
-      <div style={{ display: isRaw ? 'none' : undefined }}>
+      <div ref={richRef} style={{ display: isRaw ? 'none' : undefined }}>
         <EditorContent editor={editor} />
       </div>
       <div className="CommentEditor__Hint">

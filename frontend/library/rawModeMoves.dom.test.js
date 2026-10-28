@@ -9,6 +9,7 @@ import { createRoot } from 'react-dom/client';
 import { EditorSelection, Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { deleteCharBackward, moveLineDown, moveLineUp, redo, undo } from '@codemirror/commands';
+import { closeHistory } from '@tiptap/pm/history';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -54,6 +55,7 @@ let root = null;
 beforeEach(async () => {
   document.body.innerHTML = '<div id="root"></div>';
   PREFS.prefs = {};
+  clip.clear();
   await i18next.changeLanguage('ko');
 });
 afterEach(async () => {
@@ -73,12 +75,17 @@ async function rawView() {
   });
   return view;
 }
-// CodeMirror cut/copy/paste 처리기에 줄 클립보드(실제 브라우저의 event.clipboardData 자리)
-const clip = { text: '' };
+// CodeMirror cut/copy/paste 처리기에 줄 클립보드(실제 브라우저의 event.clipboardData 자리) — 실제 시스템 클립보드처럼 종류(MIME)별로 담는다
+const clip = new Map();
 const clipboardEvent = (type) => {
   const event = new Event(type, { bubbles: true, cancelable: true });
   Object.defineProperty(event, 'clipboardData', {
-    value: { getData: () => clip.text, setData: (_t, v) => { clip.text = v; }, clearData: () => { clip.text = ''; } },
+    value: {
+      getData: (t) => clip.get(t) ?? '',
+      setData: (t, v) => { clip.set(t, String(v)); },
+      clearData: () => { clip.clear(); },
+      get types() { return [...clip.keys()]; },
+    },
   });
   return event;
 };
@@ -104,6 +111,7 @@ const KEYS = (view) => ({
   cut: () => { selectionInside(view); view.contentDOM.dispatchEvent(clipboardEvent('cut')); }, // 선택이 없으면 줄 단위
   copy: () => { selectionInside(view); view.contentDOM.dispatchEvent(clipboardEvent('copy')); },
   paste: () => view.contentDOM.dispatchEvent(clipboardEvent('paste')),
+  external: () => { const text = clip.get('text/plain') ?? ''; clip.clear(); clip.set('text/plain', text); }, // 다른 앱에서 같은 원문을 복사(시스템 클립보드가 통째로 바뀐다)
   at: (n) => () => cursor(view, n),
   lineEnd: (n) => () => view.dispatch({ selection: EditorSelection.cursor(line(view, n).to) }),
   selectLine: (n) => () => view.dispatch({ selection: EditorSelection.range(line(view, n).from, line(view, n).to) }),
@@ -195,6 +203,23 @@ describe('태스크 댓글(CommentEditor): 같은 본문 안에서 줄을 옮겨
           expect(html, at).toContain('새 문장');
           expect(html.length, `${at}: 길이`).toBeLessThanOrEqual(10000);
         }
+      }
+    }
+  });
+
+  // 원문 저장 A안: 같은 편집기에서 링크 줄을 복사해 그 줄 위에 붙이면 새 링크라 칩이 되고, 칩이면 1만 자를 넘는다 — 본문 전체를 일반 링크로
+  it('A안 긴 본문(문서 80·이슈 40): 같은 편집기에서 링크 줄을 복사해 그 줄 위에 붙여도 일반 링크 그대로·1만 자 안(원문 저장·일반 모드 복귀)', async () => {
+    const copyOver = (k) => [k.at(1), k.copy, k.selectLine(1), k.paste];
+    for (const [name, attr, total] of [['raw_doc_links_80', KIND.doc.attr, 80], ['raw_issue_links_40', KIND.issue.attr, 40]]) {
+      const { P } = SERVER_CASES.find((c) => c.name === name);
+      const content = `<p>${P.replace(/^<p>|<\/p>\s*$/g, '')}</p><p>일반 문장</p>`;
+      for (const back of [false, true]) {
+        const out = await commentSave(content, copyOver, { back });
+        const at = `${name} ${back ? '일반 모드 복귀' : '원문 저장'}`;
+        expect(out.raw, `${at}: 원문 글자는 같다`).toBe(out.original);
+        expect(count(out.html, attr), `${at}: 칩`).toBe(0);
+        expect(count(out.html, /<a /g), `${at}: 일반 링크`).toBe(total);
+        expect([...out.html].length, `${at}: 길이`).toBeLessThanOrEqual(10000);
       }
     }
   });
@@ -383,11 +408,61 @@ describe('태스크 댓글(CommentEditor): 같은 자리에 붙이기 — 잘라
   });
 });
 
+// 원문 편집기 밖(다른 앱·다른 화면)에서 같은 글을 새로 복사하면 시스템 클립보드가 통째로 바뀌어, 원문 편집기가 잘라낼 때 실어 둔 표지가
+// 사라진다 — 그 붙여넣기는 잘라 둔 줄이 아니라 새 복사본이다(새 링크는 칩). 붙인 글자는 잘라 둔 줄과 같다
+const linkThenText = (k) => `<p>${KIND[k].link()}</p><p>일반 문장</p>`; // 일반 링크 줄, 문장
+const cutExternalPaste = (k) => [k.at(1), k.cut, k.external, k.at(1), k.paste]; // 잘라내기 → 밖에서 같은 원문 복사 → 그 자리에 붙이기
+
+describe('태스크 댓글(CommentEditor): 원문 편집기 밖에서 같은 원문을 새로 복사해 붙이면 새 링크(칩)', () => {
+  for (const kind of ['doc', 'issue']) {
+    it(`${kind}: 일반 링크 줄 잘라내기 → 밖에서 같은 원문 복사 → 그 자리에 붙이기`, async () => {
+      for (const back of [false, true]) {
+        const at = back ? '일반 모드로 돌아와 저장' : '원문에서 저장';
+        const out = await commentSave(linkThenText(kind), cutExternalPaste, { back });
+        expect(out.raw, `${at} — 원문 글자는 진입 때와 같다`).toBe(out.original);
+        expect(seq(out.html), at).toBe('C');
+      }
+    });
+    it(`${kind}: 대조 — 다른 복사 없이 그대로 붙이면 원래 일반 링크`, async () => {
+      for (const back of [false, true]) {
+        const out = await commentSave(linkThenText(kind), (k) => [k.at(1), k.cut, k.at(1), k.paste], { back });
+        expect(seq(out.html), back ? '일반 모드로 돌아와 저장' : '원문에서 저장').toBe('L');
+      }
+    });
+    it(`${kind}: 밖에서 복사해 붙인 뒤 실행 취소 두 번이면 원래 일반 링크, 다시 실행 두 번이면 새 링크(칩)`, async () => {
+      expect(seq((await commentSave(linkThenText(kind), (k) => [...cutExternalPaste(k), k.undo(2)])).html)).toBe('L');
+      expect(seq((await commentSave(linkThenText(kind), (k) => [...cutExternalPaste(k), k.undo(2), k.redo(2)])).html)).toBe('C');
+    });
+  }
+
+  it('원문 모드 자동 진입에서도 같다', async () => {
+    PREFS.prefs = { editor_raw_mode: true };
+    expect(seq((await commentSave(linkThenText('doc'), cutExternalPaste)).html)).toBe('C');
+    expect(seq((await commentSave(linkThenText('issue'), (k) => [k.at(1), k.cut, k.at(1), k.paste])).html)).toBe('L');
+  });
+
+  // A안 긴 본문에서 밖에서 복사한 링크는 새 링크라 칩이면 1만 자를 넘는다 — 원문 저장 보호(A안)가 본문 전체를 일반 링크로 둔다
+  it('A안 긴 본문(문서 80·이슈 40): 밖에서 같은 원문을 복사해 붙여도 일반 링크 그대로·1만 자 안(원문 저장·일반 모드 복귀)', async () => {
+    for (const [name, attr, total] of [['raw_doc_links_80', KIND.doc.attr, 80], ['raw_issue_links_40', KIND.issue.attr, 40]]) {
+      const { P } = SERVER_CASES.find((c) => c.name === name);
+      const content = `<p>${P.replace(/^<p>|<\/p>\s*$/g, '')}</p><p>일반 문장</p>`;
+      for (const back of [false, true]) {
+        const out = await commentSave(content, cutExternalPaste, { back });
+        const at = `${name} ${back ? '일반 모드 복귀' : '원문 저장'}`;
+        expect(out.raw, `${at}: 원문 글자는 같다`).toBe(out.original);
+        expect(count(out.html, attr), `${at}: 칩`).toBe(0);
+        expect(count(out.html, /<a /g), `${at}: 일반 링크`).toBe(total);
+        expect([...out.html].length, `${at}: 길이`).toBeLessThanOrEqual(10000);
+      }
+    }
+  });
+});
+
 describe('이슈 댓글(IssueEditor): 같은 본문 안에서 줄을 옮겨도 칩·일반 링크가 제 형태다', () => {
-  async function issueHtml(content, steps) {
+  async function issueHtml(content, steps, { rawLimit = null } = {}) {
     const ref = createRef();
     root = createRoot(document.getElementById('root'));
-    await act(async () => { root.render(<IssueEditor ref={ref} content={content} rawModeEnabled branchId={10} />); });
+    await act(async () => { root.render(<IssueEditor ref={ref} content={content} rawModeEnabled rawLimit={rawLimit} branchId={10} />); });
     await click(document.querySelector('button[title="Markdown 소스로 편집"]'));
     const view = await rawView();
     await act(async () => { for (const step of steps(KEYS(view))) step(); });
@@ -415,7 +490,23 @@ describe('이슈 댓글(IssueEditor): 같은 본문 안에서 줄을 옮겨도 �
       expect(seq(await issueHtml(sameSpotBody(kind), keepPaste)), '그대로 되붙이기').toBe('LC');
       expect(seq(await issueHtml(sameSpotBody(kind), copyPaste)), '새로 복사해 붙이기').toBe('CC');
     });
+    it(`${kind}: 밖에서 같은 원문을 복사해 잘라 둔 자리에 붙이면 새 링크(칩)`, async () => {
+      expect(seq(await issueHtml(sameSpotBody(kind), cutExternalPaste))).toBe('CC');
+    });
   }
+
+  it('이슈 댓글 한도(1만 자): A안 긴 본문에서 링크 줄을 복사해 그 줄 위에 붙여도 일반 링크 그대로·한도 안, 한도를 주지 않은 편집기는 지금처럼 칩', async () => {
+    const copyOver = (k) => [k.at(1), k.copy, k.selectLine(1), k.paste];
+    for (const [name, attr, total] of [['raw_doc_links_80', KIND.doc.attr, 80], ['raw_issue_links_40', KIND.issue.attr, 40]]) {
+      const { P } = SERVER_CASES.find((c) => c.name === name);
+      const content = `<p>${P.replace(/^<p>|<\/p>\s*$/g, '')}</p><p>일반 문장</p>`;
+      const guarded = await issueHtml(content, copyOver, { rawLimit: 10000 });
+      expect(count(guarded, attr), `${name} 한도 있음: 칩`).toBe(0);
+      expect([...guarded].length, `${name} 한도 있음: 길이`).toBeLessThanOrEqual(10000);
+      const unguarded = await issueHtml(content, copyOver);
+      expect(count(unguarded, attr), `${name} 한도 없음: 칩(지금 동작)`).toBe(total);
+    }
+  });
 });
 
 // 원문 모드로 바꿀 때 숨겨지는 일반 모드 편집기에 문서 선택(커서)이 남으면, 새로 뜬 원문 편집기(CodeMirror)가 그 선택을 마지막 화면
@@ -527,7 +618,7 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
     const onSubmit = vi.fn(() => Promise.resolve());
     root = createRoot(document.getElementById('root'));
     await act(async () => { root.render(<CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />); });
-    await act(async () => { await new Promise((r) => setTimeout(r, 20)); }); // 편집 창이 열리며 일반 모드 편집기에 자동 포커스 — 그 뒤 원문 토글
+    await vi.waitFor(() => expect(selectionInRich()).toBe(true)); // 편집 창이 열리며 일반 모드 편집기에 자동 포커스(setTimeout 0 → requestAnimationFrame) — 끝난 뒤 원문 토글
     const box = document.querySelector('.CommentEditor');
     await click(box.querySelector('.CommentEditor__RawToggle'));
     const view = await rawView();
@@ -674,6 +765,96 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
       }
     });
 
+    // 문서 미리보기 본문은 읽기 전용 HTML이지만 .ProseMirror 클래스를 단다(RefPreviewPanel DocPreview). 원문 편집기가 만들어질 때 그 안에
+    // 잡아 둔 범위 선택(복사하려던 문장)은 그대로 둔다 — 만들 때 지우는 것은 숨겨질 일반 모드 편집기 안 선택과 접힌 커서뿐이다. 남겨 둔
+    // 선택은 원문 편집기를 처음 누를 때(위 mousedown 관찰자) 걷힌다
+    describe('다른 문서(.ProseMirror 읽기 본문)에 잡아 둔 범위 선택', () => {
+      const SENTENCE = '금요일까지 결과를 확인해 주세요.';
+      const previewText = () => {
+        const body = document.createElement('div');
+        body.className = 'RefPreviewPanel__HtmlContent RefPreviewPanel__HtmlContent--doc ProseMirror';
+        body.innerHTML = `<p>${SENTENCE}</p>`;
+        document.body.appendChild(body);
+        return body.querySelector('p').firstChild;
+      };
+      const selectWhole = (node) => {
+        const r = document.createRange();
+        r.setStart(node, 0);
+        r.setEnd(node, node.length);
+        document.getSelection().removeAllRanges();
+        document.getSelection().addRange(r);
+      };
+      const ISSUE_ON = 'button[title="Markdown 소스로 편집"]';
+
+      it('이슈 댓글 수동 전환: 미리보기 범위 선택이 남는다', async () => {
+        root = createRoot(document.getElementById('root'));
+        await act(async () => { root.render(<IssueEditor content={paraBody} rawModeEnabled branchId={10} />); });
+        selectWhole(previewText());
+        await click(document.querySelector(ISSUE_ON));
+        await rawView();
+        expect(document.getSelection().toString()).toBe(SENTENCE);
+      });
+
+      it('태스크 댓글 맨 위 입력창(자동 포커스 없음) 수동 전환: 미리보기 범위 선택이 남는다', async () => {
+        root = createRoot(document.getElementById('root'));
+        await act(async () => { root.render(<CommentEditor initialContent="" branchId={10} onSubmit={vi.fn()} />); });
+        selectWhole(previewText());
+        await click(document.querySelector('.CommentEditor__RawToggle'));
+        await rawView();
+        expect(document.getSelection().toString()).toBe(SENTENCE);
+      });
+
+      it('원문 모드로 바로 열림(이슈 댓글·맨 위 입력창): 미리보기 범위 선택이 남는다', async () => {
+        PREFS.prefs = { editor_raw_mode: true };
+        for (const surface of ['issue', 'composer']) {
+          selectWhole(previewText());
+          root = createRoot(document.getElementById('root'));
+          await act(async () => {
+            root.render(surface === 'issue'
+              ? <IssueEditor content={paraBody} rawModeEnabled branchId={10} />
+              : <CommentEditor initialContent="" branchId={10} onSubmit={vi.fn()} />);
+          });
+          await rawView();
+          expect(document.getSelection().toString(), surface).toBe(SENTENCE);
+          await act(async () => root.unmount());
+          root = null;
+          document.body.innerHTML = '<div id="root"></div>';
+        }
+      });
+
+      it('대조: 숨겨질 일반 모드 편집기 안에 잡은 범위 선택은 지금처럼 걷어 낸다', async () => {
+        root = createRoot(document.getElementById('root'));
+        await act(async () => { root.render(<IssueEditor content={paraBody} rawModeEnabled branchId={10} />); });
+        selectWhole(document.querySelector('.TaskDescEditor .ProseMirror p').firstChild);
+        expect(document.getSelection().toString()).toBe('첫째 줄');
+        await click(document.querySelector(ISSUE_ON));
+        await rawView();
+        expect(document.getSelection().rangeCount).toBe(0);
+      });
+
+      it('미리보기 선택을 남긴 채 첫 줄 클릭 → Alt+↓ 두 번 — 커서가 따라가고 옮긴 순서로 저장(태스크 댓글 수정 창)', async () => {
+        const onSubmit = vi.fn(() => Promise.resolve());
+        root = createRoot(document.getElementById('root'));
+        await act(async () => { root.render(<CommentEditor initialContent={paraBody} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />); });
+        await vi.waitFor(() => expect(selectionInRich()).toBe(true)); // 수정 창 자동 포커스(setTimeout 0 → requestAnimationFrame)가 끝난 뒤
+        selectWhole(previewText()); // 미리보기에서 문장을 고른다
+        await click(document.querySelector('.CommentEditor__RawToggle'));
+        const view = await rawView();
+        expect(document.getSelection().toString(), '원문 편집기가 뜬 뒤에도 미리보기 선택').toBe(SENTENCE);
+        let left = null;
+        const trail = [];
+        await act(async () => {
+          clickFirstLineWithMouse(view);
+          left = focusJudgmentLeft(view);
+          trail.push(...pressKeys(view, ['down', 'down']));
+        });
+        expect(left, '클릭 뒤 "포커스 직후 맨 앞 선택 무시" 판단이 남지 않음').toBe(false);
+        expect(trail.map((s) => [s.cursor, s.dom])).toEqual([[2, 2], [3, 3]]);
+        await click([...document.querySelectorAll('.CommentEditor button')].find((b) => b.textContent.trim() === '등록'));
+        expect(textOrder(onSubmit.mock.calls[0][0])).toBe('둘째 줄 / 첫째 줄 / 셋째 줄');
+      });
+    });
+
     for (const kind of ['doc', 'issue']) {
       it(`${kind}: 밖 글자 → 칩 줄 클릭 → Alt+↓ 두 번 → 실행 취소 두 번 → 다시 실행 두 번 — 커서·칩·일반 링크 형태(태스크 댓글)`, async () => {
         const r = await clickAwayThenMove('task', paraLinks(kind), ['down', 'down', 'undo', 'undo', 'redo', 'redo']);
@@ -683,5 +864,320 @@ describe('원문 모드 Alt+↓ 연속: 커서가 옮긴 줄을 따라간다', (
         expect(seq(r.html), '다시 실행 뒤 일반 링크 · 칩').toBe('LC');
       });
     }
+  });
+});
+
+// 같은 편집(아직 저장 전)에서 원문이 새로 만든 칩은 모드를 오가도 '원문이 만든 칩'이다 — 최종 저장이 한도를 넘으면 그 칩만 본문 단위로
+// 일반 링크로 저장한다(일반 모드의 [등록]·Cmd+Enter, 이슈 화면의 [저장]이 부르는 getHTML, 원문에 다시 들어가 저장 모두).
+// 세 경로는 같은 원문이면 같은 HTML이다 — 새 링크는 칩이 원문에서 보이는 그대로(화면 주소 기준 절대 주소) 쓴다.
+// 저장된 뒤 다시 연 칩과 일반 모드에서 직접 넣은 칩은 기존 칩이라 그대로다.
+describe('같은 편집에서 원문이 만든 칩: 모드를 오가며 더 써도 A안', () => {
+  const links = (n) => Array.from({ length: n }, () => `[설계](${window.location.origin}/canvas/5/77)`).join(' ');
+  const LONG = '가'.repeat(2544);
+  const TASK_CHIP = '<span data-task-ref="true" data-task-id="9" data-branch-id="4" data-display-id="AAA-3" data-title="aa" class="task-ref">AAA-3 aa</span>';
+  const kinds = (html) => ({ chips: count(html, /data-(task|issue|doc)-ref="true"/g), links: count(html, /<a /g) });
+  const forms = (html) => [...html.matchAll(/<span data-(?:task|issue|doc)-ref=|<a /g)].map((m) => (m[0].startsWith('<a') ? 'L' : 'C')).join('');
+  const cp = (s) => [...s].length;
+  const appendParagraph = (text) => (ed) => ed.commands.insertContentAt(ed.state.doc.content.size, { type: 'paragraph', content: [{ type: 'text', text }] });
+  const enterKey = (target) => act(async () => { target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true })); });
+  // phases: 'toggle'(원문 ↔ 일반 모드 버튼) | { raw: (KEYS) => 단계 } | { rich: (TipTap 편집기) => void }
+  const flows = (n, extra) => ({
+    '원문에서 계속 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(n)}${extra ? `\n\n${extra}` : ''}`)] }],
+    '일반 모드로 돌아가 더 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(n)}`)] }, 'toggle', ...(extra ? [{ rich: appendParagraph(extra) }] : [])],
+    '일반 모드를 거쳐 원문에서 더 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(n)}`)] }, 'toggle', 'toggle', ...(extra ? [{ raw: (k) => [k.end, k.type(`\n\n${extra}`)] }] : [])],
+  });
+
+  async function commentEdits(content, phases, { submit = 'button' } = {}) {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    root = createRoot(document.getElementById('root'));
+    await act(async () => { root.render(<CommentEditor initialContent={content} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />); });
+    const box = document.querySelector('.CommentEditor');
+    const isRaw = () => !!box.querySelector('.CommentEditor__RawToggle--active');
+    const richEditor = () => box.querySelector('.ProseMirror').editor;
+    for (const phase of phases) {
+      if (phase === 'toggle') await click(box.querySelector('.CommentEditor__RawToggle'));
+      else if (phase.raw) { const view = await rawView(); await act(async () => { for (const step of phase.raw(KEYS(view))) step(); }); }
+      else await act(async () => { phase.rich(richEditor()); });
+    }
+    if (submit === 'button') await click([...box.querySelectorAll('button')].find((b) => b.textContent.trim() === '등록'));
+    else await enterKey(isRaw() ? (await rawView()).contentDOM : richEditor().view.dom);
+    await act(async () => root.unmount());
+    root = null;
+    expect(onSubmit, '저장 요청').toHaveBeenCalledTimes(1);
+    return onSubmit.mock.calls[0][0];
+  }
+
+  async function sameAcrossFlows(content, n, extra, expected) {
+    const outs = new Map();
+    for (const [name, phases] of Object.entries(flows(n, extra))) {
+      for (const submit of ['button', 'shortcut']) {
+        const html = await commentEdits(content, phases, { submit });
+        expect(kinds(html), `${name} / ${submit}`).toEqual(expected);
+        outs.set(`${name} / ${submit}`, html);
+      }
+    }
+    expect(new Set(outs.values()).size, `세 경로 × [등록]·Cmd+Enter가 같은 HTML\n${[...outs].map(([k, v]) => `${k}: ${cp(v)}`).join('\n')}`).toBe(1);
+    return outs.values().next().value;
+  }
+
+  it('새 문서 링크 60개 + 2,544자: 칩이면 넘으므로 세 경로 모두 일반 링크 60개, 같은 HTML, 1만 자 안', async () => {
+    const html = await sameAcrossFlows('<p>앞 문장</p>', 60, LONG, { chips: 0, links: 60 });
+    expect(cp(html)).toBeLessThanOrEqual(10000);
+    expect(html).toContain(LONG);
+  });
+
+  it('짧으면(새 링크 60개만) 세 경로 모두 칩 60개 — 지금과 같다', async () => {
+    const html = await sameAcrossFlows('<p>앞 문장</p>', 60, null, { chips: 60, links: 0 });
+    expect(cp(html)).toBeLessThanOrEqual(10000);
+  });
+
+  it('섞인 본문(기존 문서 칩·같은 원문 일반 링크·태스크 칩·일반 태스크 링크 + 새 링크): 기존 형태는 그대로, 새 링크만 일반 링크', async () => {
+    const content = `<p>${KIND.doc.chip} ${KIND.doc.link()} ${TASK_CHIP} <a href="${window.location.origin}/branch/4/task/7">AAA-1 ㅁㄴㅇ</a> 앞 문장</p>`;
+    const html = await sameAcrossFlows(content, 60, LONG, { chips: 2, links: 62 });
+    expect(forms(html)).toBe(`CLCL${'L'.repeat(60)}`);
+  });
+
+  it('일반 모드에서 직접 넣은 칩은 그대로 두고 원문이 만든 칩만 일반 링크로', async () => {
+    const userChip = (ed) => ed.commands.insertContentAt(ed.state.doc.content.size - 1, { type: 'taskRef', attrs: { taskId: 9, branchId: 4, displayId: 'AAA-3', title: 'aa' } });
+    const phases = ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(60)}`)] }, 'toggle', { rich: userChip }, { rich: appendParagraph(LONG) }];
+    for (const submit of ['button', 'shortcut']) {
+      const html = await commentEdits('<p>앞 문장</p>', phases, { submit });
+      expect(kinds(html), submit).toEqual({ chips: 1, links: 60 });
+      expect(forms(html), submit).toBe(`${'L'.repeat(60)}C`);
+    }
+  });
+
+  // 일반 모드에서 원문이 만든 칩에 준 서식(굵게 등)은 한도를 넘어 일반 링크로 되돌릴 때도 그 링크 글자에 남는다. 링크를 밀어내는 서식(코드)은
+  // 빼고 링크를 지킨다(주소를 잃지 않게)
+  it('일반 모드에서 원문이 만든 칩에 준 굵게는 한도를 넘어 일반 링크로 바꿀 때도 남는다(코드 서식이 덮인 칩은 링크를 지킨다)', async () => {
+    const linksParagraph = (ed) => {
+      let at = null;
+      ed.state.doc.descendants((node, pos) => { if (node.type.name === 'paragraph' && node.childCount > 1 && node.firstChild.type.name === 'docRef') at = { from: pos + 1, to: pos + node.nodeSize - 1 }; });
+      return at;
+    };
+    const firstChip = (ed) => { const { from } = linksParagraph(ed); return { from, to: from + 1 }; };
+    const anchors = (html) => { const t = document.createElement('template'); t.innerHTML = html; return [...t.content.querySelectorAll('a')]; };
+    const start = ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(60)}`)] }, 'toggle'];
+    for (const submit of ['button', 'shortcut']) {
+      const bold = await commentEdits('<p>앞 문장</p>', [...start, { rich: (ed) => { ed.chain().setTextSelection(linksParagraph(ed)).toggleBold().run(); } }, { rich: appendParagraph(LONG) }], { submit });
+      expect(kinds(bold), `굵게 / ${submit}`).toEqual({ chips: 0, links: 60 });
+      expect(anchors(bold).filter((a) => a.querySelector('strong') || a.closest('strong')).length, `굵게가 남은 링크 / ${submit}`).toBe(60);
+      expect(cp(bold), submit).toBeLessThanOrEqual(10000);
+      const code = await commentEdits('<p>앞 문장</p>', [...start, { rich: (ed) => { ed.chain().setTextSelection(firstChip(ed)).setMark('code').run(); } }, { rich: appendParagraph(LONG) }], { submit });
+      expect(kinds(code), `코드 / ${submit}`).toEqual({ chips: 0, links: 60 });
+      expect(anchors(code).every((a) => a.getAttribute('href') === `${window.location.origin}/canvas/5/77`), `코드 서식이 덮인 칩도 주소 그대로 / ${submit}`).toBe(true);
+    }
+  });
+
+  it('일반 모드로 돌아간 뒤 실행 취소 → 다시 실행해도 표시가 따라간다', async () => {
+    const undoRedo = (ed) => {
+      ed.commands.undo();
+      expect(kinds(ed.getHTML()), '실행 취소: 원문 전환 전').toEqual({ chips: 0, links: 0 });
+      ed.commands.redo();
+      expect(kinds(ed.getHTML()), '다시 실행').toEqual({ chips: 60, links: 0 });
+    };
+    const html = await commentEdits('<p>앞 문장</p>', ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(60)}`)] }, 'toggle', { rich: undoRedo }, { rich: appendParagraph(LONG) }]);
+    expect(kinds(html)).toEqual({ chips: 0, links: 60 });
+  });
+
+  it('경계(D-A): 저장이 끝난 뒤 다시 연 칩은 기존 칩 — 더 써서 넘어도 칩 그대로 보낸다(서버가 지금처럼 거절)', async () => {
+    const saved = await commentEdits('<p>앞 문장</p>', flows(60, null)['일반 모드로 돌아가 더 써서 저장']);
+    expect(kinds(saved)).toEqual({ chips: 60, links: 0 });
+    for (const [name, phases] of [['일반 모드', [{ rich: appendParagraph(LONG) }]], ['원문', ['toggle', { raw: (k) => [k.end, k.type(`\n\n${LONG}`)] }]]]) {
+      const html = await commentEdits(saved, phases);
+      expect(kinds(html), name).toEqual({ chips: 60, links: 0 });
+      expect(cp(html), name).toBeGreaterThan(10000);
+    }
+  });
+
+  // 원문에 쓴 그대로: 같은 편집에서 원문이 만든 칩은 원문에 쓴 링크 원문을 표시로 들고 다닌다 — 원문에 다시 들어가도, A안으로 일반 링크로
+  // 되돌려도 처음 쓴 그대로다(상대 주소가 화면 주소 붙은 절대 주소로 길어지지 않는다)
+  const relDoc = (n) => Array.from({ length: n }, () => '[설계](/canvas/5/77)').join(' ');
+  const relFlows = (body, extra) => ({
+    '원문에서 계속 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${body}\n\n${extra}`)] }],
+    '일반 모드로 돌아가 더 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${body}`)] }, 'toggle', { rich: appendParagraph(extra) }],
+    '일반 모드를 거쳐 원문에서 더 써서 저장': ['toggle', { raw: (k) => [k.end, k.type(`\n\n${body}`)] }, 'toggle', 'toggle', { raw: (k) => [k.end, k.type(`\n\n${extra}`)] }],
+  });
+  async function sameAcross(flowsMap, content, expected) {
+    const outs = new Map();
+    for (const [name, phases] of Object.entries(flowsMap)) {
+      for (const submit of ['button', 'shortcut']) {
+        const html = await commentEdits(content, phases, { submit });
+        expect(kinds(html), `${name} / ${submit}`).toEqual(expected);
+        outs.set(`${name} / ${submit}`, html);
+      }
+    }
+    expect(new Set(outs.values()).size, `세 경로 × [등록]·Cmd+Enter가 같은 HTML\n${[...outs].map(([k, v]) => `${k}: ${cp(v)}`).join('\n')}`).toBe(1);
+    return outs.values().next().value;
+  }
+
+  it('상대 주소로 쓴 새 링크 60개 + 4,700자(한도 근처): 세 경로 모두 원문에 쓴 그대로의 일반 링크, 같은 HTML, 1만 자 안', async () => {
+    const html = await sameAcross(relFlows(relDoc(60), '가'.repeat(4700)), '<p>앞 문장</p>', { chips: 0, links: 60 });
+    expect(count(html, /<a [^>]*href="\/canvas\/5\/77"/g), '상대 주소 그대로').toBe(60);
+    expect(cp(html)).toBeLessThanOrEqual(10000);
+  });
+
+  it('상대 주소로 쓴 새 문서 20·이슈 5·태스크 5 링크: 돌아갈 때는 칩(한도 안), 6,000자를 더하면 넘어 세 경로 같은 HTML — 원문에 쓴 주소 그대로', async () => {
+    const body = [
+      Array.from({ length: 20 }, () => '[설계](/canvas/5/77)').join(' '),
+      Array.from({ length: 5 }, () => '[PRO-220 재현](/branch/10/task/1031/issue/7)').join(' '),
+      Array.from({ length: 5 }, () => '[AAA-1 ㅁㄴㅇ](/branch/4/task/7)').join(' '),
+    ].join('\n\n');
+    const html = await sameAcross(relFlows(body, '가'.repeat(6000)), '<p>앞 문장</p>', { chips: 0, links: 30 });
+    for (const [href, n] of [['/canvas/5/77', 20], ['/branch/10/task/1031/issue/7', 5], ['/branch/4/task/7', 5]]) {
+      expect(count(html, new RegExp(`<a [^>]*href="${href}"`, 'g')), href).toBe(n);
+    }
+    expect(cp(html)).toBeLessThanOrEqual(10000);
+  });
+
+  it('원문 → 일반 모드 → 원문: 원문이 만든 칩은 원문에 처음 쓴 그대로 다시 보인다(기존 칩은 지금처럼 절대 주소)', async () => {
+    const onSubmit = vi.fn(() => Promise.resolve());
+    root = createRoot(document.getElementById('root'));
+    await act(async () => { root.render(<CommentEditor initialContent={`<p>${KIND.doc.chip} 앞 문장</p>`} branchId={10} autoFocus onSubmit={onSubmit} onCancel={vi.fn()} />); });
+    const box = document.querySelector('.CommentEditor');
+    await click(box.querySelector('.CommentEditor__RawToggle'));
+    let view = await rawView();
+    await act(async () => { KEYS(view).end(); KEYS(view).type('\n\n[설계](/canvas/5/77) [PRO-220 재현](/branch/10/task/1031/issue/7) [AAA-1 ㅁㄴㅇ](/branch/4/task/7)')(); });
+    const written = view.state.doc.toString();
+    await click(box.querySelector('.CommentEditor__RawToggle'));
+    await click(box.querySelector('.CommentEditor__RawToggle'));
+    view = await rawView();
+    expect(view.state.doc.toString()).toBe(written);
+  });
+
+  // 같은 편집기 안에서 잘라 옮기기: 원문이 만든 칩을 일반 모드에서 잘라 다른 자리에 붙여도 표시가 따라간다
+  const autoCount = (ed) => { let n = 0; ed.state.doc.descendants((node) => { if (node.attrs?.rawAutoChip) n += 1; }); return n; };
+  const chipCount = (ed) => { let n = 0; ed.state.doc.descendants((node) => { if (/^(task|issue|doc)Ref$/.test(node.type.name)) n += 1; }); return n; };
+  const cutParagraphWithChips = (ed) => {
+    let from = 0;
+    let to = 0;
+    ed.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'paragraph' && node.content.content.filter((ch) => ch.type.name === 'docRef').length > 1) { from = pos + 1; to = pos + node.nodeSize - 1; }
+    });
+    ed.commands.setTextSelection({ from, to });
+    ed.view.dom.dispatchEvent(clipboardEvent('cut'));
+  };
+  const pasteAtStart = (ed) => { ed.commands.setTextSelection(1); ed.view.dom.dispatchEvent(clipboardEvent('paste')); };
+
+  it('일반 모드에서 원문이 만든 칩을 잘라 맨 앞에 붙인 뒤 저장 — 일반 모드 저장·원문에 다시 들어가 저장 모두 일반 링크(표시가 따라간다)', async () => {
+    const moved = (ed) => { cutParagraphWithChips(ed); expect(chipCount(ed), '잘라 냄').toBe(0); pasteAtStart(ed); expect(autoCount(ed), '붙인 칩에 표시').toBe(60); };
+    const start = ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(60)}`)] }, 'toggle', { rich: moved }];
+    for (const [name, rest] of [['일반 모드 저장', [{ rich: appendParagraph(LONG) }]], ['원문 재진입 저장', ['toggle', { raw: (k) => [k.end, k.type(`\n\n${LONG}`)] }]]]) {
+      for (const submit of ['button', 'shortcut']) {
+        const html = await commentEdits('<p>앞 문장</p>', [...start, ...rest], { submit });
+        expect(kinds(html), `${name} / ${submit}`).toEqual({ chips: 0, links: 60 });
+        expect(cp(html), `${name} / ${submit}`).toBeLessThanOrEqual(10000);
+        expect(html.indexOf('<a '), '옮긴 자리(맨 앞 문단)').toBeLessThan(html.indexOf('앞 문장'));
+      }
+    }
+  });
+
+  it('섞인 본문에서 잘라 옮겨도 원문이 만든 칩만 일반 링크 — 기존 칩·일반 링크는 그대로, 상대 주소도 그대로', async () => {
+    const content = `<p>${KIND.doc.chip} ${KIND.doc.link()} ${TASK_CHIP} 앞 문장</p>`;
+    const moved = (ed) => { cutParagraphWithChips(ed); pasteAtStart(ed); };
+    const html = await commentEdits(content, ['toggle', { raw: (k) => [k.end, k.type(`\n\n${relDoc(60)}`)] }, 'toggle', { rich: moved }, { rich: appendParagraph(LONG) }]);
+    expect(kinds(html)).toEqual({ chips: 2, links: 61 });
+    expect(count(html, /<a [^>]*href="\/canvas\/5\/77"/g), '새 링크는 상대 주소 그대로').toBe(60);
+    expect(forms(html), '맨 앞에 옮긴 새 링크 60 + 기존 칩·일반 링크·태스크 칩').toBe(`${'L'.repeat(60)}CLC`);
+  });
+
+  it('잘라 옮긴 뒤 실행 취소·다시 실행: 표시와 원래 형태가 따라간다', async () => {
+    // 사람의 조작 사이 간격 — 0.5초 안에 이어진 거래는 실행 취소 한 묶음이라(ProseMirror history) 조작마다 묶음을 끊는다
+    const separate = (ed) => ed.view.dispatch(closeHistory(ed.state.tr));
+    const steps = (ed) => {
+      separate(ed);
+      cutParagraphWithChips(ed);
+      separate(ed);
+      pasteAtStart(ed);
+      ed.commands.undo();
+      expect(chipCount(ed), '붙여넣기 취소').toBe(0);
+      ed.commands.undo();
+      expect([chipCount(ed), autoCount(ed)], '잘라내기 취소 — 제자리에 표시와 함께').toEqual([60, 60]);
+      ed.commands.redo();
+      ed.commands.redo();
+      expect([chipCount(ed), autoCount(ed)], '다시 실행 두 번').toEqual([60, 60]);
+    };
+    const html = await commentEdits('<p>앞 문장</p>', ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(60)}`)] }, 'toggle', { rich: steps }, { rich: appendParagraph(LONG) }]);
+    expect(kinds(html)).toEqual({ chips: 0, links: 60 });
+  });
+
+  it('잘라내기 표지가 없는 붙여넣기는 표시를 잇지 않는다 — 복사해 붙인 칩, 그사이 다른 복사로 클립보드가 바뀐 경우, 다른 편집기에 붙인 경우', async () => {
+    const copyParagraph = (ed) => {
+      let from = 0;
+      let to = 0;
+      ed.state.doc.descendants((node, pos) => { if (node.type.name === 'paragraph' && node.content.content.some((ch) => ch.type.name === 'docRef')) { from = pos + 1; to = pos + node.nodeSize - 1; } });
+      ed.commands.setTextSelection({ from, to });
+      ed.view.dom.dispatchEvent(clipboardEvent('copy'));
+    };
+    const cases = [
+      ['복사해 붙이기', (ed) => { copyParagraph(ed); pasteAtStart(ed); }],
+      ['잘라낸 뒤 다른 앱에서 같은 HTML 복사', (ed) => { cutParagraphWithChips(ed); const html = clip.get('text/html'); const text = clip.get('text/plain'); clip.clear(); clip.set('text/html', html); clip.set('text/plain', text); pasteAtStart(ed); }],
+    ];
+    for (const [name, step] of cases) {
+      let autos = null;
+      await commentEdits('<p>앞 문장</p>', ['toggle', { raw: (k) => [k.end, k.type(`\n\n${links(3)}`)] }, 'toggle', { rich: (ed) => { step(ed); autos = autoCount(ed); } }]);
+      expect(autos, name).toBe(name === '복사해 붙이기' ? 3 : 0); // 복사는 원래 칩 3개만 표시, 붙인 복사본은 표시 없음
+    }
+    // 다른 편집기: 같은 화면의 다른 댓글 편집기에 붙이면 그 편집기에서는 일반 모드에서 넣은 칩이다
+    root = createRoot(document.getElementById('root'));
+    await act(async () => {
+      root.render(<>
+        <div id="a"><CommentEditor initialContent="<p>앞 문장</p>" branchId={10} onSubmit={vi.fn()} onCancel={vi.fn()} /></div>
+        <div id="b"><CommentEditor initialContent="<p>다른 글</p>" branchId={10} onSubmit={vi.fn()} onCancel={vi.fn()} /></div>
+      </>);
+    });
+    const boxA = document.querySelector('#a .CommentEditor');
+    await click(boxA.querySelector('.CommentEditor__RawToggle'));
+    const view = await rawView();
+    await act(async () => { KEYS(view).end(); KEYS(view).type(`\n\n${links(3)}`)(); });
+    await click(boxA.querySelector('.CommentEditor__RawToggle'));
+    const edA = boxA.querySelector('.ProseMirror').editor;
+    const edB = document.querySelector('#b .ProseMirror').editor;
+    await act(async () => { cutParagraphWithChips(edA); pasteAtStart(edB); });
+    expect([chipCount(edB), autoCount(edB)], '다른 편집기').toEqual([3, 0]);
+  });
+
+  describe('이슈 편집기([저장]·[업데이트]가 부르는 getHTML)', () => {
+    async function issueEdits(content, phases, { rawLimit = null } = {}) {
+      const ref = createRef();
+      root = createRoot(document.getElementById('root'));
+      await act(async () => { root.render(<IssueEditor ref={ref} content={content} rawModeEnabled rawLimit={rawLimit} branchId={10} />); });
+      const richEditor = () => document.querySelector('.TaskDescEditor .ProseMirror').editor;
+      for (const phase of phases) {
+        if (phase === 'toggle') await click(document.querySelector('button[title="Markdown 소스로 편집"], button[title="Rich text 편집으로 전환"]'));
+        else if (phase.raw) { const view = await rawView(); await act(async () => { for (const step of phase.raw(KEYS(view))) step(); }); }
+        else await act(async () => { phase.rich(richEditor()); });
+      }
+      const html = ref.current.getHTML();
+      await act(async () => root.unmount());
+      root = null;
+      return html;
+    }
+    it('저장 뒤 비운 입력창(clearContent)에는 그 전에 잘라 둔 칩의 표시를 잇지 않는다 — 비우기 전에는 잇는다', async () => {
+      for (const clear of [false, true]) {
+        const ref = createRef();
+        root = createRoot(document.getElementById('root'));
+        await act(async () => { root.render(<IssueEditor ref={ref} content="<p>앞 문장</p>" rawModeEnabled rawLimit={10000} branchId={10} />); });
+        await click(document.querySelector('button[title="Markdown 소스로 편집"]'));
+        const view = await rawView();
+        await act(async () => { KEYS(view).end(); KEYS(view).type(`\n\n${links(3)}`)(); });
+        await click(document.querySelector('button[title="Rich text 편집으로 전환"]'));
+        const ed = document.querySelector('.TaskDescEditor .ProseMirror').editor;
+        await act(async () => { cutParagraphWithChips(ed); if (clear) ref.current.clearContent(); pasteAtStart(ed); });
+        expect([chipCount(ed), autoCount(ed)], clear ? '비운 뒤 붙임 — 일반 모드에서 넣은 칩' : '같은 글에 붙임').toEqual([3, clear ? 0 : 3]);
+        await act(async () => root.unmount());
+        root = null;
+      }
+    });
+    it('세 경로가 같은 HTML(한도 1만): 일반 링크 60개 — 한도를 주지 않은 편집기는 지금처럼 칩', async () => {
+      const outs = new Set();
+      for (const [name, phases] of Object.entries(flows(60, LONG))) {
+        const html = await issueEdits('<p>앞 문장</p>', phases, { rawLimit: 10000 });
+        expect(kinds(html), name).toEqual({ chips: 0, links: 60 });
+        outs.add(html);
+        expect(kinds(await issueEdits('<p>앞 문장</p>', phases)), `${name} — 한도 없음`).toEqual({ chips: 60, links: 0 });
+      }
+      expect(outs.size).toBe(1);
+    });
   });
 });

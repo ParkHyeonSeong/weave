@@ -10,6 +10,7 @@ import { useRefHydration } from '@/library/refHydration';
 import { useMathHydration } from '@/library/mathRender';
 import Avatar from '@/components/common/Avatar';
 import IssueEditor from './IssueEditor';
+import { ISSUE_BODY_MAX_LENGTH, ISSUE_COMMENT_MAX_LENGTH } from '@/library/contentLimits';
 import ConfirmModal from '@/components/modal/ConfirmModal';
 import { buildIssueEditorExtensions } from './issueEditorExtensions';
 import { copyAsMarkdown } from '@/library/copyMarkdown';
@@ -341,6 +342,7 @@ export default function TaskIssueDetail() {
                 <IssueEditor
                   ref={bodyEditorRef}
                   rawModeEnabled
+                  rawLimit={ISSUE_BODY_MAX_LENGTH}
                   content={issue.body || ''}
                   placeholder={t('branchTasks.issue.bodyPlaceholder')}
                   minHeight={150}
@@ -418,6 +420,7 @@ export default function TaskIssueDetail() {
                     <IssueEditor
                       ref={commentEditorRef}
                       rawModeEnabled
+                      rawLimit={ISSUE_COMMENT_MAX_LENGTH}
                       content={comment.content}
                       placeholder={t('branchTasks.issue.editCommentPlaceholder')}
                       minHeight={100}
@@ -450,6 +453,7 @@ export default function TaskIssueDetail() {
           <IssueEditor
             ref={newCommentRef}
             rawModeEnabled
+            rawLimit={ISSUE_COMMENT_MAX_LENGTH}
             placeholder={t('branchTasks.issue.commentPlaceholder')}
             minHeight={100}
             branchId={branchId}

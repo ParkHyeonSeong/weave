@@ -17,6 +17,7 @@ import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 export default function TaskDescriptionEditor({ content, onSave, branchId }) {
   const { t } = useTranslation();
   const savedRef = useRef(false);
+  const richRef = useRef(null); // 원문 모드 동안 숨겨 두는 일반 모드 편집기 영역
 
   const extensions = useMemo(
     () => buildMarkdownExtensions([...buildTaskDescriptionExtensions({ branchId }), MarkdownClipboardExtension]),
@@ -129,9 +130,10 @@ export default function TaskDescriptionEditor({ content, onSave, branchId }) {
           onChange={handleRawChange}
           onBlur={handleRawBlur}
           placeholder={t('branchTasks.rawEditor.markdownPlaceholder', { placeholder: t('branchTasks.detail.addDescription') })}
+          hiddenRef={richRef}
         />
       )}
-      <div style={{ display: isRaw ? 'none' : undefined }}>
+      <div ref={richRef} style={{ display: isRaw ? 'none' : undefined }}>
         <EditorContent editor={editor} className="TaskDescEditor__Content" />
       </div>
     </div>

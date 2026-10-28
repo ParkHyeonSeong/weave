@@ -8,6 +8,7 @@ import MentionNode from '@/components/Canvas/extensions/MentionExtension';
 import TaskRefNode from '@/components/Canvas/extensions/TaskRefExtension';
 import IssueRefNode from '@/components/Canvas/extensions/IssueRefExtension';
 import DocRefNode from '@/components/Canvas/extensions/DocRefExtension';
+import { RawAutoChipAttribute } from '@/components/Canvas/extensions/rawAutoChip';
 import { ResizableImage } from '@/components/Canvas/extensions/ResizableImageExtension';
 import { createImageUploadPlugin } from '@/components/Canvas/extensions/ImageUploadPlugin';
 import SlashCommandsExtension from '@/components/Canvas/extensions/SlashCommandsExtension';
@@ -31,6 +32,7 @@ export function buildCommentEditorExtensions({ placeholder = 'Add a comment...',
     TaskRefNode,
     IssueRefNode, // 서버가 저장한 이슈·문서 칩 보존(슬래시 명령은 추가 안 함)
     DocRefNode,
+    RawAutoChipAttribute, // 같은 편집 동안 원문이 만든 칩 표시(저장 HTML에는 없음) — 원문 모드 A안
     SlashCommandsExtension.configure({ enabled: ['/t', '/ta', '/m'] }),
     ResizableImage,
     BookmarkPasteExtension,

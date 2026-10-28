@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { getHTMLFromFragment } from '@tiptap/core';
+import { Fragment } from '@tiptap/pm/model';
 import { docToMarkdown, getMarkdownManager, markdownToEditorHtml, findUnsupportedFormatting } from '@/library/markdownCodec';
 import {
-  DOC_PATH, ISSUE_PATH, encodeMarkdownUrl, internalPathname, withRawLinkForms, withRawLinkRecorder,
+  DOC_PATH, ISSUE_PATH, TASK_PATH, encodeMarkdownUrl, internalPathname, withRawLinkForms, withRawLinkRecorder,
 } from '@/components/Canvas/extensions/refMarkdown';
+import { RAW_AUTO_CHIP } from '@/components/Canvas/extensions/rawAutoChip';
 import { useUiPrefs } from '@/library/UiPrefsContext';
 import { hydrateEditor } from '@/library/refHydration';
 import { slashCommandPluginKey, SLASH_OFF } from '@/components/Canvas/extensions/SlashCommandsExtension';
@@ -56,33 +59,48 @@ export function formatUnsupportedWarning(keys) {
 }
 
 // md에서는 칩과 일반 링크가 똑같이 [글](경로)라 다시 읽으면 내부 링크는 모두 칩이 되고, 같은 제목·같은 주소면
-// 원문이 글자까지 같아 원문만으로는 구분할 수도 없다. 그래서 진입 때 이슈·문서 링크마다 md에서 차지하는 자리와
+// 원문이 글자까지 같아 원문만으로는 구분할 수도 없다. 그래서 진입 때 태스크·이슈·문서 링크마다 md에서 차지하는 자리와
 // 형태(칩·일반 링크)를 적어 두고, 저장·복귀 때 원문 편집기의 편집 기록으로 그 자리를 따라가 그대로 남은 링크만
 // 원래 형태로 되돌린다(같은 링크를 넣거나 지워도 나머지는 제 형태). 새로 쓴 링크는 지금처럼 칩이 된다.
 // 이 세 편집기(태스크 설명·댓글·이슈)에는 전에 이슈·문서 칩이 없어 그 일반 링크는 원문 왕복 뒤에도 일반 링크였다.
-// 태스크 링크는 전부터 원문 모드에서 칩이 되었으므로 적지 않는다(그대로 둔다).
+// 태스크 링크도 같은 규칙이다 — 진입 때 일반 링크면 일반 링크 그대로, 새로 쓴 링크는 칩.
+// 같은 편집에서 원문이 만든 칩(일반 모드로 돌아갈 때 RAW_AUTO_CHIP에 원문에 쓴 링크 원문을 단다)은 다시 들어와도 'new'로 적고, 원문에도
+// 처음 쓴 그대로 보인다 — 기존 칩으로 굳지 않고, 칩을 거치며 주소가 길어지지도 않는다.
 const MARK_BASE = 9e15; // 순번 표지 — 실제 id(32비트 정수 이내)와 겹치지 않는 안전한 정수
-const markerUrl = (kind, n) => (kind === 'issue' ? `/branch/0/task/0/issue/${MARK_BASE + n}` : `/canvas/0/${MARK_BASE + n}`);
+const MARKER_URL = {
+  task: (n) => `/branch/0/task/${MARK_BASE + n}`,
+  issue: (n) => `/branch/0/task/0/issue/${MARK_BASE + n}`,
+  doc: (n) => `/canvas/0/${MARK_BASE + n}`,
+};
+const markerUrl = (kind, n) => MARKER_URL[kind](n);
 const markOf = (token) => {
-  const id = token.issueId ?? token.pageId;
+  const id = token.issueId ?? token.pageId ?? token.taskId;
   return id >= MARK_BASE ? id - MARK_BASE : -1;
 };
+const CHIP_KEY = { taskRef: ['task', 'taskId'], issueRef: ['issue', 'issueId'], docRef: ['doc', 'pageId'] };
 
-// 진입: md에서 이슈·문서 링크(칩·일반 링크)가 차지하는 자리 [{ from, to, raw, kind, form }].
+// 진입: md에서 태스크·이슈·문서 링크(칩·일반 링크)가 차지하는 자리 [{ from, to, raw, kind, form }].
 // 칩의 id와 일반 링크의 주소만 순번 표지로 바꾼 문서 사본을 다시 읽을 때와 같은 파서로 읽어, 표지로 각 링크를 찾는다 —
 // 주소 말고는 글자가 같아 코드·블록·괄호 처리까지 같은 자리에서 같은 토큰이 나온다.
-function issueDocLinks(editor, markdown) {
+function refLinks(editor, markdown) {
   const entries = []; // 순번 → { form, kind, mark(사본의 글자), real(원문의 글자) }
   const kindOf = (href) => {
     const pathname = internalPathname(href || '');
     if (pathname && ISSUE_PATH.test(pathname)) return 'issue';
+    if (pathname && TASK_PATH.test(pathname)) return 'task';
     return pathname && DOC_PATH.test(pathname) ? 'doc' : null;
   };
   const visit = (node) => {
-    if (node.type === 'issueRef' || node.type === 'docRef') {
-      const key = node.type === 'issueRef' ? 'issueId' : 'pageId';
+    if (CHIP_KEY[node.type]) {
+      const [kind, key] = CHIP_KEY[node.type];
       const k = entries.length;
-      entries.push({ form: 'chip', kind: node.type === 'issueRef' ? 'issue' : 'doc', mark: String(MARK_BASE + k), real: String(node.attrs?.[key]) });
+      const written = node.attrs?.[RAW_AUTO_CHIP]; // 같은 편집에서 원문이 만든 칩은 원문에 쓴 그대로 직렬화된다 — 그 주소 자리에 표지를 둔다
+      if (written) {
+        const url = /\]\(([^)\s]+)\)$/.exec(written);
+        entries.push({ form: 'new', kind, mark: markerUrl(kind, k), real: url[1] });
+        return { ...node, attrs: { ...node.attrs, [RAW_AUTO_CHIP]: `${written.slice(0, url.index + 2)}${markerUrl(kind, k)})` } };
+      }
+      entries.push({ form: 'chip', kind, mark: String(MARK_BASE + k), real: String(node.attrs?.[key]) });
       return { ...node, attrs: { ...node.attrs, [key]: MARK_BASE + k } };
     }
     if (!node.content) return node;
@@ -450,7 +468,7 @@ function survivingLinks(md, { source, items }, edits) {
   });
 }
 
-// 남은 링크의 주소만 표지로 바꾼 사본을 같은 파서로 읽어, 이슈·문서 칩 토큰 자리마다 형태를 정한다(표지가 없으면 새 링크 → 칩)
+// 남은 링크의 주소만 표지로 바꾼 사본을 같은 파서로 읽어, 칩 토큰 자리마다 형태를 정한다(표지가 없으면 새 링크 'new' — 보통은 칩)
 function linkFormsAt(md, extensions, survivors) {
   let copy = md;
   survivors.map((l, i) => [l, i]).sort(([a], [b]) => b.from - a.from).forEach(([l, i]) => {
@@ -468,7 +486,7 @@ function linkFormsAt(md, extensions, survivors) {
       const at = raw.lastIndexOf(mark);
       raw = raw.slice(0, at) + l.raw.slice(l.raw.lastIndexOf('](') + 2, -1) + raw.slice(at + mark.length);
     }
-    forms.set(raw, [...(forms.get(raw) || []), l ? l.form : 'chip']);
+    forms.set(raw, [...(forms.get(raw) || []), l ? l.form : 'new']);
   }, () => getMarkdownManager(extensions).parse(copy));
   return forms;
 }
@@ -480,28 +498,85 @@ function linkFormsInOrder(items) {
   return forms;
 }
 
-// WYSIWYG → raw 진입: 현재 doc의 markdown + md 미표현 서식 경고 키 + 이슈·문서 링크 자리(parseRawToHtml에 넘긴다)
+// WYSIWYG → raw 진입: 현재 doc의 markdown + md 미표현 서식 경고 키 + 태스크·이슈·문서 링크 자리(parseRawToHtml에 넘긴다)
 export function enterRawState(editor) {
   const markdown = docToMarkdown(editor);
   return {
     markdown,
     warnings: findUnsupportedFormatting(editor.getJSON()), // 계약: JSONContent (PM Node 아님 — S0.2 §)
-    rawLinks: { source: markdown, items: issueDocLinks(editor, markdown) },
+    rawLinks: { source: markdown, items: refLinks(editor, markdown) },
   };
+}
+
+// 저장할 HTML이 넘을 수 있는 가장 긴 길이 — 서버 한도 검사(파이썬 글자 수 = 코드 포인트)와, 원문 편집기가 만든 HTML을 일반 모드로
+// 돌아와 저장하거나 저장 뒤 수정창으로 다시 열어 그대로 저장할 때(마지막 최상위 블록이 문단이 아니면 TrailingNode가 빈 문단을 붙인다).
+// 원문 편집기가 만든 HTML은 이미 편집기 직렬화라 그 밖의 재저장 증가가 없다(reserializeGrowth.dom.test.js가 고정)
+const TRAILING_PARAGRAPH = '<p></p>';
+const SURROGATE_PAIR = /[\uD800-\uDBFF][\uDC00-\uDFFF]/g;
+export function resaveLength(html) {
+  const codePoints = html.length - (html.match(SURROGATE_PAIR) || []).length;
+  return codePoints + (/<\/p>$/.test(html) ? 0 : TRAILING_PARAGRAPH.length);
 }
 
 // raw → 에디터 HTML. 공백뿐이면 null (기존 editor.isEmpty → onSave(null) 시맨틱).
 // rawLinks: 진입 때 enterRawState가 적어 둔 링크 자리, edits: 그 뒤 원문 편집 기록 — 편집 순서대로 담은 배열(이어 붙이지 않는다),
 // 각 단계는 원문 편집기가 넘기는 { changes: ChangeSet, userEvent, depth(그 뒤 실행 취소 깊이) } 또는 ChangeSet만(조작 종류 모름
 // — 다른 자리로 옮긴 줄은 모른다). ChangeSet 하나만 넘기면 한 단계, 없으면 null.
-export function parseRawToHtml(md, extensions, rawLinks, edits = null) {
+// limit(서버 한도, 없으면 null): A안 — 원문에서 새로 칩이 된 링크(진입 때 칩이 아니었던 자리) 때문에 한도를 넘으면 본문 전체에서 그 칩
+// 변환을 거둬 일반 링크로 둔다(일부만 칩으로 두지 않고, 진입 때 칩·일반 링크는 그대로). 일반 링크로도 넘으면 서버가 지금처럼 거절하고,
+// 일반 모드로 돌아갈 때는 이 결과가 편집기에 들어가 줄이면 일반 링크 기준으로 저장된다.
+// 돌려주는 autoChips: 결과의 칩마다(문서 순서) 이번 원문 읽기가 새로 만든 칩이면 그 링크를 원문에 쓴 그대로, 아니면 null —
+// 일반 모드로 돌아갈 때 표시로 단다(exitRaw)
+export function parseRaw(md, extensions, rawLinks, edits = null, { limit = null } = {}) {
   if (!md || !md.trim()) return null;
   let forms = null;
   if (rawLinks?.items.length) {
     const survivors = survivingLinks(md, rawLinks, edits && [].concat(edits));
     forms = survivors ? linkFormsAt(md, extensions, survivors) : linkFormsInOrder(rawLinks.items);
   }
-  return withRawLinkForms(forms, () => markdownToEditorHtml(md, extensions));
+  const read = (keepNewPlain) => {
+    const autoChips = [];
+    const html = withRawLinkForms(forms, () => markdownToEditorHtml(md, extensions), { keepNewPlain, onChip: (written) => autoChips.push(written) });
+    return { html, autoChips };
+  };
+  const normal = read(false);
+  return limit == null || resaveLength(normal.html) <= limit ? normal : read(true);
+}
+
+export const parseRawToHtml = (...args) => parseRaw(...args)?.html ?? null;
+
+// 일반 모드로 돌아갈 때: 이번 원문 읽기가 새로 만든 칩에 같은 편집 동안의 표시를 단다(같은 거래 — 실행 취소·다시 실행이 함께 따라간다).
+// 칩 수가 읽은 결과와 다르면(방어) 아무 칩에도 달지 않는다 — 기존 칩을 새 칩으로 잘못 보지 않는 쪽
+function markRawAutoChips(tr, autoChips) {
+  if (!autoChips?.some(Boolean)) return;
+  const chips = [];
+  tr.doc.descendants((node, pos) => { if (RAW_AUTO_CHIP in node.attrs) chips.push(pos); });
+  if (chips.length !== autoChips.length) return;
+  chips.forEach((pos, i) => { if (autoChips[i]) tr.setNodeAttribute(pos, RAW_AUTO_CHIP, autoChips[i]); });
+}
+
+// 일반 모드 저장(A안): 같은 편집에서 원문이 만든 칩(표시) 때문에 한도를 넘으면 그 칩을 본문 단위로 일반 링크로 바꾼 HTML을 돌려준다.
+// 그 칩의 원문(원문에 쓴 그대로)을 원문 대체 읽기와 같은 파서로 일반 링크로 읽어 넣는다(원문에서 저장한 결과와 같은 HTML). 표시 없는 칩 — 저장된 뒤
+// 다시 연 칩, 일반 모드에서 넣은 칩 — 은 건드리지 않고, 편집기 문서도 바꾸지 않는다
+export function htmlForSave(editor, limit) {
+  const html = editor.getHTML();
+  if (limit == null || resaveLength(html) <= limit) return html;
+  const autos = [];
+  editor.state.doc.descendants((node, pos) => { if (node.attrs[RAW_AUTO_CHIP]) autos.push([node, pos]); });
+  if (!autos.length) return html;
+  const manager = getMarkdownManager(editor.extensionManager.extensions);
+  const link = editor.schema.marks.link;
+  const tr = editor.state.tr;
+  for (const [node, pos] of autos.reverse()) { // 뒤에서부터 — 앞 칩 자리가 밀리지 않는다
+    const md = manager.serialize({ type: 'doc', content: [{ type: 'paragraph', content: [node.toJSON()] }] });
+    const read = withRawLinkForms(null, () => manager.parse(md), { keepNewPlain: true });
+    const inline = Fragment.fromJSON(editor.schema, read.content?.[0]?.content || []);
+    if (!inline.size) continue;
+    tr.replaceWith(pos, pos + node.nodeSize, inline);
+    // 일반 모드에서 칩에 준 서식(굵게·기울임 등)은 그 일반 링크 글자에도 그대로 — 링크를 밀어내는 서식(코드)은 링크(주소)를 지키려고 뺀다
+    for (const mark of node.marks) if (mark.type !== link && !mark.type.excludes(link)) tr.addMark(pos, pos + inline.size, mark);
+  }
+  return getHTMLFromFragment(tr.doc.content, editor.schema);
 }
 
 // prefill(답글 자동 멘션 등) 콘텐츠를 갖고 뜨는 에디터 인스턴스는 선호가 raw여도
@@ -518,13 +593,14 @@ export function shouldAutoEnterRaw(prefs, autoEnter = true) {
 // - enabled: false면 자동 진입·토글 비활성 (IssueEditor를 공유하는 AnnotationSidebar 제외용)
 // - options.autoEnter: false면 선호가 raw여도 자동 진입만 스킵 (수동 토글은 그대로 허용;
 //   답글 prefill처럼 raw 왕복 시 콘텐츠가 손실되는 인스턴스용 — CommentItem.js 참조)
-export function useRawMode(editor, extensions, enabled = true, { autoEnter = true } = {}) {
+// - options.limit: 이 편집기로 저장하는 경로의 서버 한도(library/contentLimits.js, 없으면 null) — 원문 저장·복귀의 A안 판정
+export function useRawMode(editor, extensions, enabled = true, { autoEnter = true, limit = null } = {}) {
   const { prefs, loaded, setNamespace } = useUiPrefs();
   const [isRaw, setIsRaw] = useState(false);
   const isRawRef = useRef(false);
   const [rawText, setRawText] = useState('');
   const rawTextRef = useRef('');
-  const rawLinksRef = useRef(null); // 진입 때 적어 둔 이슈·문서 링크 자리(enterRawState) — 저장·복귀 파싱에 넘긴다
+  const rawLinksRef = useRef(null); // 진입 때 적어 둔 태스크·이슈·문서 링크 자리(enterRawState) — 저장·복귀 파싱에 넘긴다
   const editsRef = useRef([]); // 그 뒤 원문 편집 기록(ChangeSet 또는 { changes, userEvent, depth }, 편집 순서대로) — 링크 자리를 따라가는 데 쓴다
   // RawMarkdownEditor는 value를 마운트 초기값으로만 쓰는 uncontrolled —
   // session을 key로 넘겨 enterRaw/resetRaw마다 강제 리마운트한다.
@@ -571,21 +647,22 @@ export function useRawMode(editor, extensions, enabled = true, { autoEnter = tru
   // 저장/복귀 공용 파싱. 실패 시 parseError 배지 on — 저장 차단은 호출부 책임.
   const parseCurrentRaw = useCallback(() => {
     try {
-      const html = parseRawToHtml(rawTextRef.current, extensions, rawLinksRef.current, editsRef.current);
+      const read = parseRaw(rawTextRef.current, extensions, rawLinksRef.current, editsRef.current, { limit });
       setParseError(false);
-      return { ok: true, html };
+      return { ok: true, html: read?.html ?? null, autoChips: read?.autoChips ?? [] };
     } catch (err) {
       console.error('raw markdown parse failed', err);
       setParseError(true);
-      return { ok: false, html: null };
+      return { ok: false, html: null, autoChips: [] };
     }
-  }, [extensions]);
+  }, [extensions, limit]);
 
   const exitRaw = useCallback(() => {
     if (!editor || editor.isDestroyed || !isRawRef.current) return;
     const res = parseCurrentRaw();
     if (!res.ok) return; // 파싱 실패(방어) — raw 유지 + 배지, 사용자 텍스트 보존
-    editor.commands.setContent(res.html || '', { emitUpdate: true });
+    // 이번 원문 읽기가 새로 만든 칩에 같은 편집 동안의 표시를 setContent와 같은 거래에서 단다(실행 취소·다시 실행이 함께 따라간다)
+    editor.chain().setContent(res.html || '', { emitUpdate: true }).command(({ tr }) => { markRawAutoChips(tr, res.autoChips); return true; }).run();
     isRawRef.current = false;
     setIsRaw(false);
     setWarnings([]);

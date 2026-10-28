@@ -192,12 +192,36 @@
     img { @include rich-content-img; }
 
     // 인라인 ref 칩 — 문서·이슈 미리보기 본문 공통. 누르면 대상이 열린다(RefPreviewPanel onClick).
-    // 문서·이슈 칩과 상태 배지는 캔버스 본문과 같은 모양. 태스크 칩은 글자 크기만 맞춘다 — 태스크 칩 배경은 표 셀 배경색 대비
-    // 원장(entitySurfaceStates.test.js)에 올라야 하는 표면이라(문서 미리보기는 색칠된 표 셀을 보여 줄 수 있다) 여기서는 칠하지 않는다.
-    [data-task-ref] {
-      display: inline;
-      font-size: $font-size-xs;
-      cursor: pointer;
+    // 태스크 칩은 댓글과 같은 상자(task-ref-chip), 문서·이슈 칩과 상태 배지는 캔버스 본문과 같은 모양이다.
+    @include task-ref-chip;
+
+    // 미리보기의 태스크 칩은 한 덩어리 상자다 — 좁은 표 셀이나 줄 끝에서 칩이 줄 조각으로 갈리거나 상태 배지만 다음 줄로 떨어져 다른 칩처럼
+    // 보이지 않게, 자리가 없으면 칩째 다음 줄로 가고 칸보다 긴 제목은 상자 안에서 줄을 바꾼다(너비 100%까지 — 자르지도 넘치지도 않는다).
+    // 줄 높이를 상태 배지 높이와 같게 두고 아이콘·배지를 그 줄 상자에 꽉 채워 위에 맞추면 셋의 위아래 중심이 칩 상자 중심과 같다(글꼴
+    // 수치에 기대지 않음). 칩 높이는 그대로다(14px + 위아래 여백·테두리 4px). 댓글 칩은 글줄 안에서 흐르는 inline 그대로다(편집기 ↑ 보정).
+    .task-ref {
+      display: inline-block;
+      max-width: 100%;
+      box-sizing: border-box;
+      line-height: 14px;
+
+      &::before { height: 14px; vertical-align: top; }
+      // 상태 이름이 칩 안쪽 너비보다 길면(아주 좁은 칸·모바일 미리보기) 알약 안에서 줄을 바꾼다 — 글자가 알약·칩 밖으로 넘치지 않는다
+      .ref-chip__badge { line-height: 14px; vertical-align: top; white-space: normal; width: max-content; max-width: 100%; }
+    }
+
+    // 글쓴이가 문장에 그은 취소선·밑줄 — 한 덩어리 상자(inline-block)에는 바깥 <s>·<u>의 선이 이어지지 않아(CSS 선 전파 규칙) 칩이 같은 선을
+    // 직접 긋는다. 서식이 몇 겹 위에 있어도(<s><strong>·<s><mark>) 맞게 조상으로 고른다 — 바로 위 태그만 보는 상속(inherit)은 그 경우와
+    // <s><u>에서 선을 잃고, 삭제된 칩의 자동 취소선(globals.scss)까지 지운다. 삭제된 칩은 밑줄 안에서도 취소선을 남긴다.
+    s .task-ref { text-decoration-line: line-through; }
+    u .task-ref { text-decoration-line: underline; }
+    s u .task-ref, u s .task-ref, u .task-ref.ref-chip--unresolved { text-decoration-line: line-through underline; }
+
+    // 표 셀은 임의 배경색(팔레트)을 가질 수 있다 — 문서 미리보기는 캔버스 본문의 색칠된 셀을 그대로 보인다. 태스크 칩 배경은 반투명이라
+    // 셀 색과 섞이고, 그러면 칩 안 상태 배지의 부모가 task-ref 프로파일 밖으로 나간다. 표 안에서만 같은 합성값을 불투명으로 굳힌다
+    // (canvasPageView.scss와 같은 식, entitySurfaceStates.test.js TABLE_CHIP). ⛔ .doc-ref·.issue-ref로 넓히지 마라.
+    table th, table td {
+      .task-ref { background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)); }
     }
 
     // Ref 상태 뱃지 (Confluence 스타일)

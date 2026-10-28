@@ -6,6 +6,7 @@ import { axios } from '@/library/_axios';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 import IssueEditor from './IssueEditor';
+import { ISSUE_BODY_MAX_LENGTH } from '@/library/contentLimits';
 
 export default function CreateIssuePage() {
   const { t } = useTranslation();
@@ -78,6 +79,7 @@ export default function CreateIssuePage() {
         <IssueEditor
           ref={editorRef}
           rawModeEnabled
+          rawLimit={ISSUE_BODY_MAX_LENGTH}
           placeholder={t('branchTasks.issue.bodyPlaceholder')}
           minHeight={200}
           branchId={branchId}

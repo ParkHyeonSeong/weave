@@ -17,7 +17,7 @@ import { buildTaskDescriptionExtensions } from '@/components/Branch/Tasks/taskDe
 import { buildCanvasEditorExtensions } from '@/components/Canvas/canvasEditorExtensions';
 import { MarkdownClipboardExtension } from '@/components/Canvas/extensions/MarkdownClipboardExtension';
 import { buildMarkdownExtensions, htmlToMarkdown } from '@/library/markdownCodec';
-import { enterRawState, parseRawToHtml } from '@/library/rawMode';
+import { enterRawState, parseRawToHtml, resaveLength } from '@/library/rawMode';
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
 const FIXTURE = resolve(__dirname, '../../backend/tests/fixtures/reserialize_growth_cases.json');
@@ -95,13 +95,15 @@ const RAW_EDITORS = {
 const rawExtensions = (base) => buildMarkdownExtensions([...base, MarkdownClipboardExtension]);
 // 이번 칩 변경 전의 편집기: 이슈·문서 칩이 없어 그 링크는 원문 왕복 뒤에도 일반 링크였다.
 const withoutIssueDocChips = (base) => base.filter((e) => !['issueRef', 'docRef'].includes(e.name));
+// 칩이 하나도 없는 편집기 — 원문 왕복에서 내부 링크가 모두 일반 링크로 남는 기준
+const withoutRefChips = (base) => base.filter((e) => !['taskRef', 'issueRef', 'docRef'].includes(e.name));
 const count = (s, re) => (s.match(re) || []).length;
 
 // 수정창처럼 열고 원문 모드로 바꾼 뒤 (a) 원문 그대로 저장, (b) 일반 모드로 돌아와 저장. rich = 원문 모드 전 일반 모드 저장 HTML.
 // (a)는 useRawMode.parseCurrentRaw, (b)는 exitRaw의 setContent 뒤 getHTML과 같은 경로다.
 // edit는 원문 고치기(기본: 그대로) — 글자만 돌려주면 편집 기록이 없는 경우, editMany처럼 { text, changes }를 돌려주면
 // 원문 편집기(CodeMirror)가 넘기는 편집 기록까지 있는 경우다.
-async function rawSaves(ext, html, autofocus, { keep = true, edit = (md) => md } = {}) {
+async function rawSaves(ext, html, autofocus, { keep = true, edit = (md) => md, limit = null } = {}) {
   const editor = new Editor({
     element: document.createElement('div'), coreExtensionOptions: WEAVE_CORE_EXTENSION_OPTIONS,
     extensions: ext, content: html, autofocus,
@@ -113,7 +115,7 @@ async function rawSaves(ext, html, autofocus, { keep = true, edit = (md) => md }
   const { markdown, rawLinks } = enterRawState(editor);
   const edited = edit(markdown);
   const { text, changes } = typeof edited === 'string' ? { text: edited, changes: null } : edited;
-  const raw = keep ? parseRawToHtml(text, ext, rawLinks, changes) : parseRawToHtml(text, ext);
+  const raw = keep ? parseRawToHtml(text, ext, rawLinks, changes, { limit }) : parseRawToHtml(text, ext);
   editor.commands.setContent(raw, { emitUpdate: true });
   const normal = editor.getHTML();
   editor.destroy();
@@ -146,6 +148,7 @@ function editSteps(md, steps) {
 //   | 'cut' | 'copy' | 'paste' — 선택 없는 줄 단위(@codemirror/view copiedRange·doPaste처럼 [줄 시작, 줄 끝+1)을 지우고 줄 글자만
 //     복사, 붙일 때는 커서 줄 시작에 '줄 글자 + 줄바꿈', 선택이 있으면 그 선택을 줄 글자로 바꾼다). 복사는 글자를 바꾸지 않아
 //     조작 종류만 남긴다(RawMarkdownEditor처럼)
+//   | 'external' — 원문 편집기 밖(다른 앱)에서 같은 글을 새로 복사했다는 신호(붙여넣기 출처 확인이 알리는 복사 단계)
 //   | 'quickCut' — 'cut'과 같되 앞뒤 실행 취소 묶음을 끊지 않는다(0.5초 안에 이어 자르면 CodeMirror가 한 묶음으로 합친다)
 // 묶음 시간(newGroupDelay)을 넉넉히 둬 시계와 무관하게 이어진 지우기·입력이 한 묶음이 된다(isolateHistory는 그대로 따로 끊는다)
 // 편집 기록에는 실행 취소 깊이도 남긴다(RawMarkdownEditor처럼 — 실행 취소 묶음을 따라가는 데 쓴다)
@@ -171,6 +174,10 @@ function editInRaw(md, actions) {
       if (action === 'cut') dispatch(state.update({ ...cut, annotations: isolateHistory.of('full') }));
       else if (action === 'quickCut') dispatch(state.update(cut));
       else changes.push({ changes: null, userEvent: 'copy' });
+      continue;
+    }
+    if (action === 'external') {
+      changes.push({ changes: null, userEvent: 'copy' });
       continue;
     }
     if (action === 'paste') {
@@ -227,20 +234,21 @@ function linkSequence(html) {
 
 describe('원문 모드: 서버가 일반 링크로 저장한 본문(A안)을 고치지 않고 저장', () => {
   // raw_structured_links: 머리글·목록(중첩)·인용·굵게 안·같은 출처 절대 주소·서식 있는 라벨의 일반 링크와 태스크 링크, 끝에 번호 목록.
+  // 태스크 링크도 진입 때 일반 링크면 일반 링크 그대로라(이슈·문서와 같은 규칙) 칩이 하나도 없는 편집기로 왕복한 것과 같다.
   // 블록 내용이 남았는지도 따로 본다 — 양쪽(지금·변경 전)이 똑같이 비면 비교만으로는 아무것도 확인하지 못한다
   // (번호 목록 뒤 블록이 비던 문제 자체는 아래 '번호 목록·callout 뒤 내용' 묶음이 본다).
   const KEEPS = { raw_structured_links: ['머리글', '같은 출처 절대 주소', '인용 ', '<em>기울임</em>', '번호'] };
   for (const name of ['raw_doc_links_80', 'raw_issue_links_40', 'raw_structured_links']) {
     for (const [ed, { build, autofocus, limit }] of Object.entries(RAW_EDITORS)) {
-      it(`${name}/${ed}: 원문 저장과 일반 모드 복귀 후 저장이 변경 전과 같고 한도 안이다`, async () => {
+      it(`${name}/${ed}: 원문 저장과 일반 모드 복귀 후 저장이 칩 없는 편집기로 왕복한 것과 같고 한도 안이다(태스크 링크도 일반 링크 그대로)`, async () => {
         const { P } = data.cases.find((x) => x.name === name);
         const now = await rawSaves(rawExtensions(build()), P, autofocus);
-        const before = await rawSaves(rawExtensions(withoutIssueDocChips(build())), P, autofocus, { keep: false });
+        const before = await rawSaves(rawExtensions(withoutRefChips(build())), P, autofocus, { keep: false });
         if (limit) {
           expect(now.raw.length, '원문 저장').toBeLessThanOrEqual(limit);
           expect(now.normal.length, '원문 → 일반 모드 → 저장').toBeLessThanOrEqual(limit);
         }
-        expect(count(now.raw, /data-(issue|doc)-ref=/g), '이슈·문서 칩 없음').toBe(0);
+        expect(count(now.raw, /data-(task|issue|doc)-ref=/g), '칩 없음').toBe(0);
         for (const text of KEEPS[name] || []) expect(now.raw, `내용 유지: ${text}`).toContain(text);
         expect(now.raw).toBe(before.raw);
         expect(now.normal).toBe(before.normal);
@@ -689,5 +697,219 @@ describe('서버 칩 HTML = 편집기 renderHTML', () => {
       expect(canonical(editor.getHTML()), ed).toBe(canonical(html));
       editor.destroy();
     }
+  });
+});
+
+// 원문 모드 A안 — 원문에서 새로 칩이 될 링크(이슈·문서의 새 링크, 태스크의 일반·새 링크) 때문에 서버 한도를 넘으면 본문 전체에서 그 칩 변환을
+// 거둬 일반 링크로 저장한다. 진입 때 칩·일반 링크는 그대로이고, 일부만 칩으로 두지 않으며, 글자를 자르지 않는다. 일반 링크로 바꿔도 넘으면
+// 일반 링크 쪽을 보낸다(서버가 지금처럼 거절, 일반 모드로 돌아오면 줄여서 저장할 수 있다). 판정 길이 = resaveLength(보낼 HTML): 코드 포인트 + (마지막 최상위 블록이 문단이 아니면 빈 문단 7자)
+describe('원문 모드 A안: 새로 칩이 될 링크 때문에 한도를 넘으면 본문 전체를 일반 링크로', () => {
+  const LIMIT = 10000;
+  const cp = (s) => [...s].length; // 서버(파이썬 len)와 같은 코드 포인트 길이
+  const kinds = (html) => ({ chips: count(html, /data-(task|issue|doc)-ref="true"/g), links: count(html, /<a /g) });
+  const textOf = (html) => { const t = document.createElement('template'); t.innerHTML = html; return t.content.textContent; };
+  const at = (n) => ({ cursor: (doc) => doc.line(n < 0 ? doc.lines + 1 + n : n).from });
+  const lineSel = (n) => ({ select: (doc) => { const l = doc.line(n); return [l.from, l.to]; } });
+  const copyOver = (md) => editInRaw(md, [at(1), 'copy', lineSel(1), 'paste']); // 같은 편집기에서 1줄 복사 → 그 줄을 골라 붙이기(글자는 같다)
+  const externalPaste = (md) => editInRaw(md, [at(1), 'cut', 'external', at(1), 'paste']); // 잘라내기 → 밖에서 같은 원문 복사 → 붙이기
+  const { comment, issue, description } = RAW_EDITORS;
+  async function reopened(ext, html, autofocus) { // 저장한 HTML을 수정창으로 다시 열어 그대로 저장
+    const editor = new Editor({ element: document.createElement('div'), coreExtensionOptions: WEAVE_CORE_EXTENSION_OPTIONS, extensions: ext, content: html, autofocus });
+    await tick();
+    await tick();
+    if (!autofocus) editor.commands.focus('end');
+    const out = editor.getHTML();
+    editor.destroy();
+    return out;
+  }
+  const linkLine = (name) => data.cases.find((c) => c.name === name).P.replace(/^<p>|<\/p>\s*$/g, '');
+
+  it('짧은 본문: 원문에서 새로 쓴 태스크·이슈·문서 링크는 지금처럼 칩이다', async () => {
+    const md = '[설계](/canvas/5/77) [PRO-220 재현](/branch/10/task/1031/issue/7) [AAA-1 ㅁㄴㅇ](/branch/4/task/7)';
+    for (const [ed, { build, autofocus, limit }] of Object.entries(RAW_EDITORS)) {
+      const out = await rawSaves(rawExtensions(build()), '<p>앞 문장</p>', autofocus, { limit, edit: (m) => `${m}\n\n${md}` });
+      for (const html of [out.raw, out.normal]) expect(kinds(html), ed).toEqual({ chips: 3, links: 0 });
+    }
+  });
+
+  for (const [name, total] of [['raw_doc_links_80', 80], ['raw_issue_links_40', 40]]) {
+    const html = `<p>${linkLine(name)}</p><p>일반 문장</p>`;
+    for (const [flow, edit] of [['같은 편집기에서 복사해 그 줄 위에 붙이기', copyOver], ['잘라내기 → 밖에서 같은 원문 복사 → 붙이기', externalPaste]]) {
+      it(`${name}: ${flow} — 새 링크 ${total}개가 칩이면 한도를 넘어 본문 전체가 일반 링크로, 글은 그대로(원문 저장·일반 모드 복귀, 댓글·이슈)`, async () => {
+        for (const ed of [comment, issue]) {
+          const ext = rawExtensions(ed.build());
+          const unguarded = await rawSaves(ext, html, ed.autofocus, { edit });
+          expect(kinds(unguarded.raw), '지금(보호 없음): 새 링크 전부 칩').toEqual({ chips: total, links: 0 });
+          expect(resaveLength(unguarded.raw), '지금: 한도 초과').toBeGreaterThan(LIMIT);
+          const out = await rawSaves(ext, html, ed.autofocus, { edit, limit: LIMIT });
+          for (const saved of [out.raw, out.normal]) {
+            expect(kinds(saved)).toEqual({ chips: 0, links: total });
+            expect(cp(saved)).toBeLessThanOrEqual(LIMIT);
+            expect(textOf(saved)).toBe(textOf(out.rich)); // 글자를 자르거나 지우지 않는다
+          }
+          expect(resaveLength(out.raw)).toBeLessThanOrEqual(LIMIT);
+          expect(cp(await reopened(ext, out.raw, ed.autofocus)), '저장 뒤 다시 열어 그대로 저장').toBeLessThanOrEqual(LIMIT);
+        }
+      });
+    }
+
+    it(`${name}: 한도가 없는 태스크 설명은 지금처럼 새 링크가 칩이다(새 한도를 만들지 않는다)`, async () => {
+      const out = await rawSaves(rawExtensions(description.build()), html, description.autofocus, { edit: copyOver, limit: description.limit });
+      expect(kinds(out.raw)).toEqual({ chips: total, links: 0 });
+    });
+
+    it(`${name}: 실행 취소하면 원래 일반 링크, 다시 실행하면 다시 본문 전체 일반 링크 — 모두 한도 안`, async () => {
+      const ext = rawExtensions(comment.build());
+      const steps = (extra) => (md) => editInRaw(md, [at(1), 'copy', lineSel(1), 'paste', ...extra]);
+      for (const extra of [['undo'], ['undo', 'redo']]) {
+        const out = await rawSaves(ext, html, comment.autofocus, { edit: steps(extra), limit: LIMIT });
+        expect(kinds(out.raw), extra.join('·')).toEqual({ chips: 0, links: total });
+        expect(resaveLength(out.raw), extra.join('·')).toBeLessThanOrEqual(LIMIT);
+      }
+    });
+
+    it(`${name}: A안으로 저장한 본문을 다시 열어 원문 저장·일반 모드 복귀 저장해도 같은 HTML이다(새로고침 뒤 재저장 — 칩으로 다시 늘지 않는다)`, async () => {
+      const ext = rawExtensions(comment.build());
+      const first = await rawSaves(ext, html, comment.autofocus, { edit: copyOver, limit: LIMIT });
+      const again = await rawSaves(ext, first.raw, comment.autofocus, { limit: LIMIT });
+      expect(again.raw).toBe(first.raw);
+      expect(again.normal).toBe(first.normal);
+      const viaNormal = await rawSaves(ext, first.normal, comment.autofocus, { limit: LIMIT });
+      expect(kinds(viaNormal.raw)).toEqual({ chips: 0, links: total });
+    });
+  }
+
+  it('섞인 본문: 진입 때 칩 1·같은 제목·주소의 일반 링크 79는 그대로, 새로 쓴 링크만 일반 링크로(한도를 넘을 때)', async () => {
+    const m = SAME_RAW.doc;
+    const html = `<p>${m.chip} ${Array.from({ length: 79 }, () => sameRawLink(m)).join(' ')}</p><p>일반 문장</p>`;
+    const NEW = 25;
+    const add = (md) => editInRaw(md, [(doc) => ({ from: doc.length, insert: `\n\n${Array.from({ length: NEW }, () => `[${m.label}](${m.path})`).join(' ')}` })]);
+    const ext = rawExtensions(comment.build());
+    const unguarded = await rawSaves(ext, html, comment.autofocus, { edit: add });
+    expect(kinds(unguarded.raw), '보호 없음: 새 링크는 칩').toEqual({ chips: 1 + NEW, links: 79 });
+    expect(resaveLength(unguarded.raw), '보호 없음: 한도 초과').toBeGreaterThan(LIMIT);
+    const out = await rawSaves(ext, html, comment.autofocus, { edit: add, limit: LIMIT });
+    expect(resaveLength(out.raw)).toBeLessThanOrEqual(LIMIT);
+    const seq = linkSequence(out.raw);
+    expect(seq[0], '진입 때 칩은 칩 그대로(맨 앞)').toMatch(/^chip /);
+    expect(seq.slice(1).every((x) => x.startsWith('link ')), '진입 때 일반 링크 79 + 새 링크 25는 일반 링크').toBe(true);
+    expect(seq.length).toBe(1 + 79 + NEW);
+    const fits = await rawSaves(ext, html, comment.autofocus, { edit: (md) => editInRaw(md, [(doc) => ({ from: doc.length, insert: `\n\n[${m.label}](${m.path})` })]), limit: LIMIT });
+    expect(kinds(fits.raw), '한도 안이면 새 링크는 칩').toEqual({ chips: 2, links: 79 });
+  });
+
+  it('정확한 경계: 판정 길이가 한도와 같으면 칩, 1자 넘으면 일반 링크(외부 링크·목록·끝 빈 문단, 이모지는 코드 포인트로)', async () => {
+    const body = (pad) => `<p>😀 외부 <a href="https://example.com/a?x=1&amp;y=2">외부 링크</a> ${'가'.repeat(pad)}</p><ul><li><p>항목</p></li><li><p>둘</p></li></ul><p></p>`;
+    const insertChip = () => ({ from: 0, insert: '[설계](/canvas/5/77) ' });
+    // 저장된 본문을 열면 편집기가 끝 빈 문단을 붙여 두어 원문 끝이 '&nbsp;' 줄이다 — 그 줄을 지우면 목록으로 끝나는 HTML을 보내고,
+    // 다시 열 때 빈 문단 7자가 붙는다(판정 길이의 +7)
+    const dropTail = (doc) => {
+      expect(doc.endsWith('\n\n&nbsp;'), '원문 끝 빈 문단 줄').toBe(true);
+      return { from: doc.length - '\n\n&nbsp;'.length, to: doc.length };
+    };
+    const variants = [
+      ['끝 빈 문단 유지', (md) => editInRaw(md, [insertChip]), '<p></p>'],
+      ['끝 빈 문단 줄 삭제', (md) => editInRaw(md, [insertChip, dropTail]), '</ul>'],
+    ];
+    for (const [tail, edit, end] of variants) {
+      for (const [name, ed] of [['comment', comment], ['issue', issue]]) {
+        const at = `${tail}/${name}`;
+        const ext = rawExtensions(ed.build());
+        const probe = await rawSaves(ext, body(1000), ed.autofocus, { edit });
+        const pad = 1000 + (LIMIT - resaveLength(probe.raw)); // 패딩 1자 = 판정 길이 1자
+        const exact = await rawSaves(ext, body(pad), ed.autofocus, { edit, limit: LIMIT });
+        expect(exact.raw.endsWith(end), `${at}: 보내는 HTML 끝`).toBe(true);
+        expect(resaveLength(exact.raw), `${at}: 경계`).toBe(LIMIT);
+        expect(kinds(exact.raw).chips, `${at}: 경계 = 한도 → 칩`).toBe(1);
+        expect(exact.raw.length, `${at}: 브라우저 길이는 이모지 때문에 1 더 길다`).toBe(cp(exact.raw) + 1);
+        expect(cp(exact.normal), `${at}: 일반 모드 복귀 저장`).toBeLessThanOrEqual(LIMIT);
+        expect(cp(await reopened(ext, exact.raw, ed.autofocus)), `${at}: 다시 열어 그대로 저장 = 한도`).toBe(LIMIT);
+        const over = await rawSaves(ext, body(pad + 1), ed.autofocus, { edit, limit: LIMIT });
+        expect(kinds(over.raw), `${at}: 한도 + 1 → 일반 링크`).toEqual({ chips: 0, links: 2 });
+        expect(resaveLength(over.raw), at).toBeLessThanOrEqual(LIMIT);
+      }
+    }
+  });
+
+  it('일반 링크로 바꿔도 한도를 넘으면 일반 링크 쪽을 보낸다(서버가 지금처럼 거절, 글자는 그대로) — 일반 모드로 돌아오면 새 링크는 일반 링크라 줄이면 일반 링크 기준으로 저장된다', async () => {
+    const html = `<p>${'가'.repeat(9990)}</p>`;
+    const ext = rawExtensions(comment.build());
+    const out = await rawSaves(ext, html, comment.autofocus, { edit: (md) => `${md}\n\n[설계](/canvas/5/77)`, limit: LIMIT });
+    for (const [at, saved] of [['원문 저장', out.raw], ['일반 모드 복귀', out.normal]]) {
+      expect(kinds(saved), at).toEqual({ chips: 0, links: 1 });
+      expect(resaveLength(saved), at).toBeGreaterThan(LIMIT);
+      expect(textOf(saved), at).toContain('가'.repeat(9990));
+    }
+  });
+
+  it('태스크 링크: 진입 때 일반 링크면 원문 저장 뒤에도 일반 링크, 태스크 칩은 칩 — 지우거나 고치거나 글을 더해 다시 저장해도 칩으로 늘지 않는다. 새로 쓴 태스크 링크는 칩이고 칩 때문에 넘으면 일반 링크로', async () => {
+    const chip = '<span data-task-ref="true" data-task-id="9" data-branch-id="4" data-display-id="AAA-3" data-title="aa" class="task-ref">AAA-3 aa</span>';
+    const links = (n) => Array.from({ length: n }, () => '<a href="/branch/4/task/7">AAA-1 ㅁㄴㅇ</a>').join(' ');
+    const ext = rawExtensions(comment.build());
+    const first = await rawSaves(ext, `<p>${chip} ${links(30)}</p>`, comment.autofocus, { limit: LIMIT });
+    expect(kinds(first.raw), '고치지 않고 저장').toEqual({ chips: 1, links: 30 });
+    expect(linkSequence(first.raw)[0]).toMatch(/^chip 4\/9\//);
+    const dropLast = (md) => editInRaw(md, [(doc) => { const i = doc.lastIndexOf(' ['); return { from: i, to: doc.indexOf(')', i) + 1 }; }]);
+    const dropped = await rawSaves(ext, first.raw, comment.autofocus, { edit: dropLast, limit: LIMIT });
+    expect(kinds(dropped.raw), '하나 지우고 저장 — 남은 일반 링크 그대로').toEqual({ chips: 1, links: 29 });
+    const added = await rawSaves(ext, dropped.raw, comment.autofocus, { edit: (md) => `${md}\n\n${'가'.repeat(70)}`, limit: LIMIT });
+    expect(kinds(added.raw), '글을 더해 저장').toEqual({ chips: 1, links: 29 });
+    // 한 링크의 글자를 고치면 그 링크는 새로 쓴 링크라 칩(이슈·문서와 같은 기존 규칙), 나머지 일반 링크는 그대로
+    const relabel = (md) => editInRaw(md, [(doc) => { const i = doc.lastIndexOf('ㅁㄴㅇ'); return { from: i, to: i + 3, insert: '고친 제목' }; }]);
+    const edited = await rawSaves(ext, added.raw, comment.autofocus, { edit: relabel, limit: LIMIT });
+    expect(kinds(edited.raw), '한 링크 글자 고침').toEqual({ chips: 2, links: 28 });
+    for (const out of [first, dropped, added, edited]) expect(kinds(out.normal), '일반 모드 복귀').toEqual(kinds(out.raw));
+    const again = await rawSaves(ext, added.raw, comment.autofocus, { limit: LIMIT });
+    expect(again.raw, '다시 열어 저장해도 같은 HTML').toBe(added.raw);
+    // 새로 쓴 태스크 링크: 한도 안이면 칩, 칩 때문에 넘으면 본문 전체 일반 링크(진입 때 칩은 칩)
+    const typed = (n) => (md) => editInRaw(md, [(doc) => ({ from: doc.length, insert: `\n\n${Array.from({ length: n }, () => '[AAA-1 ㅁㄴㅇ](/branch/4/task/7)').join(' ')}` })]);
+    expect(kinds((await rawSaves(ext, `<p>${chip}</p>`, comment.autofocus, { edit: typed(5), limit: LIMIT })).raw)).toEqual({ chips: 6, links: 0 });
+    const unguarded = await rawSaves(ext, `<p>${chip}</p>`, comment.autofocus, { edit: typed(31) });
+    expect(resaveLength(unguarded.raw), '보호 없음: 새 칩 31개면 한도 초과').toBeGreaterThan(LIMIT);
+    const over = await rawSaves(ext, `<p>${chip}</p>`, comment.autofocus, { edit: typed(31), limit: LIMIT });
+    expect(kinds(over.raw)).toEqual({ chips: 1, links: 31 });
+    expect(linkSequence(over.raw)[0]).toMatch(/^chip 4\/9\//);
+    expect(resaveLength(over.raw)).toBeLessThanOrEqual(LIMIT);
+  });
+
+  it('판정 길이는 실제 재저장 길이 이상이고 이미지가 없으면 같다(공유 픽스처 × 세 편집기 — 원문 저장·일반 모드 복귀·다시 열어 저장)', async () => {
+    const off = [];
+    for (const c of data.cases) {
+      for (const [ed, { build, autofocus }] of Object.entries(RAW_EDITORS)) {
+        for (const src of [c.P, c.C]) {
+          const ext = rawExtensions(build());
+          const out = await rawSaves(ext, src, autofocus);
+          if (!out.raw) continue;
+          const lens = [cp(out.raw), cp(out.normal), cp(await reopened(ext, out.raw, autofocus))];
+          const bound = resaveLength(out.raw);
+          const hasImg = out.raw.includes('<img');
+          if (lens.some((n) => n > bound) || (!hasImg && Math.max(...lens) !== bound)) off.push(`${c.name}/${ed}: ${lens} vs ${bound}`);
+        }
+      }
+    }
+    expect(off).toEqual([]);
+  });
+});
+
+// 같은 편집에서 원문이 만든 칩(표시 rawAutoChip = 원문에 쓴 링크 원문)의 진입 기록 — 원문에는 처음 쓴 그대로 보이고, 그 자리가
+// 'new'로 적힌다(편집 기록을 못 따라가 차례로 형태를 줄 때도 자리가 밀리지 않게). 기존 칩은 지금처럼 'chip'
+describe('같은 편집에서 원문이 만든 칩의 진입 기록', () => {
+  it('표시된 칩은 원문에 쓴 그대로의 자리에 new로, 같은 제목·주소의 기존 칩은 chip으로 적힌다', async () => {
+    const ext = rawExtensions(RAW_EDITORS.comment.build());
+    const editor = new Editor({
+      element: document.createElement('div'), coreExtensionOptions: WEAVE_CORE_EXTENSION_OPTIONS,
+      extensions: ext, content: `<p>${SAME_RAW.doc.chip} ${SAME_RAW.doc.chip}</p>`,
+    });
+    let second = null;
+    editor.state.doc.descendants((node, pos) => { if (node.type.name === 'docRef') second = pos; });
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(second, 'rawAutoChip', '[설계](/canvas/5/77)'));
+    const { markdown, rawLinks } = enterRawState(editor);
+    const abs = `[설계](${window.location.origin}/canvas/5/77)`;
+    expect(markdown).toBe(`${abs} [설계](/canvas/5/77)`);
+    expect(rawLinks.items.map((l) => [l.form, l.raw, markdown.slice(l.from, l.to)])).toEqual([
+      ['chip', abs, abs],
+      ['new', '[설계](/canvas/5/77)', '[설계](/canvas/5/77)'],
+    ]);
+    editor.destroy();
   });
 });

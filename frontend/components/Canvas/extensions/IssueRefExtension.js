@@ -4,9 +4,10 @@ import IssueRefPopup from './IssueRefPopup';
 import { createRefSuggestionPlugin } from './refSuggestion';
 import { numAttr, strAttr } from './refAttr';
 import {
-  internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, issueDocChipsPaused, withPlainLinkTokens, plainLinkNodes,
+  internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, refChipsPaused, withPlainLinkTokens, plainLinkNodes,
   ISSUE_PATH, encodeMarkdownUrl,
 } from './refMarkdown';
+import { RAW_AUTO_CHIP } from './rawAutoChip';
 // 라이브 노드뷰는 React 밖이라 훅 대신 i18next 인스턴스를 직접 읽는다(errorText.js와 동일 패턴).
 // ⚠️ 아래 renderHTML은 **저장 직렬화**라 그대로 둔다 — 저장 HTML에 UI 언어가 섞이면 안 된다.
 import i18next from '@/library/i18n';
@@ -37,6 +38,7 @@ const IssueRefNode = Node.create({
 
   // === raw markdown 코덱 (스펙 §3.2) ===
   renderMarkdown(node) {
+    if (node.attrs?.[RAW_AUTO_CHIP]) return node.attrs[RAW_AUTO_CHIP]; // 같은 편집에서 원문이 만든 칩 — 원문에 쓴 그대로(rawAutoChip.js)
     const { branchId, taskId, issueId, displayId, title } = node.attrs || {};
     return `[${formatRefLabel(displayId, title)}](${encodeMarkdownUrl(`${internalOrigin()}/branch/${branchId}/task/${taskId}/issue/${issueId}`)})`;
   },
@@ -45,7 +47,7 @@ const IssueRefNode = Node.create({
     level: 'inline',
     start: (src) => src.indexOf('['),
     tokenize(src, tokens, helper) {
-      const link = !issueDocChipsPaused() && matchInternalLink(src);
+      const link = !refChipsPaused() && matchInternalLink(src);
       if (!link) return undefined;
       const m = link.pathname.match(ISSUE_PATH);
       if (!m) return undefined;

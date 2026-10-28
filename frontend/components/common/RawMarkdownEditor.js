@@ -16,13 +16,18 @@ function loadCmModules() {
   return cmModulesPromise;
 }
 
+// 원문 편집기가 잘라 클립보드에 둔 글에 함께 싣는 표지(브라우저만 읽는 사용자 정의 종류 — 다른 앱에는 보이지 않는다).
+// 다른 앱·다른 화면에서 새로 복사하면 시스템 클립보드가 통째로 바뀌어 표지가 사라진다
+const CUT_MARK_TYPE = 'application/x-weave-raw-cut';
+
 /**
  * raw markdown 소스 편집기 — 비협업 표면 전용(Yjs 없음).
  * value는 마운트 시 초기값으로만 쓰는 uncontrolled. 세션 교체는 부모가 key 리마운트로.
  * 미니멀 셋: 문서형 소스라 lineNumbers/gutter/foldGutter 없음.
  * (bracketMatching은 TypstEditor.js:103-108의 한글 IME 이슈 전례에 따라 여기서도 제외)
+ * hiddenRef(생략 가능): 원문 모드 동안 숨겨 두는 일반 모드 편집기 영역 — 만들어질 때 그 안의 선택만 걷어 낸다(아래 생성 정리).
  */
-export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder }) {
+export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder, hiddenRef }) {
   const hostRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const onBlurRef = useRef(onBlur);
@@ -40,6 +45,7 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
   useEffect(() => {
     let destroyed = false;
     let view = null;
+    let cutMark = null; // 이 편집기가 마지막으로 잘라 클립보드에 둔 표지
     (async () => {
       const { state, view: cmView, commands, markdown, oneDark } = await loadCmModules();
       if (destroyed || !hostRef.current) return;
@@ -73,6 +79,13 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
         // 복사는 글자를 바꾸지 않지만 조작 종류('copy')만 알린다 — 그 뒤 붙여넣은 글은 잘라 둔 줄이 아니라 복사본이다
         cmView.EditorView.domEventObservers({
           copy: (event, view) => { onChangeRef.current?.(view.state.doc.toString(), null, 'copy'); },
+          // 붙여넣는 클립보드에 마지막 잘라내기 표지가 없으면(밖에서 새로 복사했다) 그사이 복사가 있었던 것으로 알린다 — 글자가
+          // 잘라 둔 줄과 같아도 새로 붙인 링크는 칩이다. 관찰자는 CodeMirror 붙여넣기 처리(그 거래)보다 먼저 불린다
+          paste: (event, view) => {
+            if (!cutMark || event.clipboardData?.getData(CUT_MARK_TYPE) === cutMark) return;
+            cutMark = null;
+            onChangeRef.current?.(view.state.doc.toString(), null, 'copy');
+          },
           // 편집기 밖에 선택이 남은 채로 편집기를 누르면 그 선택을 먼저 걷어 낸다 — CodeMirror는 포커스가 없는 동안에도 페이지
           // 선택을 기억하고(selectionchange), 기억한 선택이 편집기 밖이면 이 클릭의 포인터 선택에서 화면 선택을 다시 읽지 않아
           // "포커스 직후 편집기 맨 앞 선택은 브라우저 포커스 부작용" 판단이 남는다. 그러면 클릭 직후 Alt+↓로 빈 줄을 넘길 때 커서가
@@ -93,12 +106,13 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
       ];
       // 페이지에 남은 선택을 걷어 낸다 — CodeMirror는 만들어질 때 페이지 선택을 기억하고, 기억한 선택이 있으면 처음 클릭 때
       // 화면 선택을 다시 읽지 않아 "포커스 직후 편집기 맨 앞 선택은 브라우저 포커스 부작용" 판단이 남는다. 그 상태로 클릭 직후
-      // Alt+↓로 줄을 옮기면 커서가 옮긴 줄을 따라가지 못하고 이전 줄로 돌아간다. 걷어 낼 것은 숨겨질 일반 모드 편집기 안의
-      // 선택(자동 포커스·먼저 누른 자리)과 편집을 열기 전에 누른 글자의 커서다. 다른 곳에 잡아 둔 범위 선택은 그대로 둔다.
+      // Alt+↓로 줄을 옮기면 커서가 옮긴 줄을 따라가지 못하고 이전 줄로 돌아간다. 걷어 낼 것은 숨겨질 일반 모드 편집기(hiddenRef)
+      // 안의 선택(자동 포커스·먼저 누른 자리)과 편집을 열기 전에 누른 글자의 커서다. 다른 곳(다른 편집기, .ProseMirror 클래스를 단
+      // 문서 미리보기 본문 등)에 잡아 둔 범위 선택은 그대로 둔다 — 복사하려던 선택이다. 그 선택은 원문 편집기를 처음 누를 때 위
+      // mousedown 관찰자가 걷어 낸다.
       const selection = hostRef.current.ownerDocument.getSelection();
       const at = selection?.rangeCount ? selection.anchorNode : null;
-      const atElement = at?.nodeType === 1 ? at : at?.parentElement;
-      if (at && !hostRef.current.contains(at) && (selection.isCollapsed || atElement?.closest('.ProseMirror'))) {
+      if (at && !hostRef.current.contains(at) && (selection.isCollapsed || hiddenRef?.current?.contains(at))) {
         selection.removeAllRanges();
       }
       view = new cmView.EditorView({
@@ -106,6 +120,18 @@ export default function RawMarkdownEditor({ value, onChange, onBlur, placeholder
         parent: hostRef.current,
       });
       viewRef.current = view;
+      // 잘라내기 표지는 CodeMirror가 클립보드를 채운 뒤에 더한다 — 기본 처리가 clearData 뒤 text/plain만 쓰므로, 편집기 바깥에서
+      // 버블로 받는다(이벤트가 끝나기 전이라 아직 쓸 수 있다). 표지를 못 실으면 지금처럼 글자로만 가른다
+      view.dom.addEventListener('cut', (event) => {
+        if (!event.defaultPrevented || !event.clipboardData) return;
+        const mark = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+        try {
+          event.clipboardData.setData(CUT_MARK_TYPE, mark);
+          cutMark = mark;
+        } catch {
+          cutMark = null;
+        }
+      });
     })();
     return () => {
       destroyed = true;

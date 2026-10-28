@@ -5,7 +5,11 @@ import { createRefSuggestionPlugin } from './refSuggestion';
 import { TaskRefArrowUp } from './taskRefArrowUp';
 import { numAttr, strAttr } from './refAttr';
 import { entityTintStyle } from '@/library/entityTint';
-import { internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, ISSUE_PATH, TASK_PATH, encodeMarkdownUrl } from './refMarkdown';
+import {
+  internalOrigin, formatRefLabel, matchInternalLink, splitRefLinkText, ISSUE_PATH, TASK_PATH, encodeMarkdownUrl,
+  refChipsPaused, withPlainLinkTokens, plainLinkNodes,
+} from './refMarkdown';
+import { RAW_AUTO_CHIP } from './rawAutoChip';
 
 export const taskRefPluginKey = new PluginKey('taskRefSuggestion');
 
@@ -45,6 +49,7 @@ const TaskRefNode = Node.create({
 
   // === raw markdown 코덱 (스펙 §3.2): 칩 ↔ 내부 URL 링크 ===
   renderMarkdown(node) {
+    if (node.attrs?.[RAW_AUTO_CHIP]) return node.attrs[RAW_AUTO_CHIP]; // 같은 편집에서 원문이 만든 칩 — 원문에 쓴 그대로(rawAutoChip.js)
     const { branchId, taskId, displayId, title } = node.attrs || {};
     return `[${formatRefLabel(displayId, title)}](${encodeMarkdownUrl(`${internalOrigin()}/branch/${branchId}/task/${taskId}`)})`;
   },
@@ -52,19 +57,20 @@ const TaskRefNode = Node.create({
     name: 'taskRef',
     level: 'inline',
     start: (src) => src.indexOf('['),
-    tokenize(src) {
-      const link = matchInternalLink(src);
+    tokenize(src, tokens, helper) {
+      const link = !refChipsPaused() && matchInternalLink(src);
       if (!link) return undefined;
       // issue 경로가 더 구체적 — issueRef 토크나이저 몫 (스키마에 없으면 일반 링크로 강등)
       if (ISSUE_PATH.test(link.pathname)) return undefined;
       const m = link.pathname.match(TASK_PATH);
       if (!m) return undefined;
       const { displayId, title } = splitRefLinkText(link.text);
-      return { type: 'taskRef', raw: link.raw, branchId: Number(m[1]), taskId: Number(m[2]), displayId, title };
+      return withPlainLinkTokens({ type: 'taskRef', raw: link.raw, branchId: Number(m[1]), taskId: Number(m[2]), displayId, title }, helper);
     },
   },
   parseMarkdown(token, h) {
-    return h.createNode('taskRef', {
+    // 원문 모드에서 진입 때 일반 링크였던 자리는 일반 링크 그대로, 새 태스크 링크는 칩(이슈·문서와 같은 규칙 — refMarkdown)
+    return plainLinkNodes(token, h) || h.createNode('taskRef', {
       taskId: token.taskId, branchId: token.branchId, displayId: token.displayId, title: token.title,
     });
   },

@@ -655,15 +655,22 @@ const TABLE_CHIP = [
     cell: ['.CanvasOverview__OverviewContent table th .task-ref', '.CanvasOverview__OverviewContent table td .task-ref'],
     base: '.CanvasOverview__OverviewContent .task-ref',
   },
+  {
+    // 문서 미리보기는 캔버스 본문(색칠된 표 셀 포함)을 그대로 보이고 이슈 미리보기와 같은 본문 규칙을 쓴다 —
+    // useRefHydration(refHydration.setBadge)이 같은 task-ref 프로파일 배지를 심는다
+    name: 'Ref 미리보기 (문서·이슈)',
+    file: 'components/canvas/refPreviewPanel.scss',
+    cell: ['.RefPreviewPanel__HtmlContent table th .task-ref', '.RefPreviewPanel__HtmlContent table td .task-ref'],
+    base: '.RefPreviewPanel__HtmlContent .task-ref',
+  },
 ];
 
 // `.task-ref`에 배경을 주는 표면 원장. **닫혀 있다는 것 자체가 계약**이다.
-//   cellColorCapable — Canvas 본문 3종. 셀 배경색은 Canvas 전용 기능이다(툴바가 `hasExtension('table')`로
-//     게이트되고 Table 확장을 싣는 에디터는 Canvas뿐).
+//   cellColorCapable — Canvas 본문 3종과 그 본문을 그대로 보이는 문서 미리보기(refPreviewPanel). 셀 배경색은 Canvas 전용
+//     기능이다(툴바가 `hasExtension('table')`로 게이트되고 Table 확장을 싣는 에디터는 Canvas뿐).
 //   noTables — 스크럼·댓글·태스크 설명/이슈. Table 확장을 안 실어 표 자체가 없다.
-// (RefPreviewPanel은 원장 밖 — `.task-ref` 클래스도 하이드레이션도 없다.)
 const CHIP_BG_SURFACES = {
-  cellColorCapable: ['canvasEditor', 'canvasOverview', 'canvasPageView'],
+  cellColorCapable: ['canvasEditor', 'canvasOverview', 'canvasPageView', 'refPreviewPanel'],
   noTables: ['scrum', 'taskComment', 'taskDetailPanel'],
 };
 const ALL_CHIP_BG = [...CHIP_BG_SURFACES.cellColorCapable, ...CHIP_BG_SURFACES.noTables].sort();

@@ -134,12 +134,84 @@ describe('RefPreviewPanel 본문 칩 좌클릭', () => {
     }
   });
 
-  it('본문 칩 모양 규칙(문서·이슈 칩, 상태 배지, 태스크 칩 커서)은 문서·이슈 미리보기 본문 모두에 걸린다', () => {
+  it('본문 칩 모양 규칙(문서·이슈·태스크 칩, 상태 배지)은 문서·이슈 미리보기 본문 모두에 걸린다', () => {
     const selectors = new Set();
     postcss.parse(compile(resolve(dirname(fileURLToPath(import.meta.url)), '../styles/components/canvas/refPreviewPanel.scss')).css)
       .walkRules((rule) => rule.selectors.forEach((s) => selectors.add(s)));
-    for (const chip of ['.doc-ref', '.issue-ref', '.ref-chip__badge', '[data-task-ref]']) {
+    for (const chip of ['.doc-ref', '.issue-ref', '.ref-chip__badge', '.task-ref']) {
       expect(selectors, chip).toContain(`.RefPreviewPanel__HtmlContent ${chip}`);
+    }
+  });
+
+  // 미리보기 태스크 칩은 한 덩어리 상자다 — 좁은 표 셀·줄 끝에서 줄 조각으로 갈리거나 상태 배지만 다음 줄로 떨어지지 않고, 칸보다 긴 제목은
+  // 상자 안에서 줄을 바꾼다(칸을 넘지 않음). 아이콘·상태 배지는 칩의 줄 상자를 꽉 채워 위에 맞춰, 위아래 중심이 칩 상자 중심과 같다
+  it('미리보기 태스크 칩: 한 덩어리 상자(너비 100%까지)이고 아이콘·상태 배지가 줄 높이를 꽉 채워 위아래 가운데에 맞는다', () => {
+    const decl = {};
+    postcss.parse(compile(resolve(dirname(fileURLToPath(import.meta.url)), '../styles/components/canvas/refPreviewPanel.scss')).css)
+      .walkRules((rule) => rule.selectors.forEach((s) => { // 같은 선택자는 뒤에 나온 선언이 이긴다(같은 특이도)
+        decl[s] = { ...decl[s] };
+        rule.walkDecls((d) => { decl[s][d.prop] = d.value; });
+      }));
+    const chip = decl['.RefPreviewPanel__HtmlContent .task-ref'];
+    expect(chip.display).toBe('inline-block');
+    expect(chip['max-width']).toBe('100%');
+    expect(chip['box-sizing']).toBe('border-box');
+    const icon = decl['.RefPreviewPanel__HtmlContent .task-ref::before'];
+    const badge = decl['.RefPreviewPanel__HtmlContent .task-ref .ref-chip__badge'];
+    expect(badge, '태스크 칩 안 상태 배지 규칙').toBeTruthy();
+    for (const [name, part, size] of [['아이콘', icon, icon.height], ['상태 배지', badge, badge['line-height']]]) {
+      expect(part['vertical-align'], name).toBe('top');
+      expect(size, `${name} 높이 = 칩 줄 높이`).toBe(chip['line-height']);
+    }
+    // 칩 안쪽 너비보다 긴 상태 이름(아주 좁은 칸·모바일 미리보기)은 알약 안에서 줄을 바꾼다 — 글자가 알약·칩 밖으로 넘치지 않게
+    expect(badge['white-space'], '상태 배지 글자 줄바꿈').toBe('normal');
+    expect(badge['max-width'], '상태 배지는 칩 안쪽 너비까지').toBe('100%');
+  });
+
+  // 한 덩어리 상자(inline-block)에는 바깥 <s>·<u>의 선이 이어지지 않는다(CSS 선 전파 규칙) — 글쓴이가 문장에 그은 선이 칩 번호·제목에서만 빠졌다.
+  // 칩이 같은 선을 직접 긋는다. 바로 위 태그만 보는 상속(inherit)은 <s><u>·<s><strong>·<s><mark>에서 선을 잃고 삭제된 칩의 자동 취소선을
+  // 지운다(Chrome 실측) — 그래서 칩을 감싼 서식이 몇 겹 위에 있어도 맞는지, 삭제 표시와 함께일 때를 계산된 스타일로 본다
+  it('미리보기 태스크 칩: 글쓴이의 취소선·밑줄이 칩에도 그어지고(다른 서식 안이어도), 삭제된 칩의 자동 취소선은 남는다', async () => {
+    const scss = (file) => compile(resolve(dirname(fileURLToPath(import.meta.url)), file)).css;
+    let gone = '';
+    postcss.parse(scss('../styles/globals.scss')).walkRules((rule) => {
+      if (!rule.selector.includes('.task-ref.ref-chip--unresolved')) return;
+      rule.walkDecls('text-decoration', (d) => { d.prop = 'text-decoration-line'; }); // jsdom은 줄임 선언을 낱 속성으로 풀지 않는다
+      gone = rule.toString();
+    });
+    expect(gone, '삭제된 칩 규칙(globals.scss)').toContain('line-through');
+    const style = document.createElement('style');
+    style.textContent = gone + scss('../styles/components/canvas/refPreviewPanel.scss'); // 앱과 같은 순서(_app.js: globals 먼저)
+    document.head.appendChild(style);
+    const chip = (id) => `<span data-task-ref="true" data-task-id="${id}" data-branch-id="3" data-display-id="WV-${id}" data-title="실험 결과 확인" class="task-ref">WV-${id} 실험 결과 확인</span>`;
+    // [사례, 칩을 감싼 본문(실제 편집기 getHTML 순서·마크다운 ~~**칩**~~ 꼴), 삭제된 칩인가, 칩에 그어질 선]
+    const CASES = [
+      ['취소선', (c) => `<p><s>이전 계획 ${c} 사용하지 않음</s></p>`, false, 'line-through'],
+      ['밑줄', (c) => `<p><u>이전 계획 ${c} 사용하지 않음</u></p>`, false, 'underline'],
+      ['취소선+밑줄', (c) => `<p><s><u>${c}</u></s></p>`, false, 'line-through underline'],
+      ['밑줄+취소선', (c) => `<p><u><s>${c}</s></u></p>`, false, 'line-through underline'],
+      ['굵게+취소선', (c) => `<p><strong><s>${c}</s></strong></p>`, false, 'line-through'],
+      ['취소선 안 굵은 칩', (c) => `<p><s>이전 계획 <strong>${c}</strong></s></p>`, false, 'line-through'],
+      ['취소선+형광펜', (c) => `<p><s><mark>${c}</mark></s></p>`, false, 'line-through'],
+      ['기울임+밑줄', (c) => `<p><em><u>${c}</u></em></p>`, false, 'underline'],
+      ['표 셀 취소선', (c) => `<table><tbody><tr><td><p><s>좁은 칸 ${c}</s></p></td></tr></tbody></table>`, false, 'line-through'],
+      ['서식 없음', (c) => `<p>${c}</p>`, false, 'none'],
+      ['삭제된 칩', (c) => `<p>${c}</p>`, true, 'line-through'],
+      ['삭제된 칩+밑줄', (c) => `<p><u>${c}</u></p>`, true, 'line-through underline'],
+      ['삭제된 칩+취소선', (c) => `<p><s>${c}</s></p>`, true, 'line-through'],
+    ];
+    RESPONSES['/canvases/5/pages/79'] = { status: true, page: { title: '서식', content: CASES.map(([, wrap], i) => wrap(chip(100 + i))).join('') } };
+    try {
+      await render(<RefPreviewPanel refType="doc" refData={{ canvasId: 5, pageId: 79 }} onClose={() => {}} />);
+      const got = CASES.map(([name, , deleted], i) => {
+        const el = content().querySelector(`[data-task-id="${100 + i}"]`);
+        if (deleted) el.classList.add('ref-chip--unresolved'); // 하이드레이션이 지운 대상에 다는 표시(refHydration setUnresolved)
+        return [name, getComputedStyle(el).textDecorationLine];
+      });
+      expect(got).toEqual(CASES.map(([name, , , line]) => [name, line]));
+    } finally {
+      style.remove();
+      delete RESPONSES['/canvases/5/pages/79'];
     }
   });
 

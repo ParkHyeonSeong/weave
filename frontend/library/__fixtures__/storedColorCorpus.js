@@ -64,7 +64,7 @@ export const SURFACE_PARENTS = {
   },
   // ⚠️ **표 셀 안에서는 칩 배경을 불투명으로 굳힌다.** 셀은 임의 배경색(팔레트 8색·selectedCell)을
   //    가질 수 있는데 칩 기본 배경이 반투명이라 셀 색이 부모에 섞이기 때문이다.
-  //    canvasEditor·canvasPageView·canvasOverview의 `th, td .task-ref`가
+  //    canvasEditor·canvasPageView·canvasOverview·refPreviewPanel의 `th, td .task-ref`가
   //    `color-mix(in srgb, var(--color-primary) 8%, var(--color-surface))`를 쓰고,
   //    그 산출은 아래 첫 항목(라이트) / 첫 항목(다크)과 **같은 색**이다 —
   //    그래서 셀색마다 프로파일을 늘리지 않아도 이 원장이 그대로 덮는다.
