@@ -35,6 +35,13 @@ Images:
 - Content shows an embedded image only as its address (<img src="/api/uploads/..."> or
   ![alt](/api/uploads/...)). Opening it needs your login, so call get_image(address) to
   see the image.
+- To add one, upload a local file with upload_canvas_image (canvas document pages,
+  annotations) or upload_branch_image (task descriptions, comments, issues), then embed
+  the returned url as ![short description](url) — or <img src="url" alt="..."> where the
+  content is HTML (annotations always are). Only members of that canvas/branch can see
+  the image, so upload where it will be shown.
+- Don't inline base64 (data:) images; they are dropped or lost on the next edit. Scrum
+  cells and descriptions/goals are plain text and can't show images.
 
 Conventions: ids are integers and dates are ISO YYYY-MM-DD. Every tool returns the
 API's JSON on success, or {"error": {...}} on failure — a nested object with

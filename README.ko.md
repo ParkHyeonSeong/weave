@@ -220,7 +220,7 @@ GITHUB_WEBHOOK_SECRET=<웹훅 시크릿>
 }
 ```
 
-도구 목록(185개), 인증 모델, 로컬 개발 방법은 [mcp/README.md](mcp/README.md)(영어)에 있습니다.
+도구 목록(187개), 인증 모델, 로컬 개발 방법은 [mcp/README.md](mcp/README.md)(영어)에 있습니다.
 
 ## 개발
 

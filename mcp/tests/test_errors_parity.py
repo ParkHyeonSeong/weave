@@ -40,8 +40,8 @@ def test_mcp_local_codes_are_not_backend_codes():
     assert MCP_LOCAL_CODES.isdisjoint(backend_codes)
 
 
-def test_tool_count_is_185():
+def test_tool_count_is_187():
     tools_dir = _REPO / "mcp" / "weave_mcp" / "tools"
     pat = re.compile(r"^\s*@mcp\.tool\b", re.M)
     total = sum(len(pat.findall(p.read_text())) for p in tools_dir.glob("*.py"))
-    assert total == 185, f"tool count changed to {total}; update the count + spec"
+    assert total == 187, f"tool count changed to {total}; update the count + spec"
