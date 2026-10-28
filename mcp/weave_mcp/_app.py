@@ -31,6 +31,11 @@ Before creating or updating tasks:
   digit-only strings are treated as ids). Other user_id params (member management etc.)
   still take numeric ids from list_branch_members(branch_id).
 
+Images:
+- Content shows an embedded image only as its address (<img src="/api/uploads/..."> or
+  ![alt](/api/uploads/...)). Opening it needs your login, so call get_image(address) to
+  see the image.
+
 Conventions: ids are integers and dates are ISO YYYY-MM-DD. Every tool returns the
 API's JSON on success, or {"error": {...}} on failure — a nested object with
 "category" (one of auth, forbidden, not_found, validation, conflict, rate_limited,

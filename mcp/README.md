@@ -4,7 +4,7 @@ Exposes Weave project-management tools (tasks, sprints, epics, issues, docs, and
 Claude sessions over MCP (stdio). Talks to Weave's REST API only — the Weave backend is not
 modified. Each tool acts as the token's owner; `?` marks optional arguments.
 
-## Tools (184)
+## Tools (185)
 
 > The authoritative, always-current description of each tool is its docstring in
 > `weave_mcp/tools/*.py` (that's what the model reads). This list is the human-readable overview.
@@ -105,6 +105,9 @@ modified. Each tool acts as the token's owner; `?` marks optional arguments.
 - `list_canvas_annotations(canvas_id, page_id, status?)` — inline comment threads; `status`: open | resolved
 - `create_canvas_annotation(canvas_id, page_id, quoted_text, content, ...anchors?)`
 - `update_canvas_annotation(canvas_id, page_id, annotation_id, status)` (resolve/reopen) · `add_canvas_annotation_reply(canvas_id, page_id, annotation_id, content)`
+
+**Images** (in content)
+- `get_image(url)` — see an image embedded in content (its `/api/uploads/...` src); Weave upload addresses only, and only images from branches/canvases you're a member of
 
 **Tracks** (cross-branch workflows)
 - `list_tracks()` — your tracks, each with `progress_percent`, item/branch/member counts and a linked-branch preview

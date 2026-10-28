@@ -16,6 +16,22 @@ def _retry_after(resp):
     return int(raw)
 
 
+def _http_failure(resp, retry_after):
+    """Envelope for a non-2xx response: the body's code/category when it carries one,
+    else the transport status."""
+    try:
+        body = resp.json()
+    except ValueError:
+        body = None
+    if isinstance(body, dict) and (
+        body.get("category") or body.get("code")
+        or body.get("message") or body.get("status") is False
+    ):
+        return E.error_from_body(body, resp.status_code, retry_after=retry_after)
+    detail = body.get("detail") if isinstance(body, dict) else (resp.text or None)
+    return E.error_from_status(resp.status_code, detail=detail, retry_after=retry_after)
+
+
 class WeaveClient:
     """Authenticated HTTP client for Weave's REST API using a Personal Access Token.
 
@@ -57,13 +73,9 @@ class WeaveClient:
         not this envelope; the on_call_tool guard re-raises framework exceptions and only
         absorbs a stray non-framework exception as defense-in-depth.)
         """
-        if not self._settings.token:
-            return E.make_error("auth", code=E.TOKEN_NOT_SET,
-                                message="WEAVE_API_TOKEN is not set")
-        try:
-            resp = await self.call(method, path, **kwargs)
-        except httpx.HTTPError as exc:
-            return E.make_error("network", message=str(exc), detail=str(exc))
+        resp, err = await self._send(method, path, **kwargs)
+        if err is not None:
+            return err
 
         retry_after = _retry_after(resp)
 
@@ -81,18 +93,27 @@ class WeaveClient:
                     return E.normalize_embedded(body, 200)
             return body                                # list / scalar / ok-dict — raw success
 
-        # non-2xx
+        return _http_failure(resp, retry_after)
+
+    async def call_bytes(self, method: str, path: str, **kwargs):
+        """Like call_json, for a binary body (an uploaded image): the raw httpx.Response
+        on a 2xx, otherwise the same nested error envelope as call_json."""
+        resp, err = await self._send(method, path, **kwargs)
+        if err is not None:
+            return err
+        if resp.is_success:
+            return resp
+        return _http_failure(resp, _retry_after(resp))
+
+    async def _send(self, method: str, path: str, **kwargs):
+        """(response, None), or (None, envelope) for a missing token / transport error."""
+        if not self._settings.token:
+            return None, E.make_error("auth", code=E.TOKEN_NOT_SET,
+                                      message="WEAVE_API_TOKEN is not set")
         try:
-            body = resp.json()
-        except ValueError:
-            body = None
-        if isinstance(body, dict) and (
-            body.get("category") or body.get("code")
-            or body.get("message") or body.get("status") is False
-        ):
-            return E.error_from_body(body, resp.status_code, retry_after=retry_after)
-        detail = body.get("detail") if isinstance(body, dict) else (resp.text or None)
-        return E.error_from_status(resp.status_code, detail=detail, retry_after=retry_after)
+            return await self.call(method, path, **kwargs), None
+        except httpx.HTTPError as exc:
+            return None, E.make_error("network", message=str(exc), detail=str(exc))
 
     async def aclose(self) -> None:
         await self._http.aclose()

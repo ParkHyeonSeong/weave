@@ -220,7 +220,7 @@ With [`uv`](https://docs.astral.sh/uv/) installed, add this to your MCP client's
 }
 ```
 
-The tool list (184 tools), the auth model and local development notes are in [mcp/README.md](mcp/README.md).
+The tool list (185 tools), the auth model and local development notes are in [mcp/README.md](mcp/README.md).
 
 ## Development
 

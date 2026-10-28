@@ -32,11 +32,14 @@ USER_REF_NOT_FOUND = "USER_REF_NOT_FOUND"      # user ref matched no member (_us
 USER_REF_AMBIGUOUS = "USER_REF_AMBIGUOUS"      # user ref matched 2+ members (_user_ref.py)
 INVALID_USER_REF = "INVALID_USER_REF"          # malformed user ref (_user_ref.py)
 WORKSPACE_TZ_UNAVAILABLE = "WORKSPACE_TZ_UNAVAILABLE"  # workspace timezone lookup failed (tools/scrum.py)
+INVALID_IMAGE_URL = "INVALID_IMAGE_URL"            # not a Weave /api/uploads address (tools/images.py)
+UNSUPPORTED_IMAGE_TYPE = "UNSUPPORTED_IMAGE_TYPE"  # not a PNG/JPEG/GIF/WebP image (tools/images.py)
 MCP_LOCAL_CODES = frozenset({
     TOKEN_NOT_SET, WEEKEND_NO_CELL, MCP_TOOL_EXCEPTION,
     BRANCH_KEY_NOT_FOUND, INVALID_BRANCH_REF,
     USER_REF_NOT_FOUND, USER_REF_AMBIGUOUS, INVALID_USER_REF,
     WORKSPACE_TZ_UNAVAILABLE,
+    INVALID_IMAGE_URL, UNSUPPORTED_IMAGE_TYPE,
 })
 
 
@@ -49,6 +52,8 @@ _OVERRIDES = {
     "NEED_LOGIN": "auth",
     # --- network: MCP-local, workspace timezone could not be determined (retryable) ---
     "WORKSPACE_TZ_UNAVAILABLE": "network",
+    # --- validation: MCP-local, get_image got something that isn't a viewable image ---
+    "UNSUPPORTED_IMAGE_TYPE": "validation",
     # --- forbidden: explicit entries so NOT_*_PUBLIC and SCOPE_* are covered ---
     "ADMIN_ONLY": "forbidden", "ACCESS_DENIED": "forbidden", "NOT_ALLOWED": "forbidden",
     "PERMISSION_DENIED": "forbidden", "ADMIN_REQUIRED": "forbidden",

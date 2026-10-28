@@ -251,3 +251,37 @@ async def test_retry_after_non_numeric_dropped_to_none():
               "category": "rate_limited", "retryable": True}))
     c = make_client(); out = await c.call_json("GET", "/api/x"); await c.aclose()
     assert out["error"]["retry_after"] is None
+
+
+@respx.mock
+async def test_call_bytes_returns_the_response_on_success():
+    respx.get("http://test/api/uploads/canvas/c1_a.png").mock(
+        return_value=httpx.Response(200, content=b"\x89PNG\r\n\x1a\n"))
+    c = make_client()
+    resp = await c.call_bytes("GET", "/api/uploads/canvas/c1_a.png")
+    await c.aclose()
+    assert resp.content == b"\x89PNG\r\n\x1a\n"
+
+
+@respx.mock
+async def test_call_bytes_maps_failures_like_call_json():
+    respx.get("http://test/api/uploads/canvas/c1_a.png").mock(return_value=httpx.Response(404))
+    respx.get("http://test/api/uploads/canvas/c1_b.png").mock(return_value=httpx.Response(
+        401, json={"status": False, "message": "NEED_LOGIN", "code": "NEED_LOGIN",
+                   "category": "auth", "retryable": False}))
+    respx.get("http://test/api/uploads/canvas/c1_c.png").mock(side_effect=httpx.ConnectError("boom"))
+    c = make_client()
+    missing = await c.call_bytes("GET", "/api/uploads/canvas/c1_a.png")
+    unauth = await c.call_bytes("GET", "/api/uploads/canvas/c1_b.png")
+    down = await c.call_bytes("GET", "/api/uploads/canvas/c1_c.png")
+    await c.aclose()
+    assert missing["error"]["category"] == "not_found"
+    assert (unauth["error"]["category"], unauth["error"]["code"]) == ("auth", "NEED_LOGIN")
+    assert down["error"]["category"] == "network"
+
+
+async def test_call_bytes_without_token_sends_nothing():
+    c = make_client(token="")
+    out = await c.call_bytes("GET", "/api/uploads/canvas/c1_a.png")
+    await c.aclose()
+    assert out["error"]["code"] == "TOKEN_NOT_SET"
