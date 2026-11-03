@@ -15,7 +15,7 @@ import { statusCategoryVar } from '@/library/themePalette';
 import { formatSprintRange } from '@/library/formatTime';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
-import { BACKLOG_SORTABLE_ID, sprintSortableId } from '@/library/taskListDnd';
+import { BACKLOG_SORTABLE_ID, sprintSortableId, headerDropId } from '@/library/taskListDnd';
 
 // 상태 줄 범례 — 막대 칠 순서(완료 → 취소됨 → 진행 중)와 같고, 남은 회색 트랙이 할 일이다
 const LEGEND = [
@@ -29,7 +29,7 @@ export default function TaskListSprint({
   sprint, summary, filterActive, branchKey, branchId, taskTypes, workflowStatuses, epics, members, sprints,
   onEditTask, onTaskContextMenu, onEditSprint, onCompleteSprint, isBacklog,
   selectedTaskIds, dragOverContainerId, sortActive,
-  collapsed, onToggleCollapse,
+  collapsed, onToggleCollapse, headerDroppable,
   expandedParents, onToggleSubtasks,
 }) {
   const { t } = useTranslation();
@@ -82,6 +82,10 @@ export default function TaskListSprint({
   const { setNodeRef: setDroppableRef } = useDroppable({
     id: containerId,
   });
+
+  // 원래 접힌 섹션(접혔거나 이번 끌기에서 임시로 펼친)의 헤더 = 이 섹션 맨 위 자리.
+  // 원래 펼친 섹션은 꺼 둔다 — 헤더·행·본문 놓기가 지금 그대로여야 한다.
+  const { setNodeRef: setHeaderDropRef } = useDroppable({ id: headerDropId(containerId), disabled: !headerDroppable });
 
   // 타입 드롭다운 외부 클릭 닫기
   useEffect(() => {
@@ -229,6 +233,7 @@ export default function TaskListSprint({
       {/* Sprint 헤더 */}
       <div
         className="TaskList__SprintHeader"
+        ref={setHeaderDropRef}
         onClick={onToggleCollapse}
         {...(!isBacklog && !sortActive ? sprintListeners : {})}
       >

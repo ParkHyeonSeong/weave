@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createPortal } from 'react-dom';
 import { axios } from '@/library/_axios';
@@ -8,6 +8,7 @@ import {
   DragOverlay,
   MouseSensor,
   TouchSensor,
+  useDndContext,
   useSensor,
   useSensors,
 } from '@dnd-kit/core';
@@ -20,7 +21,9 @@ import TaskListRow from './TaskListRow';
 import useTaskContextMenu from './taskMenu';
 import { matchesFilters, filterTaskTree } from '@/library/taskFilters';
 import { summarizeSprintTasks } from '@/library/sprintTaskSummary';
-import { taskListCollisionDetection, sprintSortableId, isSprintSortableId } from '@/library/taskListDnd';
+import {
+  taskListCollisionDetection, sprintSortableId, isSprintSortableId, containerOfHeaderDrop, HOVER_EXPAND_MS,
+} from '@/library/taskListDnd';
 import { buildEffectiveSpec } from '@/library/filterSpecAdapter';
 import { groupTasks, applySort } from '@/library/taskViewState';
 import { emptyGroup, isEmptySpec } from '@/library/filterBuilderState';
@@ -67,6 +70,16 @@ function currentUserId() {
   } catch {
     return null;
   }
+}
+
+// 끄는 중에 섹션을 임시로 펼치면 그 아래 섹션들이 내려간다. dnd-kit(6.3.1)은 놓는 자리가 생기거나 없어질 때만
+// 전부 다시 재므로, 빈 섹션처럼 새 자리 없이 펼쳐지면 옛 위치로 판정한다 — 펼친 직후 다시 재게 한다.
+function RemeasureOnExpand({ expanded }) {
+  const { measureDroppableContainers } = useDndContext();
+  useLayoutEffect(() => {
+    if (expanded.size > 0) measureDroppableContainers();
+  }, [expanded, measureDroppableContainers]);
+  return null;
 }
 
 export default function TaskList({ branchId, branchKey, taskTypes, workflowStatuses, onSelectTask, applyViewId = null, onViewApplied }) {
@@ -119,6 +132,10 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
   const [activeType, setActiveType] = useState(null); // 'sprint' | 'task'
   const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
   const [dragOverContainerId, setDragOverContainerId] = useState(null);
+  // 끄는 동안만 펼친 섹션(컨테이너 id 'sprint-<id>'·'backlog'). 저장하지 않는다 — 끌기가 끝나면 비운다.
+  const [tempExpanded, setTempExpanded] = useState(() => new Set());
+  const expandTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(expandTimerRef.current), []);
 
   const sortActive = sortConfig.field !== null;
 
@@ -610,6 +627,17 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
   };
 
   // DnD 핸들러
+  const clearExpandTimer = () => {
+    clearTimeout(expandTimerRef.current);
+    expandTimerRef.current = null;
+  };
+
+  // 끌기가 끝나면(놓기·취소) 임시로 펼친 섹션을 모두 원래대로 접고 걸린 머무름 타이머도 지운다
+  const endTempExpand = () => {
+    clearExpandTimer();
+    setTempExpanded((prev) => (prev.size > 0 ? new Set() : prev));
+  };
+
   const handleDragStart = (event) => {
     if (sortActive) return; // 정렬 중에는 드래그 비활성
     const { active } = event;
@@ -631,8 +659,23 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
 
   const handleDragOver = (event) => {
     const { over } = event;
+    clearExpandTimer(); // 판정 대상이 바뀌면(헤더를 벗어나면) 머무름을 처음부터 다시 잰다
     if (!over || activeType !== 'task') {
       setDragOverContainerId(null);
+      return;
+    }
+
+    // 접힌 섹션 헤더 자리 → 그 섹션을 강조하고, 아직 안 펼쳤으면 머무름을 잰다.
+    // 펼친 뒤에도 헤더는 맨 위 자리로 남는다.
+    const headerContainer = containerOfHeaderDrop(over.id);
+    if (headerContainer !== null) {
+      setDragOverContainerId(headerContainer);
+      if (!tempExpanded.has(headerContainer)) {
+        expandTimerRef.current = setTimeout(() => {
+          expandTimerRef.current = null;
+          setTempExpanded((prev) => new Set(prev).add(headerContainer));
+        }, HOVER_EXPAND_MS);
+      }
       return;
     }
 
@@ -651,6 +694,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
     setActiveId(null);
     setActiveType(null);
     setDragOverContainerId(null);
+    endTempExpand();
 
     if (!over || active.id === over.id) return;
 
@@ -682,7 +726,7 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
       if (movingIds.length === 0) return;
 
       // 대상 컨테이너와 위치 결정
-      const overId = String(over.id);
+      const overId = containerOfHeaderDrop(over.id) ?? String(over.id); // 헤더 자리 = 그 섹션(맨 위)
       let targetSprintId = null;
       let afterTaskId = null;
 
@@ -819,6 +863,14 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         fetchData();
       }
     }
+  };
+
+  // Esc 등으로 취소하면 onDragEnd 대신 이게 불린다 — 끄는 상태·강조·임시 펼침을 모두 되돌린다
+  const handleDragCancel = () => {
+    setActiveId(null);
+    setActiveType(null);
+    setDragOverContainerId(null);
+    endTempExpand();
   };
 
   // 최상위 task id 집합 — 드래그 배치·배지에서 하위태스크 제외용
@@ -985,7 +1037,9 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
+        <RemeasureOnExpand expanded={tempExpanded} />
         {/* Sprint 섹션들 (sortable) */}
         <SortableContext items={sprintIds} strategy={verticalListSortingStrategy}>
           {sprints.map((sprint) => (
@@ -1008,7 +1062,8 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
               selectedTaskIds={selectedTaskIds}
               dragOverContainerId={dragOverContainerId}
               sortActive={sortActive}
-              collapsed={collapsedSprints.has(sprint.sprint_id)}
+              collapsed={collapsedSprints.has(sprint.sprint_id) && !tempExpanded.has(`sprint-${sprint.sprint_id}`)}
+              headerDroppable={collapsedSprints.has(sprint.sprint_id)}
               onToggleCollapse={() => handleToggleCollapse(sprint.sprint_id)}
               expandedParents={effectiveExpandedParents}
               onToggleSubtasks={handleToggleSubtasks}
@@ -1033,7 +1088,8 @@ export default function TaskList({ branchId, branchKey, taskTypes, workflowStatu
           selectedTaskIds={selectedTaskIds}
           dragOverContainerId={dragOverContainerId}
           sortActive={sortActive}
-          collapsed={collapsedSprints.has('backlog')}
+          collapsed={collapsedSprints.has('backlog') && !tempExpanded.has('backlog')}
+          headerDroppable={collapsedSprints.has('backlog')}
           onToggleCollapse={() => handleToggleCollapse('backlog')}
           expandedParents={effectiveExpandedParents}
           onToggleSubtasks={handleToggleSubtasks}

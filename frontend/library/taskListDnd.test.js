@@ -6,6 +6,9 @@ import {
   isSprintSortableId,
   closestSprintToPointer,
   taskListCollisionDetection,
+  headerDropId,
+  containerOfHeaderDrop,
+  HOVER_EXPAND_MS,
 } from './taskListDnd.js';
 
 const box = (top, height) => ({ top, bottom: top + height, left: 0, right: 800, width: 800, height });
@@ -102,5 +105,62 @@ describe('태스크를 끌 때', () => {
       expect(taskListCollisionDetection(a)).toEqual(closestCorners(withoutCards));
       expect(firstId(closestCorners(a))).toBe(card);
     }
+  });
+});
+
+describe('접힌 섹션 헤더 놓는 자리', () => {
+  it('본문 컨테이너 id에 header- 를 붙이고 되돌린다 — sprint- 로 시작하지 않는다', () => {
+    expect(headerDropId('sprint-3')).toBe('header-sprint-3');
+    expect(headerDropId('backlog')).toBe('header-backlog');
+    expect(containerOfHeaderDrop('header-sprint-3')).toBe('sprint-3');
+    expect(containerOfHeaderDrop('header-backlog')).toBe('backlog');
+    for (const id of ['sprint-3', 'backlog', 'sortable-sprint-3', BACKLOG_SORTABLE_ID, '7', 7, null, undefined]) {
+      expect(containerOfHeaderDrop(id)).toBeNull();
+    }
+  });
+
+  it('머무름 시간은 600ms다', () => {
+    expect(HOVER_EXPAND_MS).toBe(600);
+  });
+});
+
+// 접힌 C·접힌 백로그의 헤더 자리(카드와 같은 위·높이). dnd-kit은 disabled 헤더(원래 펼친 섹션)를 판정 함수에 넘기지 않는다.
+const HEADERS = { 'header-sprint-3': box(354, 49), 'header-backlog': box(419, 44) };
+const OLD_TASK_CANDIDATES = IDS.filter((id) => !CARD_IDS.includes(id)); // 기존 태스크 끌기 후보(행·본문)
+const withHeaders = (pointerY, collisionRect) => ({
+  active: { id: '201' },
+  collisionRect,
+  droppableRects: new Map([...rects, ...Object.entries(HEADERS)]),
+  droppableContainers: containers([...IDS, ...Object.keys(HEADERS)]),
+  pointerCoordinates: pointerY === null ? null : { x: 400, y: pointerY },
+});
+const oldJudgement = (a) => closestCorners({ ...a, droppableContainers: containers(OLD_TASK_CANDIDATES) });
+
+describe('태스크를 끌 때 — 접힌 섹션 헤더', () => {
+  it('포인터가 헤더 사각형 안이면, 끄는 사각형이 이웃에 더 가까워도 그 헤더만 고른다', () => {
+    // C 헤더 아래 끝(403) 바로 위. 행 위쪽을 잡아 끄는 사각형은 포인터 아래 간격·백로그 쪽으로 뻗어 있다
+    const a = withHeaders(402, box(400, 40));
+    expect(firstId(closestCorners(a))).toBe('header-backlog'); // 사각형으로 재면 이웃이 이긴다(리뷰 재현)
+    expect(taskListCollisionDetection(a).map((c) => c.id)).toEqual(['header-sprint-3']);
+  });
+
+  it('헤더 위·아래 경계는 헤더에 포함된다', () => {
+    expect(firstId(taskListCollisionDetection(withHeaders(354, box(316, 40))))).toBe('header-sprint-3');
+    expect(firstId(taskListCollisionDetection(withHeaders(403, box(401, 40))))).toBe('header-sprint-3');
+  });
+
+  it('헤더 밖(카드 사이 간격)이면 헤더를 빼고 기존 closestCorners 그대로다', () => {
+    const a = withHeaders(411, box(391, 40)); // C 아래 끝 403 · 백로그 위 끝 419 사이
+    expect(taskListCollisionDetection(a)).toEqual(oldJudgement(a));
+  });
+
+  it('포인터 좌표가 없으면 헤더를 고르지 않고 기존 판정이다', () => {
+    const a = withHeaders(null, box(358, 40));
+    expect(taskListCollisionDetection(a)).toEqual(oldJudgement(a));
+  });
+
+  it('스프린트를 끌 때는 헤더 자리를 보지 않는다', () => {
+    const result = taskListCollisionDetection({ ...withHeaders(378, box(354, 49)), active: { id: 'sortable-sprint-1' } });
+    expect(result.map((c) => c.id)).toEqual(['sortable-sprint-3', 'sortable-sprint-2', 'sortable-sprint-1']);
   });
 });
