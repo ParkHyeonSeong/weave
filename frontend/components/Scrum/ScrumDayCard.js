@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { yUndoPluginKey, yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
 import { Check, ChevronUp, CircleCheck, Copy, Info, Plus, Sunrise, Sunset, Undo2 } from 'lucide-react';
@@ -6,6 +6,7 @@ import ScrumCell from './ScrumCell';
 import Avatar from '@/components/common/Avatar';
 import { cellHasContent, jsonHasContent, weekCellKey } from '@/library/scrumCellContent';
 import { collectTaskIds, stripFinishedItems } from '@/library/scrumCarryOver';
+import { WEEKDAY_LONG_KEYS } from '@/library/scrumViewModel';
 import { hydrateEditor, resolveTaskCategories } from '@/library/refHydration';
 
 // 팀원 목록에서 이 카드로 스크롤할 때 쓰는 DOM id
@@ -15,8 +16,6 @@ const NO_PINS = { plan: false, recap: false };
 const PIN_PLAN = { plan: true };
 const PIN_RECAP = { recap: true };
 
-// 가져오기 문구의 요일 이름(월요일…금요일)
-const WD_LONG = ['scrum.grid.monLong', 'scrum.grid.tueLong', 'scrum.grid.wedLong', 'scrum.grid.thuLong', 'scrum.grid.friLong'];
 // 가져오기가 넣은 트랜잭션 표시. 안내 띠는 이 표시가 없는 첫 변경(사용자가 고침·되돌림)에서 닫힌다.
 const CARRY_META = 'scrumCarryOver';
 
@@ -93,7 +92,7 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
   // 전날 칸(${나}:${요일-1}:plan)은 읽기만 하고, 쓰기는 이날 할 일 편집기의 트랜잭션 하나로만 한다.
   const canCarry = synced && isMe && !hasPlan && dayIdx >= 1
     && cellHasContent(ydoc, weekCellKey(userId, dayIdx - 1, 'plan'));
-  const prevDayName = dayIdx >= 1 ? t(WD_LONG[dayIdx - 1]) : '';
+  const prevDayName = dayIdx >= 1 ? t(WEEKDAY_LONG_KEYS[dayIdx - 1]) : '';   // 가져오기 문구의 요일 이름(월요일…)
   const [carryRequest, setCarryRequest] = useState(null);   // { day } — 그날 할 일 편집기가 준비되면 가져온다
   const carrying = useRef(false);                           // 상태를 묻는 중 — 여러 번 눌러도 한 번만 가져온다
 
@@ -164,14 +163,7 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
     editor.commands.focus();   // 누른 버튼이 띠와 함께 사라지므로 포커스는 칸으로
   };
 
-  // 칸 엘리먼트를 기억해 두면, 문서가 바뀔 때마다 카드가 다시 그려져도 편집기 트리는 다시 그려지지 않는다
   const planPlaceholder = isMe ? t('scrum.day.planPlaceholder') : '';
-  const planCell = useMemo(() => (
-    <ScrumCell ydoc={ydoc} fragmentKey={planKey} placeholder={planPlaceholder} members={members} onEditor={onPlanEditor} />
-  ), [ydoc, planKey, planPlaceholder, members, onPlanEditor]);
-  const recapCell = useMemo(() => (
-    <ScrumCell ydoc={ydoc} fragmentKey={recapKey} placeholder="" members={members} onEditor={onRecapEditor} />
-  ), [ydoc, recapKey, members, onRecapEditor]);
 
   const paneLabel = (pane) => (
     <span className="ScrumDayCard__PaneLabel">
@@ -263,13 +255,13 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
               {showPlan && (
                 <section key="plan" className="ScrumDayCard__Pane ScrumDayCard__Pane--plan" onFocus={() => pin(PIN_PLAN)}>
                   {paneLabel('plan')}
-                  {planCell}
+                  <ScrumCell ydoc={ydoc} fragmentKey={planKey} placeholder={planPlaceholder} members={members} onEditor={onPlanEditor} />
                 </section>
               )}
               {showRecap && (
                 <section key="recap" className="ScrumDayCard__Pane ScrumDayCard__Pane--recap" onFocus={() => pin(PIN_RECAP)}>
                   {paneLabel('recap')}
-                  {recapCell}
+                  <ScrumCell ydoc={ydoc} fragmentKey={recapKey} placeholder="" members={members} onEditor={onRecapEditor} />
                 </section>
               )}
             </div>

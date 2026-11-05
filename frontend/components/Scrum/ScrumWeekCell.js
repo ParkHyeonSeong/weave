@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
 import ScrumCell from './ScrumCell';
@@ -50,11 +50,6 @@ function ScrumWeekCell({ ydoc, fragmentKey, members, focused, onFocus, dayName }
     if (editor && !editor.isDestroyed) editor.commands.focus('start');
   }, [compact]);
 
-  // 칸 엘리먼트를 기억해 두면, 넘침 상태가 바뀌어 이 칸이 다시 그려져도 편집기 트리는 다시 그려지지 않는다
-  const cell = useMemo(() => (
-    <ScrumCell ydoc={ydoc} fragmentKey={fragmentKey} placeholder="" members={members} editable={focused} onEditor={onEditor} />
-  ), [ydoc, fragmentKey, members, focused, onEditor]);
-
   const widenFromCell = (e) => {
     const { target } = e;
     if (target.closest?.(OWN_CLICK)) return;
@@ -80,7 +75,9 @@ function ScrumWeekCell({ ydoc, fragmentKey, members, focused, onFocus, dayName }
       onClick={compact ? widenFromCell : undefined}
     >
       <div className="ScrumWeekCell__Clip" ref={clipRef}>
-        <div className="ScrumWeekCell__Content" ref={contentRef}>{cell}</div>
+        <div className="ScrumWeekCell__Content" ref={contentRef}>
+          <ScrumCell ydoc={ydoc} fragmentKey={fragmentKey} placeholder="" members={members} editable={focused} onEditor={onEditor} />
+        </div>
       </div>
       {/* 접근 이름 = 보이는 글자 + 요일. 보이는 '더 보기'로 시작해야 음성 명령으로도 누를 수 있다(WCAG 2.5.3). */}
       {compact && overflowing && (

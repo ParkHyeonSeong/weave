@@ -344,7 +344,6 @@ const ko = {
       week: '한 주',
     },
     day: {
-      today: '오늘',
       writtenOf: '{{count}}/{{total}}',
       selectorLabel: '요일 선택',
       summary: '{{total}}명 중 {{written}}명이 할 일을 썼어요 · 리캡 {{recaps}}명',

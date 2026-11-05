@@ -31,12 +31,16 @@ vi.mock('@/hooks/useDateFormat', () => ({
     formatDateOnlyRange: (a, b) => `${a} – ${b}`,
   }),
 }));
-vi.mock('@/components/Scrum/ScrumCell', () => ({
-  default: function FakeCell({ fragmentKey, editable }) {
-    cellRenders.set(fragmentKey, (cellRenders.get(fragmentKey) || 0) + 1);
-    return <div data-cell={fragmentKey} data-editable={String(editable !== false)} />;
-  },
-}));
+// 실제 ScrumCell처럼 memo로 감싼다 — 회고 화면이 칸에 안정된 props를 넘겨야 칸이 다시 그려지지 않는다
+vi.mock('@/components/Scrum/ScrumCell', async () => {
+  const { memo } = await import('react');
+  return {
+    default: memo(function FakeCell({ fragmentKey, editable }) {
+      cellRenders.set(fragmentKey, (cellRenders.get(fragmentKey) || 0) + 1);
+      return <div data-cell={fragmentKey} data-editable={String(editable !== false)} />;
+    }),
+  };
+});
 vi.mock('react-i18next', async (importOriginal) => ({
   ...(await importOriginal()),
   useTranslation: () => ({ t: i18n.t, i18n: { language: 'ko' } }),

@@ -3,6 +3,11 @@
 import { isoWeekOfDateOnly } from './isoWeek.js';
 import { parseDateOnly, diffDateOnlyDays } from './formatDateTime.js';
 
+// 보드 요일 칸 번호(월~금 = 0~4)와 요일 이름 i18n 키 — 짧은 이름(월)·긴 이름(월요일).
+export const WEEKDAYS = [0, 1, 2, 3, 4];
+export const WEEKDAY_KEYS = ['scrum.grid.mon', 'scrum.grid.tue', 'scrum.grid.wed', 'scrum.grid.thu', 'scrum.grid.fri'];
+export const WEEKDAY_LONG_KEYS = ['scrum.grid.monLong', 'scrum.grid.tueLong', 'scrum.grid.wedLong', 'scrum.grid.thuLong', 'scrum.grid.friLong'];
+
 // 보드 요일 칸 번호: 월~금 0~4, 토·일은 금요일(4).
 // Date.UTC로 해석하므로 실행 환경의 시간대가 요일을 바꾸지 않는다.
 export function todayDayIndex(todayStr) {

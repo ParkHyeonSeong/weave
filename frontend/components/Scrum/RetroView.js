@@ -26,13 +26,6 @@ const DEADLINE_KEYS = {
 };
 const NO_KEYS = new Set();
 
-// 칸 편집기 하나(같은 fragment 키 `${userId}:${keep|problem|try}` — 실시간 협업·칩·서식 툴바가 그대로).
-// memo: 회고 화면은 문서가 바뀔 때마다(작성 현황·열 수) 다시 그려진다 — props(문서·키·멤버, 전부 안정값)가 같으면
-// 편집기 트리까지 내려가지 않는다.
-const RetroCell = memo(function RetroCell({ ydoc, fragmentKey, members }) {
-  return <ScrumCell ydoc={ydoc} fragmentKey={fragmentKey} placeholder="" members={members} />;
-});
-
 // 항목별 보기의 열 하나(스펙 §6.5): 머리(아이콘·이름·쓴 사람 수) → 내 블록(늘, 비어 있어도 바로 쓰게) →
 // 이 칸에 내용이 있는 다른 사람 블록 → 맨 아래 '아직 안 쓴 사람' 아바타 한 줄.
 // 멤버 목록은 보드뷰가 본인을 맨 위로 정렬해 넘기므로 그 순서가 곧 블록 순서다.
@@ -76,7 +69,7 @@ function RetroTopicColumn({ col, label, Icon, ydoc, members, meId, written, pinn
                 <span className="RetroTopic__Name" id={nameId}>{m.username}</span>
                 {isMe && <em className="RetroTopic__You">{t('scrum.you')}</em>}
               </div>
-              <RetroCell ydoc={ydoc} fragmentKey={key} members={members} />
+              <ScrumCell ydoc={ydoc} fragmentKey={key} placeholder="" members={members} />
             </article>
           );
         })}
@@ -123,7 +116,7 @@ function RetroPersonCard({ member, isMe, wrote, synced, ydoc, members }) {
         {COLS.map(({ col, label }) => (
           <section key={col} className={`RetroPerson__Pane RetroPerson__Pane--${col}`}>
             <span className="RetroPerson__PaneLabel">{t(label)}</span>
-            <RetroCell ydoc={ydoc} fragmentKey={retroCellKey(member.user_id, col)} members={members} />
+            <ScrumCell ydoc={ydoc} fragmentKey={retroCellKey(member.user_id, col)} placeholder="" members={members} />
           </section>
         ))}
       </div>

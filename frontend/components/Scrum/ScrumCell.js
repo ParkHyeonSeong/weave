@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { ySyncPlugin, yUndoPlugin } from 'y-prosemirror';
@@ -11,10 +11,14 @@ import { MarkdownClipboardExtension } from '@/components/Canvas/extensions/Markd
 import { WEAVE_CORE_EXTENSION_OPTIONS } from '@/library/editorCoreOptions';
 
 // ydoc/provider가 준비된 뒤에만 마운트 (wrapper)
-export default function ScrumCell(props) {
+// memo: 칸을 품은 화면(하루 카드·한 주 칸·회고)은 문서가 바뀔 때마다 다시 그려진다 — props(문서·키·문구·멤버·
+// 안정된 onEditor)가 같으면 편집기 트리까지 내려가지 않는다.
+function ScrumCell(props) {
   if (!props.ydoc) return <div className="ScrumCell ScrumCell--loading" />;
   return <ScrumCellInner {...props} />;
 }
+
+export default memo(ScrumCell);
 
 function ScrumCellInner({ ydoc, fragmentKey, placeholder, members, editable = true, onEditor }) {
   const extensions = useMemo(() => {

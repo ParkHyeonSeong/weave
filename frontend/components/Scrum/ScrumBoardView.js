@@ -363,8 +363,7 @@ export default function ScrumBoardView() {
                 ydoc={ydoc}
                 members={members}
                 meId={user?.user_id}
-                isoYear={wk.isoYear}
-                isoWeek={wk.isoWeek}
+                dates={dates}
                 focusDay={day}
                 onFocusDay={setSelectedDay}
                 showPlan={weekRows.plan}
