@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import { ySyncPlugin, yUndoPlugin } from 'y-prosemirror';
@@ -16,7 +16,7 @@ export default function ScrumCell(props) {
   return <ScrumCellInner {...props} />;
 }
 
-function ScrumCellInner({ ydoc, fragmentKey, placeholder, members }) {
+function ScrumCellInner({ ydoc, fragmentKey, placeholder, members, editable = true, onEditor }) {
   const extensions = useMemo(() => {
     const fragment = ydoc.getXmlFragment(fragmentKey);
     const Yjs = Extension.create({
@@ -39,12 +39,30 @@ function ScrumCellInner({ ydoc, fragmentKey, placeholder, members }) {
   // 칩 하이드레이션: 마운트 직후(yjs 초기 동기화 대기) + 탭 내 태스크 변경 시
   useEditorRefHydration(editor, 1000);
 
+  // 요약(읽기 전용) ↔ 편집 전환. useEditor 옵션/deps는 그대로 두고 인스턴스에 직접 적용 —
+  // 마운트 뒤 prop이 바뀌어도, 바인딩 변경으로 에디터가 새로 만들어져도 다시 적용된다.
+  // 값이 바뀔 때만, update 이벤트 없이 바꾼다(emitUpdate=false) — 문서는 그대로인데 update가 나가면
+  // 그것을 '사용자가 고침'으로 듣는 쪽(하루 카드의 가져오기 안내 띠)이 잘못 닫힌다.
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    if (editor.isEditable !== editable) editor.setEditable(editable, false);
+  }, [editor, editable]);
+
+  // 호출부가 이 칸의 편집기를 직접 쓸 수 있게 알린다(언마운트·재바인딩 때는 null).
+  // onEditor는 안정된 함수(useState setter·useCallback)여야 한다.
+  useEffect(() => {
+    if (!editor || !onEditor) return undefined;
+    onEditor(editor);
+    return () => onEditor(null);
+  }, [editor, onEditor]);
+
   if (!editor) return <div className="ScrumCell ScrumCell--loading" />;
   return (
     <>
       <EditorContent editor={editor} className="ScrumCell" />
       <ScrumCellToolbar editor={editor} />
-      <LinkHoverPopover editor={editor} />
+      {/* 읽기 전용(요약) 칸에서는 팝오버의 편집·링크 해제가 문서를 바꾸므로 그리지 않는다 */}
+      {editable && <LinkHoverPopover editor={editor} />}
     </>
   );
 }

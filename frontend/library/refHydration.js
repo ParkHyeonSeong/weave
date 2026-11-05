@@ -339,6 +339,22 @@ export async function fetchFreshRefStatus({ task_ids = [], issue_ids = [] }) {
   return { tasks: res.data.tasks || {}, issues: res.data.issues || {} };
 }
 
+// 스크럼 '전날 할 일 가져오기'용: 태스크들의 **현재** 상태 분류(status_category)만 모은다.
+// 칩 하이드레이션과 같은 해석(resolveRefs — 캐시·single-flight 공유)을 감싼 것이다.
+// failed: 요청이 실패한 묶음에 든 id가 있음. 응답에서 빠진 id(삭제·권한 밖)는 실패가 아니라 그냥 분류가 없다.
+export async function resolveTaskCategories(taskIds) {
+  if (!taskIds.length) return { categoryById: {}, failed: false };
+  const { tasks, failed } = await resolveRefs({
+    task_ids: new Set(taskIds), issue_ids: new Set(), page_ids: new Set(), user_ids: new Set(),
+  });
+  const categoryById = {};
+  Object.entries(tasks).forEach(([id, info]) => {
+    const category = info?.status_category || info?.status;
+    if (category) categoryById[id] = category;
+  });
+  return { categoryById, failed: failed.tasks.size > 0 };
+}
+
 // task:updated 등 이벤트 구동 재해석 시 TTL 캐시가 stale을 되돌려주지 않게 비운다.
 // 멤버십 캐시도 함께 비워 브랜치 탈퇴 직후 30초간 '삭제 확정' 오표기를 막는다.
 function invalidateRefCache() {

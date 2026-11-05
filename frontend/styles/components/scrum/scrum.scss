@@ -1,16 +1,40 @@
 @use '../../variables' as *;
 
+// 흰 바탕·옅은 초록 바탕(--color-accent-scrum-subtle) 위의 작은 초록 글자(오늘·나 배지, 이번 주, 작성함, Keep 열 머리) —
+// 강조색 그대로는 라이트에서 3.3:1이라 본문 색 쪽으로 당겨 4.5:1을 넘긴다(라이트는 진하게, 다크는 밝게).
+$scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--color-text));
+
 .ScrumBoard { display:flex; flex-direction:column; height:100%; }
+// 1행 머리: 보드 표시·이름 · 탭 · 오른쪽(연결 배지·접속자·멤버·설정).
 // 상시 flex-wrap — 가용폭이 좁으면(패널·좁은 창) 헤더가 2줄로 자연 분리. 탭/제목의
 // white-space:nowrap과 한 쌍: nowrap이 CJK 글자단위 세로 스택을 막고, wrap이 수납을 맡는다.
-.ScrumBoard__Head { display:flex; align-items:center; flex-wrap:wrap; gap:16px; row-gap:8px; padding:14px 18px; border-bottom:1px solid $color-border; }
+// align-items:stretch — 밑줄형 탭 버튼이 줄 높이를 채워 밑줄이 머리 아래 선에 붙는다.
+.ScrumBoard__Head { display:flex; align-items:stretch; flex-wrap:wrap; column-gap:24px; padding:0 18px; border-bottom:1px solid $color-border; }
+// 2행 툴바: 주(회고 기간) 이동 · 요일 선택(하루 보기) · 보기 전환. 좁으면 줄바꿈.
+.ScrumBoard__Toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:10px 20px; padding:10px 18px; border-bottom:1px solid $color-border; }
+.ScrumBoard__ViewSwitch { margin-left:auto; }
+// 한 주 보기 툴바: 보이는 행 토글 두 개(켜진 것이 하나뿐이면 그 버튼은 disabled — 끌 수 없다) + 전체/나만(.ScrumSegment)
+.ScrumBoard__WeekRows { display:flex; align-items:center; flex-wrap:wrap; gap:6px; }
+.ScrumBoard__WeekRowsLabel { margin-right:2px; font-size:12px; font-weight:600; color:$color-text-secondary; white-space:nowrap; }
+.ScrumBoard__WeekRowBtn {
+  display:inline-flex; align-items:center; gap:5px; height:30px; padding:0 10px;
+  border:1px solid $color-input-border; border-radius:8px; background:$color-surface;
+  font-size:13px; font-weight:600; color:$color-text-secondary; white-space:nowrap;
+  transition:border-color 120ms, background 120ms, color 120ms;
+  &:hover:not(:disabled) { border-color:$color-input-border-hover; color:$color-text; }
+  &[aria-pressed='true'] { background:$color-bg; border-color:$color-input-border-hover; color:$color-text; }
+  &:disabled { cursor:default; }
+}
+.ScrumBoard__ThisWeek { font-size:12px; font-weight:700; white-space:nowrap; padding:3px 9px; border-radius:999px; color:$scrum-accent-text; background:var(--color-accent-scrum-subtle); }
 // ref 칩 클릭 패널(RefPanelHost)을 우측 사이드로 붙이는 flex 레이아웃
 // panel-host: 패널 가용폭 기반 전환(container query)의 조상 컨테이너(계약은 panel-host-container mixin 참고)
 .ScrumBoard__Body { display:flex; flex:1; min-height:0; @include panel-host-container; }
 .ScrumBoard__BodyMain { flex:1; min-width:0; overflow-y:auto; }
 // nowrap이 글자단위 세로 스택을 막는 대신, 아주 긴 이름이 좁은 화면(모바일)에서 헤더를
 // 수평으로 밀어내지 않도록 ellipsis 안전망(min-width:0이 flex 아이템의 축소를 허용).
-.ScrumBoard__Title { font-weight:800; font-size:16px; border-left:3px solid var(--accent, var(--color-accent-scrum)); padding-left:10px; white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.ScrumBoard__Title { display:flex; align-items:center; gap:10px; min-width:0; padding:13px 0; font-weight:800; font-size:16px; }
+.ScrumBoard__Mark { width:12px; height:12px; border-radius:4px; flex-shrink:0; background:var(--accent, var(--color-accent-scrum)); }
+.ScrumBoard__Name { white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .ScrumBoard__WeekNav { display:flex; align-items:center; gap:8px; }
 .ScrumBoard__WeekNav > button { border:1px solid $color-input-border; border-radius:7px; padding:3px 6px; background:$color-input-bg; cursor:pointer; }
 // 라벨(주/회고 범위)을 클릭하면 캘린더로 임의 기간 점프 — 클릭 가능함을 hover로 암시
@@ -19,7 +43,7 @@
 .ScrumBoard__WeekLabel { font-weight:700; font-size:13px; white-space:nowrap; }
 .ScrumBoard__WeekNav .ScrumBoard__TodayBtn { padding:3px 9px; font-size:12px; font-weight:700; color:var(--color-accent-scrum); }
 .ScrumBoard__WeekNav .ScrumBoard__TodayBtn:hover { background:var(--color-accent-scrum-subtle); border-color:var(--color-accent-scrum-border); }
-.ScrumBoard__Presence { margin-left:auto; display:flex; align-items:center; gap:10px; }
+.ScrumBoard__Presence { margin-left:auto; display:flex; align-items:center; gap:10px; padding:8px 0; }
 // 색/사진은 <Avatar size="xs">가 처리. 여기선 살짝 겹치게만.
 .ScrumBoard__Live { display:flex; align-items:center; }
 .ScrumBoard__Live .Avatar { margin-right:-5px; box-shadow:0 0 0 2px $color-surface; }
@@ -27,30 +51,16 @@
 .ScrumBoard__Loading,
 .ScrumBoard__Empty,
 .ScrumBoard__Error { padding:24px 18px; font-size:13px; opacity:.7; }
+// 협업 문서의 첫 동기화 전 판단 줄(요일 버튼의 n/N · 하루·회고 요약 · 요일 머리 수 · 회고 열 머리 수):
+// 그 줄(같은 요소·같은 문구 틀)은 그대로 두고 글자만 숨긴다 — 동기화 순간 줄이 생기며 아래가 밀리지 않게.
+// visibility:hidden은 접근성 트리에서도 빠진다(마크업에도 aria-hidden을 둔다).
+.ScrumDaySelector__Count.is-pending,
+.ScrumDay__Summary.is-pending,
+.ScrumWeek__DayCounts.is-pending,
+.RetroView__Summary.is-pending,
+.RetroTopic__ColCount.is-pending { visibility:hidden; }
 
-.ScrumGrid { overflow:auto; padding:12px 18px; }
-// 1024 뷰포트(사이드바240 → 본문~784)에서 88+5*140=788이 748(패딩 제외) 가용폭을 넘어
-// 금요일 컬럼이 화면 밖으로 밀려나고, 가로 스크롤바는 .ScrumGrid 자체 높이가 짧아
-// 문제없어 보이지만 멤버가 많아 세로로 길어지면 스크롤바가 콘텐츠 맨 아래(수백px 밖)로
-// 파묻힌다. 트랙 바닥을 140→110px(가독 최소폭 실측)로 낮추면 1024에서 5일이 자연 수납
-// (88+5×132=748)되어 애초에 가로 스크롤이 없고, 그보다 좁으면 트랙 바닥이 유지되며
-// .ScrumGrid의 overflow:auto가 클린 가로 스크롤로 폴백한다. 바닥은 반드시 트랙(minmax)에
-// 둘 것 — 아이템 min-width는 트랙 base size를 못 올려 이웃 컬럼과 겹쳐 그려진다.
-// 넓은 화면(1440+)에서는 1fr 분배가 바닥보다 훨씬 커서 이 변경의 영향이 없다.
-.ScrumGrid__Row { display:grid; grid-template-columns:88px repeat(5,minmax(110px,1fr)); }
-.ScrumGrid__Row--head .ScrumGrid__ColHead { text-align:center; font-weight:700; opacity:.7; padding:6px; border-bottom:1px solid $color-border; }
-.ScrumGrid__Wd { margin-right:4px; }
-.ScrumGrid__Date { font-size:11px; opacity:.6; }
-.ScrumGrid__Person { margin-bottom:10px; }
-.ScrumGrid__PersonHead { display:flex; align-items:center; gap:6px; font-weight:800; padding:8px 4px 4px 0; }
-// 색/크기/폰트는 <Avatar>가 인라인으로 칠함(user_id 해시). 여기선 레이아웃만.
-.ScrumGrid__Avatar { flex-shrink:0; }
-// 셀이 여러 줄로 늘어나도 라벨은 셀 첫 줄 옆에 고정 — padding-top 12px는
-// 셀 첫 줄까지의 거리(래퍼 margin 2 + border 1 + 셀 padding 5 + 문단 margin 3)
-// + 라인높이 차(18px vs 16.5px) 보정.
-.ScrumGrid__RowLabel { font-size:11px; opacity:.6; padding-top:12px; font-weight:700; }
-.ScrumGrid__CellWrap { display:flex; flex-direction:column; background:$color-bg; border:1px solid $color-input-border; border-radius:6px; margin:2px; min-height:34px; box-shadow:$shadow-xs; transition:border-color 120ms, box-shadow 120ms; }
-.ScrumGrid__CellWrap:focus-within { border-color:var(--color-accent-scrum); box-shadow:0 0 0 3px color-mix(in srgb, var(--color-accent-scrum) 16%, transparent); }
+// 칸 편집기(ScrumCell) 공용 바탕 — 하루 카드·한 주 보기·회고가 각자 글자 크기·여백을 덧씌운다.
 .ScrumCell { display:flex; flex-direction:column; flex:1; padding:5px 7px; font-size:12px; min-height:24px; cursor:text; }
 .ScrumCell .ProseMirror { flex:1; outline:none; min-height:20px; }
 .ScrumCell--loading { min-height:34px; background:var(--color-surface-sunken); border-radius:6px; }
@@ -65,33 +75,417 @@
   display:inline-block;
 }
 
-// 회고(Retro) 탭 + KPT 뷰
-.ScrumBoard__Tabs { display:flex; gap:4px; flex-shrink:0; }
+// 주간 보드 / 회고 탭 (밑줄형)
+.ScrumBoard__Tabs { display:flex; gap:20px; flex-shrink:0; }
 .ScrumBoard__Tabs button {
-  border:1px solid $color-input-border; border-radius:8px; padding:4px 12px; font-size:13px; font-weight:700;
-  background:$color-input-bg; color:var(--color-text-soft); cursor:pointer;
+  display:inline-flex; align-items:center; padding:0 2px; margin-bottom:-1px; // 머리 아래 선 위에 밑줄을 겹친다
+  border-bottom:2px solid transparent; font-size:14px; font-weight:600; color:$color-text-secondary; cursor:pointer;
   white-space:nowrap; // CJK 글자단위 세로 스택 차단(Head가 flex-wrap:wrap이므로 넘치면 다음 줄로)
+  transition:color 120ms, border-color 120ms;
+  &:hover { color:$color-text; }
+  &[aria-pressed='true'] { color:$color-text; border-bottom-color:var(--color-accent-scrum); }
 }
-.ScrumBoard__Tabs button.is-on { border-color:var(--color-accent-scrum); color:var(--color-accent-scrum); background:var(--color-accent-scrum-subtle); }
 
-.RetroView { display:flex; flex-direction:column; gap:12px; padding:14px 18px; overflow:auto; }
-.RetroView__Head { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
-.RetroView__Period { font-size:13px; font-weight:700; opacity:.75; }
+// 세그먼트 버튼 묶음(보기 전환·전체/나만) — 눌린 쪽은 aria-pressed로 칠한다
+.ScrumSegment { display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:$color-surface-hover; flex-shrink:0; }
+.ScrumSegment__Btn {
+  display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px; border-radius:7px;
+  font-size:13px; font-weight:600; color:$color-text-secondary; white-space:nowrap;
+  transition:background 120ms, color 120ms, box-shadow 120ms;
+  &:hover { color:$color-text; }
+  &[aria-pressed='true'] { background:$color-bg; color:$color-text; box-shadow:$shadow-xs, inset 0 0 0 1px var(--color-selected-indicator); }
+}
+
+// =========================================================================
+// 요일 선택 (하루 보기 툴바) — 버튼 5개가 남은 폭을 나눠 갖는다.
+// 아주 좁으면 위 줄(요일·날짜·오늘)이 버튼 안에서 줄바꿈된다.
+// =========================================================================
+.ScrumDaySelector { display:flex; gap:4px; padding:4px; border-radius:12px; background:$color-surface-hover; flex:1 1 420px; max-width:680px; min-width:0; }
+.ScrumDaySelector__Day {
+  flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:5px; padding:6px 9px 7px; border-radius:9px;
+  text-align:left; color:var(--color-text-soft);
+  transition:background 120ms, color 120ms, box-shadow 120ms;
+  &:hover { color:$color-text; }
+  &[aria-pressed='true'] { background:$color-bg; color:$color-text; box-shadow:$shadow-xs, inset 0 0 0 1px var(--color-selected-indicator); }
+}
+.ScrumDaySelector__Top { display:flex; align-items:center; flex-wrap:wrap; gap:2px 5px; font-size:13px; font-weight:700; line-height:1.3; }
+.ScrumDaySelector__Wd,
+.ScrumDaySelector__Date { white-space:nowrap; }
+.ScrumDaySelector__Date { font-weight:500; color:$color-text-secondary; }
+.ScrumDaySelector__Today {
+  margin-left:auto; padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.6; white-space:nowrap;
+  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
+}
+.ScrumDaySelector__Progress { display:flex; align-items:center; gap:6px; font-size:11px; color:$color-text-secondary; }
+.ScrumDaySelector__Bar { flex:1; min-width:16px; height:4px; border-radius:2px; background:$color-border; overflow:hidden; }
+.ScrumDaySelector__Fill { display:block; height:100%; border-radius:2px; background:var(--color-accent-scrum); }
+.ScrumDaySelector__Count { white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+// =========================================================================
+// 하루 보기 (ScrumDayView · ScrumDayCard)
+// 폭은 미디어 쿼리 대신 flex-wrap·최소 폭으로 정한다 — 참조 패널(RefPanelHost)이 열리면
+// 본문만 좁아지므로 뷰포트 폭으로는 알 수 없다. 둘이 한 줄에 못 들어가면 팀원 목록이 카드 위로 내려간다.
+// =========================================================================
+.ScrumDay { display:flex; flex-wrap:wrap; align-items:stretch; gap:20px 24px; min-height:100%; padding:18px 18px 32px; background:$color-surface; }
+// 한 줄에 놓이면 stretch로 카드 목록 높이만큼 늘어나 안쪽 목록이 sticky로 따라올 자리가 된다
+// (스크롤 컨테이너는 .ScrumBoard__BodyMain). 줄바꿈되면 제 높이만 가진다(카드 위에 그냥 쌓인다).
+.ScrumDay__RailWrap { flex:1 1 220px; min-width:0; }
+.ScrumDay__Rail { padding:12px 8px 10px; border:1px solid $color-border; border-radius:12px; background:$color-bg; }
+// 카드 옆에 있을 때만(ScrumDayView가 is-sticky + 스크롤 영역에 맞춘 max-height를 준다): 따라오고,
+// 목록이 그보다 길면 제목·범례는 두고 팀원 목록만 안에서 스크롤한다(아래쪽 팀원까지 닿게).
+// top은 ScrumDayView의 RAIL_GAP과 같은 값.
+.ScrumDay__Rail.is-sticky { position:sticky; top:16px; display:flex; flex-direction:column; }
+// 안쪽 4px 여유(바깥 -4px로 상쇄): 스크롤 영역이 된 목록에서 버튼의 포커스 테두리(outline 2px + offset 2px)가 잘리지 않게
+.ScrumDay__Rail.is-sticky .ScrumDay__Members { min-height:0; overflow-y:auto; margin:-4px; padding:4px; }
+.ScrumDay__RailTitle { display:flex; align-items:baseline; gap:6px; padding:2px 10px 10px; font-size:13px; font-weight:700; }
+.ScrumDay__RailCount { font-weight:600; color:$color-text-secondary; }
+// 옆에 붙어 있을 땐 한 열, 카드 위로 내려가 넓어지면 여러 열로 채운다
+.ScrumDay__Members { list-style:none; display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap:2px 8px; }
+.ScrumDay__Member {
+  display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px; border-radius:8px;
+  text-align:left; color:$color-text;
+  transition:background 120ms;
+  &:hover { background:$color-surface-hover; }
+}
+.ScrumDay__MemberAvatar { display:inline-flex; flex-shrink:0; }
+.ScrumDay__MemberMain { display:flex; flex-direction:column; gap:5px; flex:1; min-width:0; }
+.ScrumDay__MemberName { display:flex; align-items:center; gap:6px; min-width:0; font-size:13px; font-weight:600; }
+.ScrumDay__MemberNameText { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ScrumDay__You,
+.ScrumDayCard__You,
+.ScrumWeek__You,
+.RetroTopic__You,
+.RetroPerson__You {
+  flex-shrink:0; font-style:normal; font-size:10.5px; font-weight:700; padding:0 5px; border-radius:4px;
+  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
+}
+.ScrumDay__MemberDone { flex-shrink:0; color:var(--color-accent-scrum); }
+.ScrumDay__MemberEmpty { flex-shrink:0; font-size:11px; color:$color-text-secondary; white-space:nowrap; }
+// 이번 주 5칸 점(할 일만 센다): 씀 = 채움, 지난 빈 날 = 회색, 아직 안 온 빈 날 = 빈 테두리, 고른 날 = 바깥 테두리
+.ScrumDay__Dots { display:flex; gap:4px; }
+.ScrumDay__Dot {
+  display:inline-block; width:16px; height:5px; border-radius:3px;
+  &.is-written { background:var(--color-accent-scrum); }
+  &.is-missed { background:color-mix(in srgb, var(--color-text-tertiary) 30%, transparent); }
+  &.is-upcoming { box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-text-tertiary) 45%, transparent); }
+  &.is-selected { box-shadow:0 0 0 1.5px $color-bg, 0 0 0 3px var(--color-text-soft); }
+  &.is-upcoming.is-selected {
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--color-text-tertiary) 45%, transparent), 0 0 0 1.5px $color-bg, 0 0 0 3px var(--color-text-soft);
+  }
+}
+.ScrumDay__Legend { display:flex; flex-wrap:wrap; gap:6px 12px; margin:10px 10px 2px; padding-top:10px; border-top:1px solid var(--color-border-faint); font-size:11px; color:$color-text-secondary; }
+.ScrumDay__Legend > span { display:inline-flex; align-items:center; gap:5px; }
+.ScrumDay__Legend .ScrumDay__Dot { width:12px; }
+
+.ScrumDay__Main { flex:999 1 520px; min-width:0; display:flex; flex-direction:column; gap:12px; }
+.ScrumDay__Head { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:0 2px 4px; }
+.ScrumDay__HeadText { min-width:0; }
+.ScrumDay__TitleRow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.ScrumDay__Title { font-size:20px; font-weight:700; letter-spacing:-0.015em; }
+.ScrumDay__Today { padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; color:$scrum-accent-text; background:var(--color-accent-scrum-subtle); }
+.ScrumDay__Summary { margin-top:4px; font-size:13px; color:$color-text-secondary; }
+.ScrumDay__Tools { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.ScrumDay__FoldAll {
+  display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px;
+  border:1px solid $color-input-border; border-radius:8px; background:$color-input-bg;
+  font-size:13px; font-weight:600; color:var(--color-text-soft); white-space:nowrap;
+  transition:border-color 120ms, background 120ms, color 120ms;
+  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
+}
+.ScrumDay__Cards { display:flex; flex-direction:column; gap:12px; }
+
+// 사람 카드. 팀원 목록에서 누르면 scrollIntoView(block:start)로 온다 — 위에 조금 띄운다.
+.ScrumDayCard { overflow:hidden; scroll-margin-top:16px; border:1px solid $color-border; border-radius:12px; background:$color-bg; box-shadow:$shadow-xs; }
+.ScrumDayCard--me { border-color:$color-border-hover; }
+.ScrumDayCard__Head { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px 10px 10px 16px; }
+.ScrumDayCard__Who { display:flex; align-items:center; gap:8px; min-width:0; }
+.ScrumDayCard__Avatar { flex-shrink:0; }
+.ScrumDayCard__Name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14.5px; font-weight:700; }
+.ScrumDayCard__Status { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; white-space:nowrap; color:$color-text-secondary; }
+.ScrumDayCard__Status--written { color:$scrum-accent-text; }
+.ScrumDayCard__Toggle,
+.ScrumWeek__Toggle {
+  display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; margin-left:auto;
+  border-radius:8px; color:$color-text-secondary;
+  transition:background 120ms, color 120ms;
+  &:hover { background:$color-surface-hover; color:$color-text; }
+  svg { transition:transform 150ms ease; }
+  &[aria-expanded='false'] svg { transform:rotate(180deg); }
+}
+// 본문의 줄(안내 띠·가져오기 줄·칸 묶음·한 줄 행·빈 안내)은 각자 위 선을 갖는다 — 첫 줄의 위 선이 머리와의 경계가 된다.
+.ScrumDayCard__Carried,
+.ScrumDayCard__Carry,
+.ScrumDayCard__Panes,
+.ScrumDayCard__Slim,
+.ScrumDayCard__Empty { border-top:1px solid var(--color-border-faint); }
+// 두 칸이 나란하면 리캡 칸의 왼쪽 선이, 줄바꿈되면 위 선이 경계가 된다(-1px로 밀어낸 바깥쪽 선은 잘려 안 보인다).
+// 편집기의 떠 있는 툴바·제안 팝업은 fixed/body 포털이라 overflow에 잘리지 않는다.
+.ScrumDayCard__Panes { display:flex; flex-wrap:wrap; overflow:hidden; }
+.ScrumDayCard__Pane {
+  flex:1 1 100%; min-width:0; margin:-1px 0 0 -1px; padding:12px 20px 14px;
+  border-left:1px solid var(--color-border-faint); border-top:1px solid var(--color-border-faint);
+  transition:box-shadow 120ms;
+  &:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
+}
+// 할 일 칸을 더 넓게. 좁아지면 위아래로 쌓인다.
+.ScrumDayCard__Panes--split {
+  .ScrumDayCard__Pane--plan { flex:1.55 1 420px; }
+  .ScrumDayCard__Pane--recap { flex:1 1 280px; background:$color-surface; }
+}
+.ScrumDayCard__PaneLabel { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; white-space:nowrap; color:$color-text-secondary; }
+.ScrumDayCard__Pane > .ScrumDayCard__PaneLabel { display:flex; margin-bottom:4px; }
+.ScrumDayCard__Slim { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; padding:9px 20px; background:$color-surface; }
+.ScrumDayCard__SlimNote { font-size:12.5px; color:$color-text-secondary; }
+.ScrumDayCard__Write,
+.ScrumDayCard__Undo {
+  display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 10px;
+  border:1px solid $color-input-border; border-radius:7px; background:$color-input-bg;
+  font-size:12.5px; font-weight:600; color:var(--color-text-soft); white-space:nowrap;
+  transition:border-color 120ms, background 120ms, color 120ms;
+  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
+}
+.ScrumDayCard__Write { margin-left:auto; }
+.ScrumDayCard__Empty { padding:12px 20px; font-size:13px; color:$color-text-secondary; background:$color-surface; }
+// 전날 할 일 가져오기(스펙 §6.4): 빈 할 일 칸 위 한 줄, 또는 '할 일 쓰기' 행 안의 버튼.
+// 글자는 본문 색(작은 글자의 대비) — 초록은 테두리·바탕·아이콘으로만 낸다.
+.ScrumDayCard__Carry { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; padding:10px 20px; background:$color-surface; }
+.ScrumDayCard__CarryBtn {
+  display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px;
+  border:1px solid var(--color-accent-scrum); border-radius:8px; background:var(--color-accent-scrum-subtle);
+  font-size:13px; font-weight:600; color:$color-text; white-space:nowrap;
+  transition:background 120ms;
+  svg { flex-shrink:0; color:var(--color-accent-scrum); }
+  &:hover { background:var(--color-accent-scrum-wash); }
+}
+.ScrumDayCard__CarryHint { font-size:12.5px; color:$color-text-secondary; }
+// 한 줄 행 안에서는 행 버튼 크기에 맞추고, 오른쪽 끝으로 미는 일은 가져오기 버튼이 맡는다
+.ScrumDayCard__Slim .ScrumDayCard__CarryBtn { height:28px; margin-left:auto; padding:0 10px; border-radius:7px; font-size:12.5px; }
+.ScrumDayCard__CarryBtn + .ScrumDayCard__Write { margin-left:0; }
+// 가져온 뒤 안내 띠 — 사용자가 칸을 고치거나 되돌리면 닫힌다
+.ScrumDayCard__Carried { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:9px 20px; background:$color-success-bg; font-size:12.5px; color:$color-text; }
+.ScrumDayCard__CarriedIcon { flex-shrink:0; color:var(--color-accent-scrum); }
+.ScrumDayCard__CarriedText { flex:1 1 200px; min-width:0; }
+// 하루 보기는 칸이 넓어 글자만 한 단계 키운다(칩·배지·목록 모양은 아래 .ScrumCell 공용 규칙 그대로).
+.ScrumDayCard .ScrumCell { padding:0; font-size:13px; line-height:1.6; min-height:22px; }
+.ScrumDayCard .ScrumCell p.is-editor-empty:first-child::before {
+  content:attr(data-placeholder); float:left; height:0; pointer-events:none; color:$color-text-tertiary;
+}
+
+// =========================================================================
+// 한 주 보기 (ScrumWeekGrid · ScrumWeekCell, 스펙 §6.3)
+// 열은 머리 행과 카드 안 행마다 같은 grid-template-columns(인라인 — weekColumnTemplate)로 맞춘다.
+// 최소 폭은 반드시 트랙(minmax)에 둔다 — 아이템 min-width는 트랙 base size를 못 올려 이웃 열과 겹쳐 그려진다.
+// 트랙 최소 폭의 합보다 좁으면(1024 뷰포트에서 나머지 네 요일이 모두 쓰인 주, 참조 패널, 모바일)
+// .ScrumWeek가 min-content까지 넓어지고, 높이가 화면에 묶인 .ScrumBoard__BodyMain(overflow-y:auto라
+// x도 auto로 계산된다)이 가로로 넘긴다 — 스크롤바가 화면 아래에 붙는다. .ScrumWeek 자체에 overflow를
+// 주면 가로 스크롤바가 내용 맨 아래(멤버가 많으면 화면 밖)로 묻힌다.
+// =========================================================================
+$week-compact-line: 20px;   // 요약 칸 한 줄 높이 — 최대 9줄
+
+.ScrumWeek { display:flex; flex-direction:column; gap:12px; min-width:min-content; min-height:100%; padding:16px 18px 32px; background:$color-surface; }
+// 카드 테두리(1px)만큼 안으로 — 머리 행의 열이 카드 안 행의 열과 같은 자리에 온다
+.ScrumWeek__Head { display:grid; padding:0 1px; }
+.ScrumWeek__Corner { display:flex; align-items:flex-end; gap:5px; padding:0 8px 10px 14px; font-size:12px; font-weight:600; color:$color-text-secondary; white-space:nowrap; }
+.ScrumWeek__CornerCount { font-variant-numeric:tabular-nums; }
+// 요일 머리: 누르면 그 요일을 넓게 본다. 넓게 보는 요일은 아래 굵은 선.
+.ScrumWeek__Day {
+  display:flex; flex-direction:column; align-items:flex-start; gap:3px; min-width:0; padding:6px 10px 8px;
+  border-bottom:2px solid transparent; border-radius:8px 8px 0 0; text-align:left; color:$color-text;
+  transition:background 120ms, border-color 120ms;
+  &:hover { background:$color-surface-hover; }
+  &[aria-pressed='true'] { border-bottom-color:$color-text; }
+}
+.ScrumWeek__DayTop { display:flex; align-items:center; flex-wrap:wrap; gap:2px 6px; max-width:100%; font-size:13.5px; font-weight:600; line-height:1.4; white-space:nowrap; }
+.ScrumWeek__Day[aria-pressed='true'] .ScrumWeek__DayTop { font-weight:700; }
+.ScrumWeek__DayDate { font-weight:500; color:$color-text-secondary; }
+.ScrumWeek__Today {
+  padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.6;
+  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
+}
+.ScrumWeek__DayCounts { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:$color-text-secondary; font-variant-numeric:tabular-nums; }
+
+// 사람 카드(하루 카드와 같은 겉모양) — 머리 + 보이는 행
+.ScrumWeek__Card { overflow:hidden; border:1px solid $color-border; border-radius:12px; background:$color-bg; box-shadow:$shadow-xs; }
+.ScrumWeek__Card--me { border-color:$color-border-hover; }
+.ScrumWeek__CardHead { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:10px 10px 10px 14px; }
+.ScrumWeek__Avatar { flex-shrink:0; }
+.ScrumWeek__Name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:700; }
+.ScrumWeek__Note { font-size:12px; color:$color-text-secondary; white-space:nowrap; }
+.ScrumWeek__Row { display:grid; border-top:1px solid var(--color-border-faint); }
+.ScrumWeek__RowLabel { display:flex; align-items:flex-start; gap:6px; min-width:0; padding:12px 8px 12px 14px; font-size:12px; font-weight:700; color:$color-text-secondary; }
+.ScrumWeek__RowLabel svg { flex-shrink:0; margin-top:2px; }
+.ScrumWeek__RowLabelText { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ScrumWeek__Cell { display:flex; flex-direction:column; min-width:0; border-left:1px solid var(--color-border-faint); }
+// 오늘 열: 바탕은 칠하지 않고 양옆 선으로만 표시한다 — 초록 바탕은 칸 글자를 덜 읽히게 한다(사용자 피드백).
+// 왼쪽은 오늘 칸, 오른쪽은 다음 칸의 왼쪽 선을 초록으로 바꾼다. 금요일처럼 다음 칸이 없으면 오늘 칸 안쪽에 긋는다.
+.ScrumWeek__Cell.is-today,
+.ScrumWeek__Cell.is-today + .ScrumWeek__Cell { border-left-color:var(--color-accent-scrum); }
+.ScrumWeek__Cell.is-today:last-child { box-shadow:inset -1px 0 0 var(--color-accent-scrum); }
+
+// 칸 하나. 넓게 보는 칸은 칸 높이를 채워 어디를 눌러도 편집기가 잡히고, 글자는 하루 카드처럼 한 단계 크다.
+.ScrumWeekCell { flex:1; display:flex; flex-direction:column; min-width:0; padding:9px 12px 11px; transition:background 120ms; }
+.ScrumWeekCell__Clip,
+.ScrumWeekCell__Content { flex:1; display:flex; flex-direction:column; min-width:0; }
+.ScrumWeek .ScrumCell { padding:0; min-height:22px; }
+.ScrumWeekCell:not(.ScrumWeekCell--compact) .ScrumCell { font-size:13px; line-height:1.6; }
+.ScrumWeekCell:not(.ScrumWeekCell--compact):focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
+
+// 요약 칸(넓게 보지 않는 요일): 읽기 전용 편집기의 모양만 줄인다 — 문단·목록 항목은 한 줄 말줄임,
+// 칩의 상태 배지는 숨기고, 9줄을 넘으면 잘라서 아래를 흐린다(넘침은 ScrumWeekCell이 재서 is-overflowing).
+// 칸을 누르면 그 요일이 넓어진다(링크·칩 클릭은 제외 — ScrumWeekCell).
+.ScrumWeekCell--compact {
+  cursor:pointer;
+  &:hover { background:color-mix(in srgb, var(--color-surface-hover) 60%, transparent); }
+  .ScrumWeekCell__Clip { display:block; flex:none; max-height:$week-compact-line * 9; overflow:hidden; }
+  .ScrumWeekCell__Content { display:block; }
+  .ScrumCell { font-size:12px; line-height:$week-compact-line; cursor:pointer; }
+  .ScrumCell .ProseMirror p { margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ScrumCell ul,
+  .ScrumCell ol { margin:0; }
+  .ScrumCell ul[data-type='taskList'] li[data-type='taskItem'] { margin:0; align-items:center; }
+  .ScrumCell .ref-chip__badge { display:none; }
+  .ScrumCell .task-ref,
+  .ScrumCell .doc-ref { line-height:inherit; }
+}
+.ScrumWeekCell--compact.is-overflowing .ScrumWeekCell__Clip {
+  -webkit-mask-image:linear-gradient(to bottom, currentColor calc(100% - 28px), transparent);
+  mask-image:linear-gradient(to bottom, currentColor calc(100% - 28px), transparent);
+}
+.ScrumWeekCell__More {
+  align-self:flex-start; display:inline-flex; align-items:center; gap:4px; height:24px; margin-top:6px; padding:0 8px;
+  border-radius:6px; background:$color-surface-hover; font-size:11.5px; font-weight:600; color:var(--color-text-soft); white-space:nowrap;
+  transition:color 120ms;
+  &:hover { color:$color-text; }
+}
+
+// 요약 칸의 태스크 칩 아이콘 = 지금 상태 모양(스펙 §6.3·§8). data-status-category는 칩 하이드레이션 뒤에 붙는다 —
+// 그 전이나 조회 실패 때는 아래 .ScrumCell .task-ref::before의 기본 칩 아이콘이 그대로 남는다.
+// 마스크 SVG 안의 색은 currentColor뿐(모양만 쓰고, 색은 background 토큰이 칠한다).
+$week-status-todo: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3C/svg%3E";
+$week-status-in-progress: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9.5' fill='none' stroke='currentColor' stroke-width='2.5'/%3E%3Cpath d='M12 6a6 6 0 0 1 0 12z' fill='currentColor'/%3E%3C/svg%3E";
+$week-status-done: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Cpath d='m8 12.5 2.8 2.8 5.2-5.6'/%3E%3C/svg%3E";
+$week-status-cancelled: "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Cpath d='m15 9-6 6M9 9l6 6'/%3E%3C/svg%3E";
+@mixin week-status-icon($svg, $color) {
+  background:$color;
+  -webkit-mask:url("data:image/svg+xml,#{$svg}") no-repeat center / contain;
+  mask:url("data:image/svg+xml,#{$svg}") no-repeat center / contain;
+}
+.ScrumWeekCell--compact .ScrumCell .task-ref {
+  &[data-status-category='todo']::before { @include week-status-icon($week-status-todo, var(--color-text-tertiary)); }
+  &[data-status-category='in_progress']::before { @include week-status-icon($week-status-in-progress, var(--color-status-in-progress)); }
+  &[data-status-category='done']::before { @include week-status-icon($week-status-done, var(--color-success)); }
+  &[data-status-category='cancelled']::before { @include week-status-icon($week-status-cancelled, var(--color-text-tertiary)); }
+}
+
+// =========================================================================
+// 회고 (RetroView, 스펙 §6.5): 머리(기간 · 마감 칩 · 작성 현황) + 항목별(Keep/Problem/Try 세 열) 또는
+// 사람별(사람 카드 × 세 칸). 하루·한 주 보기처럼 옅은 바탕 위 카드.
+// 세 열·세 칸은 '묶음 폭이 기준 이상이면 한 줄에 셋, 좁으면 위아래로 하나씩'만 있다(둘 + 하나로 어정쩡하게 나뉘는 폭이 없다):
+// flex-basis = (기준 − 묶음 폭) × 999 → 넓으면 음수가 0으로 잘려 셋이 폭을 나누고, 좁으면 아주 커서 줄마다 하나.
+// 미디어·컨테이너 쿼리를 쓰지 않는다 — 참조 패널이 열리면 본문만 좁아지고(뷰포트로 못 잰다), container-type은
+// 칸 서식 툴바(position:fixed)의 기준 상자를 바꾼다(_variables.scss panel-host-container 주석).
+// =========================================================================
+$retro-cols-min: 640px;    // 항목별 세 열이 나란히 서는 최소 묶음 폭(열 ≈ 200px)
+$retro-panes-min: 600px;   // 사람 카드의 세 칸이 나란히 서는 최소 카드 폭
+
+.RetroView { display:flex; flex-direction:column; gap:16px; min-height:100%; padding:18px 18px 32px; background:$color-surface; }
 .RetroView__Loading,
 .RetroView__Empty { padding:24px 18px; font-size:13px; opacity:.7; }
-// KPT 3열은 1024(가용폭 748)에서 이미 여유(3×180+2×12=564 필요)가 있지만, ScrumGrid와
-// 동일 패턴으로 트랙 바닥을 180→160px로 낮춰 패널 오픈 등으로 가용폭이 더 좁아져도
-// 3열이 더 오래 자연 수납되고, 그 아래에선 .RetroView의 overflow:auto가 클린 가로
-// 스크롤로 폴백한다(바닥은 트랙에 — 아이템 min-width는 이웃 컬럼과 겹침).
-.RetroView__Cols { display:grid; grid-template-columns:repeat(3, minmax(160px, 1fr)); gap:12px; }
+.RetroView__Head { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:12px 24px; padding:0 2px; }
+.RetroView__HeadText { min-width:0; }
+.RetroView__TitleRow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.RetroView__Title { font-size:20px; font-weight:700; letter-spacing:-0.015em; }
+.RetroView__Summary { margin-top:4px; font-size:13px; color:$color-text-secondary; }
+// 마감 칩(현재 회고일 때만): 남은 날·오늘 = 주의 색, 지남 = 오류 색. 옅은 바탕이 페이지 바탕과 비슷해 테두리로 모양을 잡는다.
+.RetroView__Deadline {
+  display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+  font-size:12px; font-weight:600; white-space:nowrap;
+  color:var(--color-warning-ink-deep); background:$color-warning-bg;
+  svg { flex-shrink:0; }
+}
+.RetroView__Deadline--passed { border-color:var(--color-error-border-soft); color:var(--color-error-strong); background:$color-error-bg; }
+// 작성 현황: 쓴 사람 = 제 색 얼굴 + 오른쪽 아래 ✓, 안 쓴 사람 = 흐린 회색 얼굴 + 회색 테두리(열 아래 '아직 안 쓴 사람'도 같은 모양)
+.RetroView__Roster { display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; }
+.RetroView__RosterLabel { font-size:12px; font-weight:600; color:$color-text-secondary; white-space:nowrap; }
+.RetroView__RosterList { list-style:none; display:flex; flex-wrap:wrap; gap:6px; }
+.RetroView__Face { position:relative; display:inline-flex; flex-shrink:0; border-radius:50%; }
+.RetroView__Face--faded {
+  box-shadow:0 0 0 1px color-mix(in srgb, var(--color-text-tertiary) 45%, transparent);
+  .Avatar { filter:grayscale(1); opacity:.45; }
+}
+.RetroView__FaceCheck {
+  position:absolute; right:-3px; bottom:-3px; display:inline-flex; align-items:center; justify-content:center;
+  width:14px; height:14px; border-radius:50%;
+  color:$color-text-inverse; background:var(--color-accent-scrum); box-shadow:0 0 0 2px $color-surface;
+}
 
-.RetroCol { display:flex; flex-direction:column; border:1px solid $color-border; border-radius:10px; overflow:hidden; background:$color-surface; }
-.RetroCol__Head { font-size:13px; font-weight:800; padding:8px 12px; border-bottom:1px solid $color-border; }
-.RetroCol__Body { display:flex; flex-direction:column; flex:1; padding:6px 8px; min-height:200px; background:$color-bg; transition:box-shadow 120ms; }
-.RetroCol__Body:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
-.RetroCol--keep .RetroCol__Head { color:var(--color-accent-scrum); background:var(--color-accent-scrum-subtle); border-bottom-color:var(--color-accent-scrum-border-soft); }
-.RetroCol--problem .RetroCol__Head { color:$color-error; background:$color-error-bg; border-bottom-color:var(--color-error-border-soft); }
-.RetroCol--try .RetroCol__Head { color:var(--color-retro-try); background:var(--color-retro-try-bg); border-bottom-color:var(--color-retro-try-border); }
+// 항목별: 열마다 머리 + 블록(내 블록 → 쓴 사람 블록) + '아직 안 쓴 사람' 한 줄
+.RetroTopic { display:flex; flex-wrap:wrap; align-items:flex-start; gap:16px; }
+.RetroTopic__Col {
+  flex-grow:1; flex-basis:calc((#{$retro-cols-min} - 100%) * 999); min-width:0;
+  overflow:hidden; border:1px solid $color-border; border-radius:12px; background:$color-bg; box-shadow:$shadow-xs;
+}
+// 열 머리 글자는 옅은 틴트 바탕 위에서 4.5:1을 넘게 — keep·problem은 본문 색 쪽으로 당긴다(라이트는 진하게, 다크는 밝게)
+.RetroTopic__ColHead { display:flex; align-items:center; gap:8px; padding:11px 16px; border-bottom:1px solid transparent; }
+.RetroTopic__ColHead svg { flex-shrink:0; }
+.RetroTopic__ColTitle { min-width:0; font-size:14px; font-weight:700; }
+.RetroTopic__ColCount { margin-left:auto; font-size:12px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.RetroTopic__Col--keep .RetroTopic__ColHead {
+  color:$scrum-accent-text;
+  background:var(--color-accent-scrum-subtle); border-bottom-color:var(--color-accent-scrum-border-soft);
+}
+.RetroTopic__Col--problem .RetroTopic__ColHead {
+  color:color-mix(in srgb, var(--color-error) 80%, var(--color-text));
+  background:$color-error-bg; border-bottom-color:var(--color-error-border-soft);
+}
+.RetroTopic__Col--try .RetroTopic__ColHead { color:var(--color-retro-try); background:var(--color-retro-try-bg); border-bottom-color:var(--color-retro-try-border); }
+.RetroTopic__Block { padding:12px 16px 14px; transition:box-shadow 120ms; }
+.RetroTopic__Block + .RetroTopic__Block { border-top:1px solid var(--color-border-faint); }
+.RetroTopic__Block--me { background:var(--color-surface-raised); }
+.RetroTopic__Block:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
+.RetroTopic__Who { display:flex; align-items:center; gap:8px; min-width:0; margin-bottom:4px; }
+.RetroTopic__WhoAvatar { display:inline-flex; flex-shrink:0; }
+.RetroTopic__Name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
+.RetroTopic__NotYet {
+  display:flex; align-items:center; flex-wrap:wrap; gap:6px 10px; padding:10px 16px;
+  border-top:1px solid var(--color-border-faint); background:$color-surface; font-size:12px; color:$color-text-secondary;
+}
+.RetroTopic__NotYetLabel { white-space:nowrap; }
+.RetroTopic__NotYetList { list-style:none; display:flex; flex-wrap:wrap; gap:4px; }
+
+// 사람별: 사람 카드(하루 카드와 같은 겉모양) — 머리 + Keep | Problem | Try 세 칸.
+// 칸마다 왼쪽·위 선을 두고 -1px로 밀어, 나란하면 왼쪽 선이, 쌓이면 위 선이 경계가 된다(바깥쪽 선은 overflow에 잘린다).
+.RetroPerson { display:flex; flex-direction:column; gap:12px; }
+.RetroPerson__Card { overflow:hidden; border:1px solid $color-border; border-radius:12px; background:$color-bg; box-shadow:$shadow-xs; }
+.RetroPerson__Card--me { border-color:$color-border-hover; }
+.RetroPerson__Head { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:11px 16px; }
+.RetroPerson__Avatar { flex-shrink:0; }
+.RetroPerson__Name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14.5px; font-weight:700; }
+.RetroPerson__Status { display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; white-space:nowrap; color:$color-text-secondary; }
+.RetroPerson__Status--written { color:$scrum-accent-text; }
+.RetroPerson__Panes { display:flex; flex-wrap:wrap; overflow:hidden; border-top:1px solid var(--color-border-faint); }
+.RetroPerson__Pane {
+  flex-grow:1; flex-basis:calc((#{$retro-panes-min} - 100%) * 999); min-width:0;
+  margin:-1px 0 0 -1px; padding:12px 16px 14px;
+  border-left:1px solid var(--color-border-faint); border-top:1px solid var(--color-border-faint);
+  transition:box-shadow 120ms;
+  &:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
+}
+.RetroPerson__PaneLabel { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:12px; font-weight:700; color:$color-text-secondary; }
+.RetroPerson__PaneLabel::before { content:''; flex-shrink:0; width:7px; height:7px; border-radius:50%; }
+.RetroPerson__Pane--keep .RetroPerson__PaneLabel::before { background:var(--color-accent-scrum); }
+.RetroPerson__Pane--problem .RetroPerson__PaneLabel::before { background:$color-error; }
+.RetroPerson__Pane--try .RetroPerson__PaneLabel::before { background:var(--color-retro-try); }
+
+// 회고 칸은 하루 카드처럼 글자를 한 단계 키운다(칩·배지·목록 모양은 아래 .ScrumCell 공용 규칙 그대로).
+.RetroView .ScrumCell { padding:0; font-size:13px; line-height:1.6; min-height:22px; }
+// 내 블록은 비어 있어도 바로 쓰는 자리 — 높이를 조금 주고, 비어 있는 동안(포커스 전)은 점선으로 보인다.
+// 점선은 outline이라 자리를 차지하지 않는다(첫 글자를 쳐도 화면이 움직이지 않는다).
+.RetroTopic__Block--me .ScrumCell { min-height:34px; }
+.RetroTopic__Block--me .ScrumCell:has(.is-editor-empty):not(:focus-within) {
+  outline:1px dashed color-mix(in srgb, var(--color-text-tertiary) 45%, transparent); outline-offset:2px; border-radius:6px;
+}
 
 // =========================================================================
 // 헤더 멤버 버튼
@@ -333,23 +727,6 @@
     &--closed { background:$color-success-bg; color:$color-success; }
   }
 }
-
-// =========================================================================
-// 회고 멤버별 섹션 (본인이 맨 위)
-// =========================================================================
-.RetroMember { display:flex; flex-direction:column; gap:8px; }
-.RetroMember + .RetroMember {
-  margin-top:4px; padding-top:14px;
-  border-top:1px solid var(--color-border-faint);
-}
-.RetroMember__Head { display:flex; align-items:center; gap:7px; font-weight:800; font-size:14px; }
-// 색/크기/폰트는 <Avatar>가 인라인으로 칠함(user_id 해시). 여기선 레이아웃만.
-.RetroMember__Avatar { flex-shrink:0; }
-.RetroMember__You {
-  font-style:normal; font-size:11px; font-weight:700; color:var(--color-accent-scrum);
-  background:var(--color-accent-scrum-subtle); border-radius:4px; padding:1px 6px; // 50%→52%(-subtle) 통합
-}
-.RetroMember .RetroCol__Body { min-height:110px; }
 
 // 스크럼 셀 포커스 툴바 (칸 위 부유)
 // 이미-다크 표면(부유 툴바) — 테마 불변, 다크모드 반전 금지 (스펙 핵심 함정)

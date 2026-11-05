@@ -50,6 +50,16 @@ export default function ScrumCellToolbar({ editor }) {
     };
   }, [editor, update]);
 
+  // 편집기 위쪽 배치가 바뀌어 편집기만 밀려나면(오늘 할 일 칸을 비우면 카드에 '가져오기' 줄이 생긴다)
+  // 위 이벤트가 다시 오지 않아 툴바가 옛 자리에 남아 새 버튼을 가린다 — 보이는 동안 조상 크기 변화로 다시 잰다.
+  const shown = pos !== null;
+  useEffect(() => {
+    if (!editor || !shown || typeof ResizeObserver !== 'function') return undefined;
+    const ro = new ResizeObserver(() => update());
+    for (let el = editor.view.dom.parentElement; el; el = el.parentElement) ro.observe(el);
+    return () => ro.disconnect();
+  }, [editor, shown, update]);
+
   // 우측 클램프: 툴바 실측 폭(offsetWidth, 하드코딩 아님)이 렌더 후에만 알려지므로
   // useLayoutEffect로 페인트 전에 좌표를 한 번 더 보정한다 — 금요일 등 우측 컬럼
   // 셀에서 left=rect.left(에디터 좌측)가 뷰포트 우측을 넘어가지 않게 막는다.
