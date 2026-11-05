@@ -51,10 +51,9 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 .ScrumBoard__Loading,
 .ScrumBoard__Empty,
 .ScrumBoard__Error { padding:24px 18px; font-size:13px; opacity:.7; }
-// 협업 문서의 첫 동기화 전 판단 줄(요일 버튼의 n/N · 하루·회고 요약 · 요일 머리 수 · 회고 열 머리 수):
+// 협업 문서의 첫 동기화 전 판단 줄(하루·회고 요약 · 요일 머리 수 · 회고 열 머리 수):
 // 그 줄(같은 요소·같은 문구 틀)은 그대로 두고 글자만 숨긴다 — 동기화 순간 줄이 생기며 아래가 밀리지 않게.
 // visibility:hidden은 접근성 트리에서도 빠진다(마크업에도 aria-hidden을 둔다).
-.ScrumDaySelector__Count.is-pending,
 .ScrumDay__Summary.is-pending,
 .ScrumWeek__DayCounts.is-pending,
 .RetroView__Summary.is-pending,
@@ -102,7 +101,7 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 // =========================================================================
 .ScrumDaySelector { display:flex; gap:4px; padding:4px; border-radius:12px; background:$color-surface-hover; flex:1 1 420px; max-width:680px; min-width:0; }
 .ScrumDaySelector__Day {
-  flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:5px; padding:6px 9px 7px; border-radius:9px;
+  flex:1 1 0; min-width:0; display:flex; flex-direction:column; padding:6px 9px 7px; border-radius:9px;
   text-align:left; color:var(--color-text-soft);
   transition:background 120ms, color 120ms, box-shadow 120ms;
   &:hover { color:$color-text; }
@@ -116,10 +115,6 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
   margin-left:auto; padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.6; white-space:nowrap;
   color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
 }
-.ScrumDaySelector__Progress { display:flex; align-items:center; gap:6px; font-size:11px; color:$color-text-secondary; }
-.ScrumDaySelector__Bar { flex:1; min-width:16px; height:4px; border-radius:2px; background:$color-border; overflow:hidden; }
-.ScrumDaySelector__Fill { display:block; height:100%; border-radius:2px; background:var(--color-accent-scrum); }
-.ScrumDaySelector__Count { white-space:nowrap; font-variant-numeric:tabular-nums; }
 
 // =========================================================================
 // 하루 보기 (ScrumDayView · ScrumDayCard)
@@ -444,7 +439,7 @@ $retro-panes-min: 600px;   // 사람 카드의 세 칸이 나란히 서는 최�
 .RetroTopic__Block + .RetroTopic__Block { border-top:1px solid var(--color-border-faint); }
 .RetroTopic__Block--me { background:var(--color-surface-raised); }
 .RetroTopic__Block:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
-.RetroTopic__Who { display:flex; align-items:center; gap:8px; min-width:0; margin-bottom:4px; }
+.RetroTopic__Who { display:flex; align-items:center; gap:8px; min-width:0; margin-bottom:12px; }
 .RetroTopic__WhoAvatar { display:inline-flex; flex-shrink:0; }
 .RetroTopic__Name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600; }
 .RetroTopic__NotYet {

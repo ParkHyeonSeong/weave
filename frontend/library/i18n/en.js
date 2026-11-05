@@ -346,7 +346,6 @@ const en = {
       week: 'Week',
     },
     day: {
-      writtenOf: '{{count}}/{{total}}',
       selectorLabel: 'Choose a day',
       summary: '{{written}} of {{total}} wrote a plan · Recaps: {{recaps}}',
       summaryNone: 'No one has written yet.',

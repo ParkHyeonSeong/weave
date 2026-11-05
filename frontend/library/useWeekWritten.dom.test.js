@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// 요일 선택·하루 보기·한 주 보기가 같이 쓰는 작성 여부 — 사람마다 월~금 할 일(plan)·리캡(gap).
+// 하루 보기·한 주 보기가 같이 쓰는 작성 여부 — 사람마다 월~금 할 일(plan)·리캡(gap).
 // 문서가 바뀌면 다음 프레임에 다시 세고, synced(첫 동기화)가 바뀐 렌더에서는 문서 변경 신호를 기다리지 않고 바로 센다.
 import { it, expect, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';

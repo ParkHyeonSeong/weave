@@ -273,12 +273,9 @@ export default function ScrumBoardView() {
               </div>
               {view === 'day' && weekReady && members.length > 0 && (
                 <ScrumDaySelector
-                  ydoc={ydoc}
-                  members={members}
                   dates={dates}
                   selectedDay={day}
                   todayIdx={todayIdx}
-                  synced={synced}
                   onSelect={setSelectedDay}
                 />
               )}
