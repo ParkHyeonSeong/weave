@@ -13,7 +13,7 @@ import ScrumDayView from './ScrumDayView';
 import ScrumDaySelector from './ScrumDaySelector';
 import RetroView from './RetroView';
 import ScrumMembersModal from './ScrumMembersModal';
-import Avatar from '@/components/common/Avatar';
+import ScrumPresence from './ScrumPresence';
 import DatePicker from '@/components/common/DatePicker';
 import RefPanelHost, { useRefPreview } from '@/components/shared/RefPanelHost';
 import { isoWeekOfDateOnly, weekDates, getISOWeek } from '@/library/isoWeek';
@@ -209,8 +209,7 @@ export default function ScrumBoardView() {
   return (
     <div className="ScrumBoard">
       <header className="ScrumBoard__Head">
-        <div className="ScrumBoard__Title" style={{ '--accent': board.color }}>
-          <span className="ScrumBoard__Mark" aria-hidden="true" />
+        <div className="ScrumBoard__Title">
           <span className="ScrumBoard__Name">{t('scrum.board.title', { name: board.name })}</span>
         </div>
         <div className="ScrumBoard__Tabs">
@@ -221,26 +220,14 @@ export default function ScrumBoardView() {
           {/* 주간 문서의 연결·전달 안내 — 끊김·전송 미확인은 편집 중인 사람이 알아야 한다(아바타만으로는 알 수 없다) */}
           {tab === 'board' && ydoc && <CollabStatusBadge connection={connection} pending={pending} />}
           {tab === 'board' && status === 'connected' && connectedUsers.length > 0 && (
-            <span className="ScrumBoard__Live">
-              {connectedUsers.slice(0, 5).map((u) => (
-                <Avatar
-                  key={u.clientId}
-                  name={u.name}
-                  userId={u.userId}
-                  avatarUrl={u.avatar_url}
-                  avatarColor={u.avatar_color}
-                  size="xs"
-                />
-              ))}
-              <span className="ScrumBoard__LiveText">{t('scrum.board.editingCount', { count: connectedUsers.length })}</span>
-            </span>
+            <ScrumPresence users={connectedUsers} />
           )}
           <button
             type="button"
             className="ScrumBoard__MembersBtn"
             onClick={() => setShowMembers(true)}
           >
-            <Users size={14} />
+            <Users size={15} />
             {t('scrum.board.memberCount', { count: members.length })}
           </button>
           <NavLink
@@ -249,7 +236,7 @@ export default function ScrumBoardView() {
             title={t('scrum.board.settings')}
             aria-label={t('scrum.board.settings')}
           >
-            <Settings size={15} />
+            <Settings size={16} />
           </NavLink>
         </div>
       </header>

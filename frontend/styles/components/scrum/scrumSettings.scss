@@ -1,0 +1,107 @@
+@use '../../variables' as *;
+
+// =========================================================================
+// 스크럼 보드 설정(ScrumSettings · ScrumSettingsGeneral) — 보드 화면과 같은 회색 바탕 + 흰 카드.
+// 고르는 칸은 scrum.scss의 .ScrumSegment, 멤버 탭은 .ScrumMembers__*(멤버 창과 같은 목록)를 그대로 쓴다.
+// 밑줄 탭·취소·보관 버튼 모양은 scrum.scss의 보드 탭·회색/빨간 테두리 버튼 규칙에 같이 묶여 있다.
+// 버튼·배지에 초록 바탕을 깔지 않는다 — 초록은 탭 밑줄과 입력칸 포커스 고리에만.
+// =========================================================================
+.ScrumSettings { min-height:100%; padding:22px 32px 48px; background:$color-surface; }
+.ScrumSettings--notfound { display:flex; flex-direction:column; align-items:center; gap:12px; padding-top:64px; }
+.ScrumSettings__NotFoundTitle { margin:0; font-size:18px; font-weight:700; color:$color-text; }
+.ScrumSettings__Back {
+  display:inline-flex; align-items:center; gap:6px; height:28px; margin-left:-8px; padding:0 10px 0 8px;
+  border-radius:7px; font-size:13px; font-weight:600; color:var(--color-text-soft); cursor:pointer;
+  transition:background 120ms, color 120ms;
+  &:hover { background:$color-surface-hover; color:$color-text; }
+}
+.ScrumSettings--notfound .ScrumSettings__Back { margin-left:0; }
+.ScrumSettings__Title { margin:12px 0 0; font-size:20px; font-weight:700; letter-spacing:-0.015em; color:$color-text; }
+
+// 밑줄 탭 — 모양은 보드의 '주간보드 | 회고' 탭 규칙(scrum.scss), 여기선 아래 선·높이·아이콘 간격만
+.ScrumSettings__Tabs { margin:14px 0 20px; border-bottom:1px solid $color-border; }
+.ScrumSettings__Tab { gap:6px; height:40px; }
+
+// 일반 탭(카드 세 장·저장·위험 구역)과 멤버 탭(카드 한 장)이 이 세로 묶음에 바로 놓인다
+.ScrumSettings__Content { display:flex; flex-direction:column; gap:16px; max-width:720px; }
+
+// 카드 — 하루 보기 사람 카드와 같은 테두리·모서리·그림자.
+// overflow를 자르지 않는다: 멤버 탭의 초대 검색 창(absolute)이 카드 밖으로 내려올 수 있다.
+.ScrumSettings__Card { border:1px solid $color-border; border-radius:12px; background:$color-bg; box-shadow:$shadow-xs; }
+.ScrumSettings__CardTitle {
+  display:flex; align-items:center; gap:8px; margin:0; padding:13px 16px 13px 20px;
+  font-size:14.5px; font-weight:700; color:$color-text;
+}
+.ScrumSettings__CardBody {
+  display:flex; flex-direction:column; gap:18px; padding:16px 20px 20px;
+  border-top:1px solid var(--color-border-faint);
+}
+.ScrumSettings__Field { display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+.ScrumSettings__Label { font-size:12px; font-weight:700; color:$color-text-secondary; }
+.ScrumSettings__Input {
+  align-self:stretch; height:36px; padding:0 12px;
+  border:1px solid $color-input-border; border-radius:8px; background:$color-input-bg;
+  font-family:inherit; font-size:13.5px; color:$color-text; outline:none;
+  transition:border-color 120ms, box-shadow 120ms;
+  &:hover:not(:disabled) { border-color:$color-input-border-hover; }
+  &:focus { border-color:var(--color-accent-scrum); box-shadow:0 0 0 3px var(--color-accent-scrum-ring); }
+  &:disabled { background:$color-surface; color:$color-text-secondary; cursor:default; }
+}
+.ScrumSettings__Input--number { align-self:flex-start; width:96px; }
+.ScrumSettings__Hint { font-size:12.5px; color:$color-text-secondary; }
+.ScrumSettings__Error { font-size:12.5px; color:$color-error; }
+
+// 색 스와치 — 고른 색은 바깥 고리(하루 보기 팀원 목록의 '고른 날' 점과 같은 고리)
+.ScrumSettings__Swatches { display:flex; flex-wrap:wrap; gap:12px; padding:2px; }
+.ScrumSettings__Swatch {
+  display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; cursor:pointer;
+  transition:box-shadow 120ms;
+  &[aria-pressed='true'] { box-shadow:0 0 0 2px $color-bg, 0 0 0 4px var(--color-text-soft); }
+  &:disabled { cursor:default; }
+}
+// 고르는 칸이 카드 안 폭보다 넓으면(좁은 화면의 회고 주기 다섯 개) 카드 안에서 줄을 바꾼다.
+// 설정 카드 안에서만 — 보드 툴바의 .ScrumSegment(scrum.scss)는 그대로 한 줄이다.
+.ScrumSettings__Field > .ScrumSegment { flex-wrap:wrap; max-width:100%; }
+// 요일 알약은 폭을 맞춘다 — 넓어진 알약 가운데에 글자(월·화…)를 둔다
+.ScrumSettings__Days .ScrumSegment__Btn { min-width:44px; justify-content:center; }
+// 회고 템플릿 — 고를 수 있는 게 KPT 하나라 입력칸 대신 표시만
+.ScrumSettings__ReadOnly { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.ScrumSettings__Chip {
+  display:inline-flex; align-items:center; height:26px; padding:0 9px; border-radius:7px;
+  background:$color-surface-hover; font-size:12.5px; font-weight:700; color:$color-text;
+}
+
+// 저장 — 다른 버튼과 같은 회색 테두리, 글자만 진하게(바꾼 게 없으면 꺼진다)
+.ScrumSettings__SaveRow { display:flex; justify-content:flex-end; }
+.ScrumSettings__SaveBtn {
+  display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px;
+  border:1px solid $color-input-border-hover; border-radius:8px; background:$color-input-bg;
+  font-size:13px; font-weight:600; color:$color-text; white-space:nowrap; cursor:pointer;
+  transition:background 120ms, opacity 120ms;
+  &:hover:not(:disabled) { background:$color-surface-hover; }
+  &:disabled { opacity:.5; cursor:default; }
+}
+
+// 위험 구역 — 빨간 테두리 카드. 보관(.ScrumSettings__DangerBtn)·취소 버튼은 scrum.scss의 버튼 묶음.
+.ScrumSettings__Card--danger { border-color:var(--color-error-border-soft); }
+.ScrumSettings__Card--danger .ScrumSettings__CardTitle { color:$color-error; }
+.ScrumSettings__DangerRow,
+.ScrumSettings__DangerConfirm { padding:16px 20px 18px; border-top:1px solid var(--color-border-faint); }
+.ScrumSettings__DangerRow { display:flex; align-items:center; flex-wrap:wrap; gap:12px 16px; }
+.ScrumSettings__DangerText { flex:1 1 280px; min-width:0; }
+.ScrumSettings__DangerTitle { margin:0; font-size:13.5px; font-weight:700; color:$color-text; }
+.ScrumSettings__DangerDesc { margin:2px 0 0; font-size:12.5px; line-height:1.5; color:$color-text-secondary; }
+.ScrumSettings__DangerConfirm { display:flex; flex-direction:column; gap:12px; }
+.ScrumSettings__DangerActions { display:flex; flex-wrap:wrap; gap:8px; }
+.ScrumSettings__DangerConfirmBtn {
+  display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px;
+  border:1px solid $color-error; border-radius:8px; background:$color-error;
+  font-size:13px; font-weight:600; color:$color-text-inverse; white-space:nowrap; cursor:pointer;
+  transition:background 120ms, border-color 120ms, opacity 120ms;
+  &:hover:not(:disabled) { border-color:var(--color-error-strong); background:var(--color-error-strong); }
+  &:disabled { opacity:.5; cursor:default; }
+}
+
+// 멤버 탭 카드 — 목록 여백을 카드에 맞추고, 아래 줄(나가기)의 옅은 바탕이 카드 모서리를 따른다
+.ScrumSettings__Card .ScrumMembers__Body { padding:6px 20px; }
+.ScrumSettings__Card .ScrumMembers__Foot { border-radius:0 0 11px 11px; }

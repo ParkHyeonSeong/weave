@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
-import { Users, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import ScrumMembersPanel from './ScrumMembersPanel';
 
 /**
@@ -11,6 +11,7 @@ import ScrumMembersPanel from './ScrumMembersPanel';
 export default function ScrumMembersModal({ boardId, myRole, count, onClose, onChanged }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const titleId = useId();
 
   // ESC 닫기
   useEffect(() => {
@@ -21,13 +22,19 @@ export default function ScrumMembersModal({ boardId, myRole, count, onClose, onC
 
   return (
     <div className="ScrumMembers__Backdrop" onClick={onClose}>
-      <div className="ScrumMembers" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="ScrumMembers"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
         <header className="ScrumMembers__Head">
-          <div className="ScrumMembers__HeadTitle">
-            <Users size={16} />
-            <span>{t('scrum.members.title')}</span>
-            {typeof count === 'number' && <em className="ScrumMembers__Count">{count}</em>}
-          </div>
+          {/* 하루 보기 팀원 목록 제목('팀원 2')과 같은 모양 — 아이콘 없이 이름과 인원 */}
+          <h2 className="ScrumMembers__HeadTitle" id={titleId}>
+            {t('scrum.members.title')}
+            {typeof count === 'number' && <span className="ScrumMembers__Count">{count}</span>}
+          </h2>
           <button
             type="button"
             className="ScrumMembers__Close"

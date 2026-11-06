@@ -1,11 +1,12 @@
 @use '../../variables' as *;
 
-// 흰 바탕·옅은 초록 바탕(--color-accent-scrum-subtle) 위의 작은 초록 글자(오늘·나 배지, 이번 주, 작성함, Keep 열 머리) —
-// 강조색 그대로는 라이트에서 3.3:1이라 본문 색 쪽으로 당겨 4.5:1을 넘긴다(라이트는 진하게, 다크는 밝게).
+// 작은 초록 글자('오늘', 작성함, Keep 열 머리) — 강조색 그대로는 라이트에서 3.3:1이라
+// 본문 색 쪽으로 당겨 4.5:1을 넘긴다(라이트는 진하게, 다크는 밝게).
+// 버튼·배지·라벨에는 초록 바탕을 깔지 않는다 — 초록은 선·점·글자에만 쓴다(멤버·설정 시안의 색 규칙).
 $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--color-text));
 
 .ScrumBoard { display:flex; flex-direction:column; height:100%; }
-// 1행 머리: 보드 표시·이름 · 탭 · 오른쪽(연결 배지·접속자·멤버·설정).
+// 1행 머리: 보드 이름 · 탭 · 오른쪽(연결 배지·접속자·멤버·설정).
 // 상시 flex-wrap — 가용폭이 좁으면(패널·좁은 창) 헤더가 2줄로 자연 분리. 탭/제목의
 // white-space:nowrap과 한 쌍: nowrap이 CJK 글자단위 세로 스택을 막고, wrap이 수납을 맡는다.
 // align-items:stretch — 밑줄형 탭 버튼이 줄 높이를 채워 밑줄이 머리 아래 선에 붙는다.
@@ -25,29 +26,30 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
   &[aria-pressed='true'] { background:$color-bg; border-color:$color-input-border-hover; color:$color-text; }
   &:disabled { cursor:default; }
 }
-.ScrumBoard__ThisWeek { font-size:12px; font-weight:700; white-space:nowrap; padding:3px 9px; border-radius:999px; color:$scrum-accent-text; background:var(--color-accent-scrum-subtle); }
+.ScrumBoard__ThisWeek { font-size:12.5px; font-weight:600; white-space:nowrap; color:$color-text-secondary; }
 // ref 칩 클릭 패널(RefPanelHost)을 우측 사이드로 붙이는 flex 레이아웃
 // panel-host: 패널 가용폭 기반 전환(container query)의 조상 컨테이너(계약은 panel-host-container mixin 참고)
 .ScrumBoard__Body { display:flex; flex:1; min-height:0; @include panel-host-container; }
 .ScrumBoard__BodyMain { flex:1; min-width:0; overflow-y:auto; }
 // nowrap이 글자단위 세로 스택을 막는 대신, 아주 긴 이름이 좁은 화면(모바일)에서 헤더를
 // 수평으로 밀어내지 않도록 ellipsis 안전망(min-width:0이 flex 아이템의 축소를 허용).
-.ScrumBoard__Title { display:flex; align-items:center; gap:10px; min-width:0; padding:13px 0; font-weight:800; font-size:16px; }
-.ScrumBoard__Mark { width:12px; height:12px; border-radius:4px; flex-shrink:0; background:var(--accent, var(--color-accent-scrum)); }
+.ScrumBoard__Title { display:flex; align-items:center; min-width:0; padding:13px 0; font-weight:800; font-size:16px; }
 .ScrumBoard__Name { white-space:nowrap; min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .ScrumBoard__WeekNav { display:flex; align-items:center; gap:8px; }
 .ScrumBoard__WeekNav > button { border:1px solid $color-input-border; border-radius:7px; padding:3px 6px; background:$color-input-bg; cursor:pointer; }
 // 라벨(주/회고 범위)을 클릭하면 캘린더로 임의 기간 점프 — 클릭 가능함을 hover로 암시
 .ScrumBoard__WeekNav .DatePicker__CustomTrigger { padding:3px 8px; border-radius:7px; }
-.ScrumBoard__WeekNav .DatePicker__CustomTrigger:hover { background:var(--color-accent-scrum-subtle); }
+.ScrumBoard__WeekNav .DatePicker__CustomTrigger:hover { background:$color-surface-hover; }
 .ScrumBoard__WeekLabel { font-weight:700; font-size:13px; white-space:nowrap; }
-.ScrumBoard__WeekNav .ScrumBoard__TodayBtn { padding:3px 9px; font-size:12px; font-weight:700; color:var(--color-accent-scrum); }
-.ScrumBoard__WeekNav .ScrumBoard__TodayBtn:hover { background:var(--color-accent-scrum-subtle); border-color:var(--color-accent-scrum-border); }
-.ScrumBoard__Presence { margin-left:auto; display:flex; align-items:center; gap:10px; padding:8px 0; }
-// 색/사진은 <Avatar size="xs">가 처리. 여기선 살짝 겹치게만.
-.ScrumBoard__Live { display:flex; align-items:center; }
-.ScrumBoard__Live .Avatar { margin-right:-5px; box-shadow:0 0 0 2px $color-surface; }
-.ScrumBoard__LiveText { font-size:12px; opacity:.7; margin-left:9px; }
+.ScrumBoard__WeekNav .ScrumBoard__TodayBtn { padding:3px 9px; font-size:12px; font-weight:600; color:var(--color-text-soft); }
+.ScrumBoard__WeekNav .ScrumBoard__TodayBtn:hover { background:$color-surface-hover; border-color:$color-input-border-hover; color:$color-text; }
+// 연결 배지 · 편집 중(ScrumPresence) · 멤버 · 설정. 버튼 높이 32px — 머리 줄 높이(제목 13px+24px+13px)에 맞춘다.
+.ScrumBoard__Presence { margin-left:auto; display:flex; align-items:center; gap:8px; padding:9px 0; }
+.ScrumBoard__Presence .CollabStatusBadge { margin-right:8px; }
+// 아바타 겹치기·+N 칩은 공용 .AvatarStack(avatar.scss)이 칠한다
+.ScrumBoard__Live { display:inline-flex; align-items:center; gap:8px; margin-right:8px; }
+.ScrumBoard__LiveText { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:$color-text-secondary; white-space:nowrap; }
+.ScrumBoard__LiveDot { width:6px; height:6px; border-radius:50%; flex-shrink:0; background:var(--color-accent-scrum); }
 .ScrumBoard__Loading,
 .ScrumBoard__Empty,
 .ScrumBoard__Error { padding:24px 18px; font-size:13px; opacity:.7; }
@@ -68,15 +70,11 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 .Scrum__Chip--on { border-color:var(--color-accent-scrum); color:var(--color-accent-scrum); font-weight:700; }
 .Scrum__Chip:disabled { opacity:.55; cursor:not-allowed; }
 
-// Scrum 설정 헤더 색상 점
-.ScrumSettings__ColorDot {
-  width:14px; height:14px; border-radius:50%; flex-shrink:0;
-  display:inline-block;
-}
-
-// 주간 보드 / 회고 탭 (밑줄형)
-.ScrumBoard__Tabs { display:flex; gap:20px; flex-shrink:0; }
-.ScrumBoard__Tabs button {
+// 주간 보드 / 회고 탭 (밑줄형) — 보드 설정의 '일반 | 멤버' 탭도 같은 규칙(높이·아래 선은 scrumSettings.scss)
+.ScrumBoard__Tabs,
+.ScrumSettings__Tabs { display:flex; gap:20px; flex-shrink:0; }
+.ScrumBoard__Tabs button,
+.ScrumSettings__Tab {
   display:inline-flex; align-items:center; padding:0 2px; margin-bottom:-1px; // 머리 아래 선 위에 밑줄을 겹친다
   border-bottom:2px solid transparent; font-size:14px; font-weight:600; color:$color-text-secondary; cursor:pointer;
   white-space:nowrap; // CJK 글자단위 세로 스택 차단(Head가 flex-wrap:wrap이므로 넘치면 다음 줄로)
@@ -85,14 +83,16 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
   &[aria-pressed='true'] { color:$color-text; border-bottom-color:var(--color-accent-scrum); }
 }
 
-// 세그먼트 버튼 묶음(보기 전환·전체/나만) — 눌린 쪽은 aria-pressed로 칠한다
+// 세그먼트 버튼 묶음(보기 전환·전체/나만·설정의 고르는 칸) — 눌린 쪽은 aria-pressed로 칠한다.
+// 설정에서 관리자가 아니면 disabled — 지금 값만 보이고 hover로 진해지지 않는다.
 .ScrumSegment { display:inline-flex; gap:2px; padding:3px; border-radius:9px; background:$color-surface-hover; flex-shrink:0; }
 .ScrumSegment__Btn {
   display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 12px; border-radius:7px;
   font-size:13px; font-weight:600; color:$color-text-secondary; white-space:nowrap;
   transition:background 120ms, color 120ms, box-shadow 120ms;
-  &:hover { color:$color-text; }
+  &:hover:not(:disabled) { color:$color-text; }
   &[aria-pressed='true'] { background:$color-bg; color:$color-text; box-shadow:$shadow-xs, inset 0 0 0 1px var(--color-selected-indicator); }
+  &:disabled { cursor:default; }
 }
 
 // =========================================================================
@@ -111,10 +111,7 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 .ScrumDaySelector__Wd,
 .ScrumDaySelector__Date { white-space:nowrap; }
 .ScrumDaySelector__Date { font-weight:500; color:$color-text-secondary; }
-.ScrumDaySelector__Today {
-  margin-left:auto; padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.6; white-space:nowrap;
-  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
-}
+.ScrumDaySelector__Today { margin-left:auto; font-size:11px; font-weight:700; line-height:1.6; white-space:nowrap; color:$scrum-accent-text; }
 
 // =========================================================================
 // 하루 보기 (ScrumDayView · ScrumDayCard)
@@ -146,13 +143,15 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 .ScrumDay__MemberMain { display:flex; flex-direction:column; gap:5px; flex:1; min-width:0; }
 .ScrumDay__MemberName { display:flex; align-items:center; gap:6px; min-width:0; font-size:13px; font-weight:600; }
 .ScrumDay__MemberNameText { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+// '나' 배지 — 회색 테두리만(바탕색 없음). 멤버 창 목록도 같은 모양.
 .ScrumDay__You,
 .ScrumDayCard__You,
 .ScrumWeek__You,
 .RetroTopic__You,
-.RetroPerson__You {
-  flex-shrink:0; font-style:normal; font-size:10.5px; font-weight:700; padding:0 5px; border-radius:4px;
-  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
+.RetroPerson__You,
+.ScrumMembers__You {
+  flex-shrink:0; font-style:normal; font-size:10.5px; font-weight:700; line-height:15px; padding:0 4px; border-radius:4px;
+  color:$color-text-secondary; box-shadow:inset 0 0 0 1px $color-border-hover;
 }
 .ScrumDay__MemberDone { flex-shrink:0; color:var(--color-accent-scrum); }
 .ScrumDay__MemberEmpty { flex-shrink:0; font-size:11px; color:$color-text-secondary; white-space:nowrap; }
@@ -177,7 +176,7 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 .ScrumDay__HeadText { min-width:0; }
 .ScrumDay__TitleRow { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .ScrumDay__Title { font-size:20px; font-weight:700; letter-spacing:-0.015em; }
-.ScrumDay__Today { padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; color:$scrum-accent-text; background:var(--color-accent-scrum-subtle); }
+.ScrumDay__Today { font-size:13px; font-weight:700; white-space:nowrap; color:$scrum-accent-text; }
 .ScrumDay__Summary { margin-top:4px; font-size:13px; color:$color-text-secondary; }
 .ScrumDay__Tools { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
 .ScrumDay__FoldAll {
@@ -293,10 +292,7 @@ $week-compact-line: 20px;   // 요약 칸 한 줄 높이 — 최대 9줄
 .ScrumWeek__DayTop { display:flex; align-items:center; flex-wrap:wrap; gap:2px 6px; max-width:100%; font-size:13.5px; font-weight:600; line-height:1.4; white-space:nowrap; }
 .ScrumWeek__Day[aria-pressed='true'] .ScrumWeek__DayTop { font-weight:700; }
 .ScrumWeek__DayDate { font-weight:500; color:$color-text-secondary; }
-.ScrumWeek__Today {
-  padding:0 6px; border-radius:999px; font-size:10.5px; font-weight:700; line-height:1.6;
-  color:$scrum-accent-text; background:var(--color-accent-scrum-subtle);
-}
+.ScrumWeek__Today { font-size:11px; font-weight:700; line-height:1.6; color:$scrum-accent-text; }
 .ScrumWeek__DayCounts { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11.5px; color:$color-text-secondary; font-variant-numeric:tabular-nums; }
 
 // 사람 카드(하루 카드와 같은 겉모양) — 머리 + 보이는 행
@@ -483,30 +479,26 @@ $retro-panes-min: 600px;   // 사람 카드의 세 칸이 나란히 서는 최�
 }
 
 // =========================================================================
-// 헤더 멤버 버튼
+// 회색 테두리 버튼(32px) — 헤더 멤버·설정, 멤버 창 초대, 보드 설정 취소. 툴바의 '모두 접기'와 같은 모양.
+// 초대는 검색 창이 열린 동안(aria-expanded) 눌린 모양을 유지한다.
 // =========================================================================
-.ScrumBoard__MembersBtn {
-  display:inline-flex; align-items:center; gap:6px;
-  border:1px solid $color-input-border; border-radius:8px; padding:4px 10px;
-  font-size:13px; font-weight:700; background:$color-input-bg;
-  color:var(--color-text-soft); cursor:pointer;
-  transition:border-color 120ms, background 120ms, color 120ms;
-  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
-  svg { opacity:.8; }
-}
-
-.ScrumBoard__SettingsBtn {
-  display:inline-flex; align-items:center; justify-content:center;
-  width:30px; height:30px;
+.ScrumBoard__MembersBtn,
+.ScrumBoard__SettingsBtn,
+.ScrumMembers__InviteBtn,
+.ScrumSettings__CancelBtn {
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; height:32px;
   border:1px solid $color-input-border; border-radius:8px; background:$color-input-bg;
-  color:var(--color-text-soft); cursor:pointer;
+  font-size:13px; font-weight:600; color:var(--color-text-soft); white-space:nowrap; cursor:pointer;
   transition:border-color 120ms, background 120ms, color 120ms;
-  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
-  svg { opacity:.8; }
+  &:hover, &[aria-expanded='true'] { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
 }
+.ScrumBoard__MembersBtn,
+.ScrumMembers__InviteBtn,
+.ScrumSettings__CancelBtn { padding:0 12px; }
+.ScrumBoard__SettingsBtn { width:32px; }
 
 // =========================================================================
-// 멤버 관리 모달
+// 멤버 관리 모달(ScrumMembersModal) · 멤버 목록(ScrumMembersPanel — 보드 설정 '멤버' 탭도 같이 쓴다)
 // =========================================================================
 .ScrumMembers__Backdrop {
   position:fixed; inset:0; z-index:1000;
@@ -514,154 +506,158 @@ $retro-panes-min: 600px;   // 사람 카드의 세 칸이 나란히 서는 최�
   display:flex; align-items:center; justify-content:center;
 }
 .ScrumMembers {
-  width:480px; max-width:calc(100vw - 32px);
+  width:520px; max-width:calc(100vw - 32px);
   max-height:calc(100vh - 64px);
   background:$color-bg; border-radius:12px;
   box-shadow:0 24px 60px -16px rgba(0,0,0,0.28), 0 4px 12px rgba(0,0,0,0.06);
   display:flex; flex-direction:column; overflow:hidden;
 }
-.ScrumMembers__Head {
-  display:flex; align-items:center; justify-content:space-between;
-  padding:16px 20px 13px; border-bottom:1px solid $color-border;
+// 머리 줄 — 멤버 창(제목 · 닫기)과 보드 설정 '멤버' 탭(withHeader: 제목 · 초대)이 같은 모양
+.ScrumMembers__Head,
+.ScrumMembers__PanelHead {
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  padding:12px 12px 12px 20px; border-bottom:1px solid var(--color-border-faint);
 }
-.ScrumMembers__HeadTitle {
-  display:inline-flex; align-items:center; gap:8px;
-  font-size:15px; font-weight:700; color:$color-text;
-  svg { color:var(--color-accent-scrum); }
-}
-.ScrumMembers__Count {
-  font-style:normal; font-size:12px; font-weight:700;
-  color:var(--color-text-soft);
-  background:$color-surface-hover; border-radius:999px; padding:1px 8px;
-}
+// 하루 보기 팀원 목록 제목('팀원 2')과 같은 모양 — 이름 굵게, 인원은 회색. 설정 탭 머리 줄도 같다.
+.ScrumMembers__HeadTitle,
+.ScrumMembers__PanelTitle { display:flex; align-items:baseline; gap:7px; margin:0; font-weight:700; color:$color-text; }
+.ScrumMembers__HeadTitle { font-size:16px; }
+.ScrumMembers__PanelTitle { font-size:14.5px; }
+.ScrumMembers__Count { font-weight:600; color:$color-text-secondary; }
 .ScrumMembers__Close {
-  width:28px; height:28px; border-radius:6px; border:none; background:none;
-  color:$color-text-secondary; cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
+  display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px;
+  border-radius:8px; border:none; background:none; color:$color-text-secondary; cursor:pointer;
   transition:background 120ms, color 120ms;
   &:hover { background:$color-surface-hover; color:$color-text; }
 }
 .ScrumMembers__Body {
-  padding:14px 20px; overflow-y:auto;
+  padding:16px 20px 6px; overflow-y:auto;
   display:flex; flex-direction:column; gap:10px;
 }
-.ScrumMembers__Loading {
-  padding:16px 2px; font-size:13px; opacity:.7;
-}
+.ScrumMembers__Loading { padding:16px 2px; font-size:13px; color:$color-text-secondary; }
+// 설정 '멤버' 탭 머리 줄 — 초대 버튼(32px)이 닫기(30px)보다 커서 위아래 여백만 줄인다
+.ScrumMembers__PanelHead { padding:10px 12px 10px 20px; }
 
-// 초대
+// 초대 — 버튼 모양은 위 회색 테두리 버튼 묶음. 검색 창은 버튼 아래로 연다.
 .ScrumMembers__Actions { position:relative; }
-.ScrumMembers__InviteBtn {
-  display:inline-flex; align-items:center; gap:6px;
-  border:1px solid var(--color-accent-scrum); border-radius:8px; padding:6px 12px;
-  font-size:13px; font-weight:700; cursor:pointer;
-  color:var(--color-accent-scrum); background:var(--color-accent-scrum-subtle);
-  transition:background 120ms;
-  &:hover { background:var(--color-accent-scrum-wash); }
-}
 .ScrumMembers__InviteDropdown {
   position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:5;
-  background:$color-bg; border:1px solid $color-input-border; border-radius:10px;
+  background:$color-bg; border:1px solid $color-border; border-radius:10px;
   box-shadow:$shadow-lg; overflow:hidden;
 }
+// 머리 줄에서는 버튼 오른쪽 끝에 맞춰 연다 — 버튼 폭에 묶이지 않게 폭을 따로 준다
+.ScrumMembers__PanelHead .ScrumMembers__InviteDropdown { left:auto; width:min(360px, calc(100vw - 48px)); }
 .ScrumMembers__SearchWrap {
-  display:flex; align-items:center; gap:8px;
-  padding:9px 12px; border-bottom:1px solid $color-border;
+  display:flex; align-items:center; gap:8px; height:42px; padding:0 12px;
+  border-bottom:1px solid var(--color-border-faint);
+  &:focus-within { box-shadow:inset 0 0 0 2px var(--color-accent-scrum-ring); }
 }
-.ScrumMembers__SearchIcon { color:$color-text-tertiary; flex-shrink:0; }
+.ScrumMembers__SearchIcon { color:$color-text-secondary; flex-shrink:0; }
 .ScrumMembers__SearchInput {
-  flex:1; border:none; outline:none; background:none;
+  flex:1; min-width:0; height:100%; border:none; outline:none; background:none;
   font-size:13px; color:$color-text; font-family:inherit;
   &::placeholder { color:$color-text-tertiary; }
 }
-.ScrumMembers__SearchResults { max-height:220px; overflow-y:auto; }
-.ScrumMembers__SearchEmpty {
-  padding:12px; font-size:12px; color:$color-text-tertiary; text-align:center;
-}
+.ScrumMembers__SearchResults { max-height:220px; overflow-y:auto; padding:4px 0; }
+.ScrumMembers__SearchEmpty { padding:12px; font-size:12.5px; color:$color-text-secondary; text-align:center; }
 .ScrumMembers__SearchItem {
-  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  display:flex; align-items:center; gap:10px;
   width:100%; padding:8px 12px; border:none; background:none; cursor:pointer;
   text-align:left; color:$color-text;
   transition:background 100ms;
   &:hover { background:$color-surface-hover; }
-  svg { color:var(--color-accent-scrum); flex-shrink:0; }
 }
 // 색/크기/폰트는 <Avatar>가 인라인으로 칠함(user_id 해시). 여기선 레이아웃만.
 .ScrumMembers__SearchItemAvatar { flex-shrink:0; }
 .ScrumMembers__SearchItemInfo { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
 .ScrumMembers__SearchItemName { font-size:13px; font-weight:600; }
 .ScrumMembers__SearchItemEmail {
-  font-size:12px; color:$color-text-tertiary;
+  font-size:12px; color:$color-text-secondary;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
+// 결과 줄 오른쪽 '초대' — 줄 전체가 버튼이고 이건 표시만(작은 회색 테두리)
+.ScrumMembers__SearchItemAdd {
+  display:inline-flex; align-items:center; gap:4px; flex-shrink:0; height:26px; padding:0 9px;
+  border:1px solid $color-input-border; border-radius:7px; background:$color-input-bg;
+  font-size:12px; font-weight:600; color:var(--color-text-soft);
+  transition:border-color 100ms, color 100ms;
+}
+.ScrumMembers__SearchItem:hover .ScrumMembers__SearchItemAdd { border-color:$color-input-border-hover; color:$color-text; }
 
-// 멤버 목록
+// 멤버 목록 — 줄 사이는 옅은 선(하루 카드 안 칸 경계와 같은 색)
 .ScrumMembers__List { display:flex; flex-direction:column; }
 .ScrumMembers__Row {
-  display:flex; align-items:center; gap:10px;
-  padding:8px 2px; border-bottom:1px solid var(--color-border-faint);
+  display:flex; align-items:center; gap:12px;
+  padding:10px 0; border-bottom:1px solid var(--color-border-faint);
   &:last-child { border-bottom:none; }
 }
 // 색/크기/폰트는 <Avatar>가 인라인으로 칠함(user_id 해시). 여기선 레이아웃만.
 .ScrumMembers__Avatar { flex-shrink:0; }
-.ScrumMembers__Info { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
+.ScrumMembers__Info { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
 // flex 컨테이너(__Name)에 직접 ellipsis를 걸면 혼합 자식(텍스트 노드+뱃지)에서 잘림이
 // 불안정 — 말줄임은 안쪽 __NameText가 담당, __Name은 min-width:0으로 수축만 허용.
 .ScrumMembers__Name {
   display:inline-flex; align-items:center; gap:6px;
-  font-size:13px; font-weight:600; color:$color-text;
+  font-size:13.5px; font-weight:600; color:$color-text;
   min-width:0;
 }
 .ScrumMembers__NameText {
   min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.ScrumMembers__You {
-  flex-shrink:0;
-  font-style:normal; font-size:11px; font-weight:600; color:$color-text-tertiary;
-  background:$color-surface-hover; border-radius:4px; padding:0 5px;
-}
 .ScrumMembers__Email {
-  font-size:12px; color:$color-text-tertiary;
+  font-size:12px; color:$color-text-secondary;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.ScrumMembers__RoleCol { flex-shrink:0; min-width:84px; }
-.ScrumMembers__RoleBadge {
-  display:inline-block; font-size:12px; font-weight:600; text-transform:capitalize;
-  color:var(--color-text-soft);
-  background:$color-surface-hover; border-radius:6px; padding:3px 10px;
+.ScrumMembers__RoleCol { flex-shrink:0; width:92px; }
+// 역할 고르기 — 공용 CustomSelect(sm)를 카드 버튼과 같은 28px 회색 테두리로 덮어쓴다(열려도 남색 강조 없음)
+.ScrumMembers__RoleSelect.CustomSelect { display:flex; width:100%; }
+.ScrumMembers__RoleSelect.CustomSelect .CustomSelect__Trigger {
+  height:28px; padding:0 8px 0 10px; border:1px solid $color-input-border; border-radius:7px; background:$color-input-bg;
+  font-size:12.5px; font-weight:600; color:var(--color-text-soft);
+  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
+}
+.ScrumMembers__RoleSelect.CustomSelect--open .CustomSelect__Trigger { border-color:$color-input-border-hover; box-shadow:none; }
+// 바꿀 수 없는 역할 — 글자만. 관리자가 보는 마지막 관리자 칸은 자물쇠가 붙는다.
+.ScrumMembers__RoleText {
+  display:inline-flex; align-items:center; gap:5px; height:28px; padding:0 10px;
+  font-size:12.5px; font-weight:600; color:$color-text-secondary; white-space:nowrap;
 }
 .ScrumMembers__ActionCol {
   flex-shrink:0; display:flex; align-items:center; justify-content:flex-end; min-width:28px;
 }
 .ScrumMembers__RemoveBtn {
-  width:26px; height:26px; border-radius:6px; border:none; background:none; cursor:pointer;
-  color:$color-text-tertiary;
-  display:flex; align-items:center; justify-content:center;
+  display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;
+  border-radius:7px; border:none; background:none; cursor:pointer; color:$color-text-tertiary;
   transition:background 120ms, color 120ms;
   &:hover { background:var(--color-error-bg); color:$color-error; }
 }
-.ScrumMembers__ConfirmInline { display:inline-flex; align-items:center; gap:4px; }
+.ScrumMembers__ConfirmInline { display:inline-flex; align-items:center; gap:6px; }
+.ScrumMembers__ConfirmYes,
+.ScrumMembers__ConfirmNo {
+  display:inline-flex; align-items:center; height:28px; padding:0 10px; border-radius:7px; cursor:pointer;
+  font-size:12.5px; font-weight:600; white-space:nowrap;
+  transition:background 120ms, border-color 120ms, color 120ms;
+}
 .ScrumMembers__ConfirmYes {
-  border:none; border-radius:6px; padding:4px 8px; cursor:pointer;
-  font-size:12px; font-weight:700; color:$color-text-inverse; background:$color-error;
-  &:hover { background:var(--color-error-strong); }
+  border:1px solid $color-error; color:$color-text-inverse; background:$color-error;
+  &:hover { border-color:var(--color-error-strong); background:var(--color-error-strong); }
 }
 .ScrumMembers__ConfirmNo {
-  border:1px solid $color-input-border; border-radius:6px; padding:4px 8px; cursor:pointer;
-  font-size:12px; font-weight:600; color:$color-text-secondary; background:$color-input-bg;
-  &:hover { background:$color-surface-hover; }
+  border:1px solid $color-input-border; color:var(--color-text-soft); background:$color-input-bg;
+  &:hover { border-color:$color-input-border-hover; background:$color-surface-hover; color:$color-text; }
 }
 
-// 나가기
+// 나가기 — 카드 아래 줄처럼 옅은 바탕
 .ScrumMembers__Foot {
-  padding:12px 20px; border-top:1px solid $color-border;
-  display:flex; justify-content:flex-end;
+  display:flex; justify-content:flex-end; padding:12px 20px;
+  border-top:1px solid var(--color-border-faint); background:$color-surface;
 }
-.ScrumMembers__LeaveBtn {
-  display:inline-flex; align-items:center; gap:6px;
-  border:1px solid var(--color-error-border-soft); border-radius:8px;
-  padding:6px 12px; font-size:13px; font-weight:700; cursor:pointer;
-  color:$color-error; background:$color-input-bg;
+// 빨간 테두리 버튼(32px) — 멤버 창 나가기, 보드 설정 보관
+.ScrumMembers__LeaveBtn,
+.ScrumSettings__DangerBtn {
+  display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px;
+  border:1px solid var(--color-error-border-soft); border-radius:8px; background:$color-input-bg;
+  font-size:13px; font-weight:600; color:$color-error; white-space:nowrap; cursor:pointer;
   transition:background 120ms;
   &:hover { background:var(--color-error-bg); }
 }

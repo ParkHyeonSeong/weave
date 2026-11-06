@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'react-i18next';
 import { axios } from '@/library/_axios';
-import { UserPlus, X, Search, LogOut } from 'lucide-react';
+import { UserPlus, X, Search, LogOut, Lock } from 'lucide-react';
 import CustomSelect from '@/components/common/CustomSelect';
 import Avatar from '@/components/common/Avatar';
 import { showToast } from '@/components/Layout/Toast';
@@ -30,8 +30,10 @@ function readMyUserId() {
  *  - myRole ('admin' | 'member')
  *  - onChanged: 멤버 변경 후 부모 보드 갱신 콜백
  *  - onLeave: (선택) 보드 나간 뒤 처리. 미지정 시 router.push('/scrum')
+ *  - withHeader: (선택) 머리 줄(제목·인원·초대 버튼)을 직접 그린다 — 머리가 따로 없는 설정 탭용.
+ *    없으면 초대 버튼은 목록 위에 둔다(멤버 창은 모달 머리가 제목을 맡는다).
  */
-export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave }) {
+export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave, withHeader = false }) {
   const { t } = useTranslation();
   const router = useRouter();
   const [members, setMembers] = useState([]);
@@ -178,60 +180,78 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
 
   const adminCount = members.filter((m) => m.role === 'admin').length;
   const myRow = members.find((m) => m.user_id === myUserId);
+  const roles = roleOptions(t);
+
+  // 초대(관리자만): 버튼 + 검색 드롭다운. 멤버 창에선 목록 위, withHeader면 머리 줄 오른쪽.
+  const invite = isAdmin && (
+    <div className="ScrumMembers__Actions" ref={inviteRef}>
+      <button
+        type="button"
+        className="ScrumMembers__InviteBtn"
+        aria-expanded={showInvite}
+        onClick={() => setShowInvite((v) => !v)}
+      >
+        <UserPlus size={15} />
+        {t('scrum.members.invite')}
+      </button>
+
+      {showInvite && (
+        <div className="ScrumMembers__InviteDropdown">
+          <div className="ScrumMembers__SearchWrap">
+            <Search size={15} className="ScrumMembers__SearchIcon" />
+            <input
+              className="ScrumMembers__SearchInput"
+              placeholder={t('scrum.members.searchPlaceholder')}
+              aria-label={t('scrum.members.searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="ScrumMembers__SearchResults">
+            {searching && (
+              <div className="ScrumMembers__SearchEmpty">{t('scrum.members.searching')}</div>
+            )}
+            {!searching && searchQuery && searchResults.length === 0 && (
+              <div className="ScrumMembers__SearchEmpty">{t('scrum.members.noResults')}</div>
+            )}
+            {searchResults.map((u) => (
+              <button
+                key={u.user_id}
+                type="button"
+                className="ScrumMembers__SearchItem"
+                onClick={() => handleInvite(u.user_id)}
+              >
+                <Avatar user={u} size={28} className="ScrumMembers__SearchItemAvatar" />
+                <div className="ScrumMembers__SearchItemInfo">
+                  <span className="ScrumMembers__SearchItemName">{u.username}</span>
+                  <span className="ScrumMembers__SearchItemEmail">{u.email}</span>
+                </div>
+                <span className="ScrumMembers__SearchItemAdd">
+                  <UserPlus size={14} />
+                  {t('scrum.members.inviteAction')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
+      {withHeader && (
+        <div className="ScrumMembers__PanelHead">
+          <h2 className="ScrumMembers__PanelTitle">
+            {t('scrum.members.title')}
+            {!loading && <span className="ScrumMembers__Count">{members.length}</span>}
+          </h2>
+          {invite}
+        </div>
+      )}
       <div className="ScrumMembers__Body">
-        {isAdmin && (
-          <div className="ScrumMembers__Actions" ref={inviteRef}>
-            <button
-              type="button"
-              className="ScrumMembers__InviteBtn"
-              onClick={() => setShowInvite((v) => !v)}
-            >
-              <UserPlus size={14} />
-              {t('scrum.members.invite')}
-            </button>
-
-            {showInvite && (
-              <div className="ScrumMembers__InviteDropdown">
-                <div className="ScrumMembers__SearchWrap">
-                  <Search size={14} className="ScrumMembers__SearchIcon" />
-                  <input
-                    className="ScrumMembers__SearchInput"
-                    placeholder={t('scrum.members.searchPlaceholder')}
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    autoFocus
-                  />
-                </div>
-                <div className="ScrumMembers__SearchResults">
-                  {searching && (
-                    <div className="ScrumMembers__SearchEmpty">{t('scrum.members.searching')}</div>
-                  )}
-                  {!searching && searchQuery && searchResults.length === 0 && (
-                    <div className="ScrumMembers__SearchEmpty">{t('scrum.members.noResults')}</div>
-                  )}
-                  {searchResults.map((u) => (
-                    <button
-                      key={u.user_id}
-                      type="button"
-                      className="ScrumMembers__SearchItem"
-                      onClick={() => handleInvite(u.user_id)}
-                    >
-                      <Avatar user={u} size={30} className="ScrumMembers__SearchItemAvatar" />
-                      <div className="ScrumMembers__SearchItemInfo">
-                        <span className="ScrumMembers__SearchItemName">{u.username}</span>
-                        <span className="ScrumMembers__SearchItemEmail">{u.email}</span>
-                      </div>
-                      <UserPlus size={14} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {!withHeader && invite}
 
         {loading ? (
           <div className="ScrumMembers__Loading">{t('common.state.loading')}</div>
@@ -242,6 +262,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
               const isLastAdminRow = member.role === 'admin' && adminCount <= 1;
               // 마지막 admin row는 누구에게도 변경/제거 불가 (백엔드 가드와 일치)
               const canManage = isAdmin && !isLastAdminRow;
+              const showLock = isAdmin && isLastAdminRow;
               return (
                 <div key={member.user_id} className="ScrumMembers__Row">
                   <Avatar user={member} size={30} className="ScrumMembers__Avatar" />
@@ -255,17 +276,21 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                   <span className="ScrumMembers__RoleCol">
                     {canManage ? (
                       <CustomSelect
+                        className="ScrumMembers__RoleSelect"
                         value={member.role}
-                        options={roleOptions(t)}
+                        options={roles}
                         onChange={(val) => handleRoleChange(member.user_id, val)}
                         size="sm"
+                        ariaLabel={t('scrum.members.roleAria', { name: member.username })}
                       />
                     ) : (
+                      // 바꿀 수 없는 역할은 글자로만. 관리자가 보는 마지막 관리자 칸은 자물쇠로 그 이유를 보인다.
                       <span
-                        className="ScrumMembers__RoleBadge"
-                        title={isLastAdminRow ? t('scrum.members.lastAdminRoleLocked') : ''}
+                        className="ScrumMembers__RoleText"
+                        title={showLock ? t('scrum.members.lastAdminRoleLocked') : undefined}
                       >
-                        {member.role}
+                        {showLock && <Lock size={12} aria-hidden="true" />}
+                        {roles.find((o) => o.value === member.role)?.label}
                       </span>
                     )}
                   </span>
@@ -298,6 +323,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
                               username: member.username,
                             })}
                             title={t('scrum.members.removeTitle')}
+                            aria-label={t('scrum.members.removeTitle')}
                           >
                             <X size={14} />
                           </button>
@@ -319,7 +345,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave 
             className="ScrumMembers__LeaveBtn"
             onClick={handleLeave}
           >
-            <LogOut size={14} />
+            <LogOut size={15} />
             {t('scrum.members.leaveBoard')}
           </button>
         </footer>

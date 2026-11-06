@@ -697,8 +697,8 @@ export function sweepRepo({ read = (rel) => readFileSync(resolve(ROOT, rel), 'ut
   // dead와 같은 성격이지만 축이 달라 따로 낸다 — 원장이 조용히 낡는 것을 막는다.
   const deferredUnused = deferredPool.filter((s) => !s.used).map((s) => `${fmtEntry(s.e)} — 미소비 유예`);
   // ── 완료 판정의 정본 ─────────────────────────────────────────────────────────
-  // 사용자 결정(S9): 완료 기준은 "전역 over 0"이 아니라 **"신규·무소유 over 0 + 선행 debt 74 exact"**다.
-  // 선행 슬라이스가 소유한 74건은 공식 deferred debt로 남기고, S9는 자기가 만든 색만 책임진다.
+  // 사용자 결정(S9): 완료 기준은 "전역 over 0"이 아니라 **"신규·무소유 over 0 + 선행 debt 73 exact"**다.
+  // 선행 슬라이스가 소유한 73건은 공식 deferred debt로 남기고, S9는 자기가 만든 색만 책임진다.
   // ⚠️ unownedOver는 over에서 유예를 **consume-once로** 차감한 나머지다. 소속 판정이 아니라
   //    슬롯이라 같은 튜플의 N+1번째 출현은 여기 그대로 드러난다.
   const deferredSet = new Set(deferred);

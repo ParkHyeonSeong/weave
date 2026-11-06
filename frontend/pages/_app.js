@@ -118,6 +118,7 @@ import "@/styles/components/track/track.scss";
 import "@/styles/components/track/tracksIndex.scss";
 import "@/styles/components/track/trackSettings.scss";
 import "@/styles/components/scrum/scrum.scss";
+import "@/styles/components/scrum/scrumSettings.scss";
 import "@/styles/components/shared/refPanelPageLayout.scss";
 import "@/styles/components/shared/linkHoverPopover.scss";
 import "@/styles/components/shared/collabStatusBadge.scss";

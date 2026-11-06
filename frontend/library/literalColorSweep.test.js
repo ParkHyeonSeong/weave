@@ -544,19 +544,20 @@ describe('실 레포 스윕', () => {
   });
 
   // ── S9 완료 기준 (사용자 결정) ────────────────────────────────────────────────
-  // "전역 over 0"이 아니라 **"신규·무소유 over 0 + 선행 debt 74 exact"**다.
-  // 선행 슬라이스가 소유한 74건은 공식 deferred debt로 남기고 S9는 자기 색만 책임진다.
-  // ⛔ 이 계약은 debt를 **exact 74로 못박아** 성립한다 — 숫자를 늘려 새 색을 밀어 넣지 마라.
+  // "전역 over 0"이 아니라 **"신규·무소유 over 0 + 선행 debt 73 exact"**다.
+  // 선행 슬라이스가 소유한 73건은 공식 deferred debt로 남기고 S9는 자기 색만 책임진다.
+  // ⛔ 이 계약은 debt를 **exact 73으로 못박아** 성립한다 — 숫자를 늘려 새 색을 밀어 넣지 마라.
   //    debt를 줄이는 유일한 길은 소유 슬라이스가 실제로 이행/등록하고 이 수를 함께 내리는 것이다.
+  //    74 → 73 (2026-11-06): 스크럼 설정 헤더의 보드 색 점(#16A34A 폴백)을 화면에서 뺐다(S7 후속 26 → 25).
   const DEBT_BY_OWNER = {
-    'S7 후속': 26,
+    'S7 후속': 25,
     'S6 Flow': 4,
     'S6/S7 Track': 9,
     'S6 엔티티 팔레트': 12,
     'S6 아바타 팔레트': 13,
     S3: 10,
   };
-  const DEBT_TOTAL = Object.values(DEBT_BY_OWNER).reduce((a, b) => a + b, 0);   // 74
+  const DEBT_TOTAL = Object.values(DEBT_BY_OWNER).reduce((a, b) => a + b, 0);   // 73
 
   it('신규·무소유 색이 0건이다 (S9 완료 기준)', () => {
     const { unownedOver, deferredByOwner } = sweepRepo();
@@ -565,7 +566,7 @@ describe('실 레포 스윕', () => {
       + unownedOver.join('\n')).toEqual([]);
   });
 
-  it('선행 debt가 정확히 74건이고 owner별 수량이 고정이다', () => {
+  it('선행 debt가 정확히 73건이고 owner별 수량이 고정이다', () => {
     const { over, deferred, deferredByOwner } = sweepRepo();
     expect(PRIOR_SLICE_DEFERRED, '원장 항목 수').toHaveLength(DEBT_TOTAL);
     expect(deferred, '실제 소비된 유예 수').toHaveLength(DEBT_TOTAL);

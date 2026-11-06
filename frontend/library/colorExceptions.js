@@ -1704,7 +1704,7 @@ const S9_EDGE_EXCEPTIONS = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ⚠️ **선행 슬라이스로 되돌린 항목(74건). 이것은 예외가 아니라 "아직 결론이 안 난 색"이다.**
+// ⚠️ **선행 슬라이스로 되돌린 항목(73건). 이것은 예외가 아니라 "아직 결론이 안 난 색"이다.**
 //
 // S9가 이 색들을 COLOR_EXCEPTIONS에 넣으면 "리터럴이 정답"이라고 선언하는 것이 되는데,
 // 실제로는 그 반대다 — 대부분 사용자 설정색을 잃고 있거나(S7 stored-color 축), 선행
@@ -1795,9 +1795,6 @@ export const PRIOR_SLICE_DEFERRED = [
   { file: 'components/Home/shared/ProgressRing.js', selector: null, prop: 'color', value: '#5E6AD2',
     owner: 'S7 후속',
     reason: '진행률 링의 stored-color 폴백 — 파일 주석이 이미 "color는 stored-color 폴백이라 S7 소유"라고 적고 있다. 저장색 렌더타임 보정 축이라 S9 단독 판정은 축을 가른다.' },
-  { file: 'components/Scrum/Settings/ScrumSettings.js', selector: '[style]', prop: 'background', value: '#16A34A',
-    owner: 'S7 후속',
-    reason: '스크럼 설정 헤더의 보드 색 점 — board.color 폴백 — 사용자가 고른 보드 색을 소비한다.' },
   { file: 'components/Track/BulkAddModal.js', selector: '[style]', prop: 'background', value: '#9CA3AF',
     owner: 'S6/S7 Track',
     reason: 'Track 트리·타임라인·상세의 상태/브랜치 색 폴백 — track.scss 계열 표면과 같은 축이다. S7 표면 프로파일 correction이 이 파일들의 부모 표면을 이미 판정했으므로 S9 단독 재분류는 축을 가른다.' },
