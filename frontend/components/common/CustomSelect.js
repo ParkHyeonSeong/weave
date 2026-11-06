@@ -18,15 +18,16 @@ import DropdownPortal from './DropdownPortal';
  * @param {string} [ariaLabel] - 화면에 보이는 라벨이 없는 셀렉트(목록 행 안 등)의 접근 가능한 이름
  * @param {boolean} [disabled=false] - 저장 중 등 일시적으로 조작을 막을 때
  * @param {boolean} [returnFocusOnEscape=false] - Esc로 목록을 닫을 때 포커스를 트리거로 돌린다(키보드로 쓰는 창 안 목록용)
+ * @param {boolean} [returnFocusOnSelect=false] - 항목을 골라 목록을 닫을 때 포커스를 트리거로 돌린다 — 항목과 함께 포커스가 사라지지 않게(키보드로 쓰는 창 안 목록용)
  */
 export default function CustomSelect({
   value, options, onChange, placeholder, size = 'md', className = '',
-  hideArrow = false, ariaLabel, disabled = false, returnFocusOnEscape = false,
+  hideArrow = false, ariaLabel, disabled = false, returnFocusOnEscape = false, returnFocusOnSelect = false,
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null); // 트리거
-  const triggerRef = useRef(null); // 트리거 버튼(Esc 뒤 포커스 복귀용)
+  const triggerRef = useRef(null); // 트리거 버튼(목록을 닫은 뒤 포커스 복귀용)
   const dropdownRef = useRef(null); // 포털된 드롭다운
   const listId = useId(); // 트리거의 aria-controls — 포털된 목록을 찾아갈 수 있게(모달의 Tab 순환 등)
 
@@ -64,6 +65,7 @@ export default function CustomSelect({
   const handleSelect = (opt) => {
     onChange(opt.value);
     setOpen(false);
+    if (returnFocusOnSelect) triggerRef.current?.focus();
   };
 
   const handleTriggerClick = (e) => {

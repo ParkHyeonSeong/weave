@@ -4,10 +4,12 @@
 // 열면 닫기 버튼으로 포커스가 옮겨 가고, Tab·Shift+Tab은 창 안(열린 역할 목록 포함)에서만 돈다.
 // 역할 목록이 열려 있으면 첫 Esc는 목록만 닫고 역할 선택 버튼으로, 다음 Esc는 창을 닫고 창을 연 버튼으로 돌아간다.
 // 역할 목록은 document.body에 포털된다 — 창 DOM 밖에 있어도 Tab 순서·Esc 순서에 들어와야 한다.
+// 역할을 고르면 목록이 사라져도 포커스는 역할 선택 버튼으로 돌아오고, 저장 응답·재조회가 그 흐름을 끊거나 빼앗지 않는다.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import ScrumMembersModal from '@/components/Scrum/ScrumMembersModal';
+import { showToast } from '@/components/Layout/Toast';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() }));
 
@@ -26,14 +28,18 @@ const MEMBERS = [
   { user_id: 1, username: '관리자', email: 'admin@example.com', role: 'admin' },
   { user_id: 2, username: '이서연', email: 'seoyeon@example.com', role: 'member' },
 ];
+// 이서연을 관리자로 바꾼 뒤의 재조회 응답 — 관리자가 둘이 되어 윗줄에도 역할 선택과 빼기 버튼이 생긴다
+const PROMOTED = MEMBERS.map((m) => ({ ...m, role: 'admin' }));
 
 let root;
 let container;
 let onClose;
+let onChanged;
 
 // 보드 머리의 '멤버' 버튼과 그 뒤쪽 보드 조작 요소를 흉내 낸다
 function Harness() {
   const [open, setOpen] = useState(false);
+  const [, refreshBoard] = useState(0);   // 멤버가 바뀌면 부모(보드)도 다시 그려진다
   return (
     <>
       <button type="button" className="Opener" onClick={() => setOpen(true)}>멤버</button>
@@ -45,6 +51,7 @@ function Harness() {
           myRole="admin"
           count={MEMBERS.length}
           onClose={() => { onClose(); setOpen(false); }}
+          onChanged={() => { onChanged(); refreshBoard((n) => n + 1); }}
         />
       )}
     </>
@@ -60,6 +67,9 @@ const roleTrigger = () => $('.ScrumMembers__RoleSelect .CustomSelect__Trigger');
 const removeBtn = () => $('.ScrumMembers__RemoveBtn');
 const leaveBtn = () => $('.ScrumMembers__LeaveBtn');
 const options = () => [...document.querySelectorAll('.CustomSelect__Option')];
+const roleTriggerOf = (name) => $(`.CustomSelect__Trigger[aria-label*="${name}"]`);
+const removeBtnOf = (name) => [...document.querySelectorAll('.ScrumMembers__Row')]
+  .find((row) => row.textContent.includes(name)).querySelector('.ScrumMembers__RemoveBtn');
 
 async function openModal() {
   opener().focus();
@@ -79,10 +89,24 @@ function openRoleList() {
   act(() => { roleTrigger().click(); });   // 버튼 위 Enter와 같은 동작
 }
 
+// 목록을 열고 Tab으로 '관리자' 항목까지 간 뒤 고른다 — jsdom은 Enter로 click을 만들지 않으므로 항목 위 Enter와 같은 click으로
+function chooseAdminByKeyboard() {
+  openRoleList();
+  press('Tab');
+  press('Tab');
+  expect(document.activeElement).toBe(options()[1]);
+  act(() => { options()[1].click(); });
+}
+
+// 저장 응답 → 멤버 재조회 → 부모 갱신까지 흘려보낸다
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+
 beforeEach(() => {
   sessionStorage.setItem('profile', JSON.stringify({ user_id: 1 }));
   api.get.mockResolvedValue({ data: { status: true, members: MEMBERS } });
+  api.patch.mockResolvedValue({ data: { status: true } });
   onClose = vi.fn();
+  onChanged = vi.fn();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -226,5 +250,102 @@ describe('멤버 창 Esc 순서', () => {
     expect(dialog()).not.toBeNull();
     expect(onClose).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(roleTrigger());
+  });
+});
+
+describe('역할을 고른 뒤 키보드 이동', () => {
+  it('목록이 닫히면 포커스가 역할 선택 버튼으로 돌아오고 Tab·Shift+Tab이 그 버튼에서 이어진다', async () => {
+    api.patch.mockReturnValue(new Promise(() => {}));   // 응답을 기다리는 동안에도 이어져야 한다
+    await openModal();
+    chooseAdminByKeyboard();
+    expect(options()).toHaveLength(0);
+    expect(document.activeElement).toBe(roleTrigger());
+
+    press('Tab');
+    expect(document.activeElement).toBe(removeBtn());
+    press('Tab', true);
+    expect(document.activeElement).toBe(roleTrigger());
+    press('Tab', true);
+    expect(document.activeElement).toBe(inviteBtn());
+  });
+
+  it('저장 뒤 멤버를 다시 불러오는 동안에도, 반영된 뒤에도 포커스가 역할 선택 버튼에 남아 이동이 이어진다', async () => {
+    await openModal();
+    let respondRefetch;
+    api.get.mockReturnValue(new Promise((r) => { respondRefetch = r; }));
+    chooseAdminByKeyboard();
+    await settle();   // 저장 응답까지만 — 재조회는 응답을 기다린다
+
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(api.patch).toHaveBeenCalledWith('/scrum/4/members/2', { role: 'admin' });
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(document.activeElement).toBe(roleTrigger());
+
+    act(() => { respondRefetch({ data: { status: true, members: PROMOTED } }); });
+    await settle();
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(roleTriggerOf('이서연').textContent).toBe('scrum.members.roleAdmin');
+    expect(document.activeElement).toBe(roleTriggerOf('이서연'));
+
+    press('Tab');
+    expect(document.activeElement).toBe(removeBtnOf('이서연'));
+    press('Tab', true);
+    expect(document.activeElement).toBe(roleTriggerOf('이서연'));
+    press('Tab', true);
+    expect(document.activeElement).toBe(removeBtnOf('관리자'));   // 재조회로 새로 생긴 윗줄 버튼
+  });
+
+  it('응답 전에 다른 버튼으로 옮겨 갔으면 늦은 응답이 포커스를 되돌리지 않는다', async () => {
+    let respond;
+    api.patch.mockReturnValue(new Promise((r) => { respond = r; }));
+    await openModal();
+    api.get.mockResolvedValue({ data: { status: true, members: PROMOTED } });
+    chooseAdminByKeyboard();
+    press('Tab');
+    const moved = removeBtnOf('이서연');
+    expect(document.activeElement).toBe(moved);
+
+    act(() => { respond({ data: { status: true } }); });
+    await settle();
+    expect(roleTriggerOf('이서연').textContent).toBe('scrum.members.roleAdmin');
+    expect(document.activeElement).toBe(moved);
+  });
+
+  it.each([
+    ['실패 응답', () => api.patch.mockResolvedValue({ data: { status: false, code: 'LAST_ADMIN', message: 'LAST_ADMIN' } })],
+    ['네트워크 오류', () => api.patch.mockRejectedValue(new Error('network'))],
+  ])('%s에도 오류 안내를 띄우고 역할 값을 유지하며, 키보드로 계속 조작할 수 있다', async (_, fail) => {
+    fail();
+    await openModal();
+    chooseAdminByKeyboard();
+    await settle();
+
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast.mock.calls[0][1]).toBe('error');
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(roleTrigger().textContent).toBe('scrum.members.roleMember');
+    expect(document.activeElement).toBe(roleTrigger());
+
+    press('Tab');
+    expect(document.activeElement).toBe(removeBtn());
+    press('Tab', true);
+    act(() => { roleTrigger().click(); });
+    expect(options()).toHaveLength(2);
+  });
+
+  it('마우스로 골라도 값을 한 번만 저장하고 창은 그대로이며, 포커스는 역할 선택 버튼에 놓인다', async () => {
+    await openModal();
+    api.get.mockResolvedValue({ data: { status: true, members: PROMOTED } });
+    act(() => { roleTrigger().click(); });
+    act(() => { options()[1].click(); });
+    await settle();
+
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(api.patch).toHaveBeenCalledWith('/scrum/4/members/2', { role: 'admin' });
+    expect(options()).toHaveLength(0);
+    expect(dialog()).not.toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(roleTriggerOf('이서연'));
   });
 });

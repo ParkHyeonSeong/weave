@@ -283,6 +283,7 @@ export default function ScrumMembersPanel({ boardId, myRole, onChanged, onLeave,
                         size="sm"
                         ariaLabel={t('scrum.members.roleAria', { name: member.username })}
                         returnFocusOnEscape
+                        returnFocusOnSelect
                       />
                     ) : (
                       // 바꿀 수 없는 역할은 글자로만. 관리자가 보는 마지막 관리자 칸은 자물쇠로 그 이유를 보인다.

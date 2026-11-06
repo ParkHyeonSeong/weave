@@ -2,7 +2,7 @@
 //
 // 공용 CustomSelect — 모달 밖 일반 사용처의 열기·선택·닫기가 그대로인지, 그리고 열린 목록을 닫은 Esc를
 // '처리됨'(preventDefault)으로 표시해 바깥 창이 같은 Esc로 함께 닫히지 않게 하는지.
-// 포커스 복귀는 켠 곳(returnFocusOnEscape)에서만이다 — 다른 사용처의 포커스 동작은 그대로다.
+// 포커스 복귀는 켠 곳(returnFocusOnEscape·returnFocusOnSelect)에서만이다 — 다른 사용처의 포커스 동작은 그대로다.
 // 목록은 DropdownPortal로 document.body에 포털된다.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, useState } from 'react';
@@ -115,6 +115,26 @@ describe('CustomSelect — Esc', () => {
     act(() => { trigger().click(); });
     focusTarget().focus();
     expect(press('Escape').defaultPrevented).toBe(true);
+    expect(options()).toHaveLength(0);
+    expect(document.activeElement).toBe(trigger());
+  });
+});
+
+describe('CustomSelect — 항목을 고른 뒤 포커스', () => {
+  it('기본은 포커스를 옮기지 않는다 — 다른 칸으로 옮겨 간 포커스를 끌어오지 않는다', () => {
+    act(() => { trigger().click(); });
+    $('.Outside').focus();
+    act(() => { options()[1].click(); });
+    expect(onChange).toHaveBeenCalledWith('old');
+    expect(document.activeElement).toBe($('.Outside'));
+  });
+
+  it('returnFocusOnSelect면 고른 항목이 사라져도 포커스가 트리거로 돌아간다', () => {
+    act(() => { root.render(<Harness returnFocusOnSelect />); });
+    act(() => { trigger().click(); });
+    options()[1].focus();
+    act(() => { options()[1].click(); });
+    expect(onChange).toHaveBeenCalledWith('old');
     expect(options()).toHaveLength(0);
     expect(document.activeElement).toBe(trigger());
   });
