@@ -168,6 +168,7 @@ export default function CommandPalette({ onClose }) {
     // 한글 조합을 끝내는 Enter가 맨 위 명령 실행으로 새지 않게 (레포 컨벤션, useRefSearchPopup과 같음)
     if (e.nativeEvent.isComposing) return;
     if (e.key === 'Escape') {
+      e.preventDefault(); // 처리한 Esc임을 알린다 — 뒤에 떠 있는 창(멤버 창)이 같은 Esc로 함께 닫히지 않게
       onClose();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();

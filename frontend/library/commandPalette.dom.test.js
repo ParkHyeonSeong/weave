@@ -92,10 +92,10 @@ async function type(value) {
     input().dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
-async function press(key) {
-  await act(async () => {
-    input().dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-  });
+async function press(key, init) {
+  const ev = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+  await act(async () => { input().dispatchEvent(ev); });
+  return ev;
 }
 // 300ms 디바운스가 지나고 검색 응답까지 반영될 때까지
 async function settle() {
@@ -179,6 +179,39 @@ describe('CommandPalette — 한글 조합 중 Enter', () => {
     await press('Enter');
     window.removeEventListener('layout:create-track', heard);
     expect(heard).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('CommandPalette — Esc', () => {
+  it('Esc는 창을 한 번 닫고 처리됨으로 표시한다 — 뒤에 떠 있는 창이 같은 Esc로 함께 닫히지 않게', async () => {
+    await mount();
+    const ev = await press('Escape');
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it('한글 조합 중 Esc는 닫지 않고 처리됨으로 표시하지도 않는다', async () => {
+    await mount();
+    const ev = await press('Escape', { isComposing: true });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(ev.defaultPrevented).toBe(false);
+  });
+});
+
+describe('CommandPalette — 방향키와 Enter', () => {
+  it('아래·위 방향키로 고른 항목을 Enter로 실행한다', async () => {
+    await mount();
+    await type('go to');
+    const active = () => document.querySelector('.CommandPalette__Item--active').textContent;
+    const texts = itemTexts();
+    await press('ArrowDown');
+    await press('ArrowDown');
+    await press('ArrowUp');
+    expect(active()).toBe(texts[1]);
+
+    await press('Enter');
+    expect(push).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalled();
   });
 });

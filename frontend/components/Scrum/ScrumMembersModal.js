@@ -27,6 +27,7 @@ export default function ScrumMembersModal({ boardId, myRole, count, onClose, onC
   const titleId = useId();
   const dialogRef = useRef(null);
   const closeRef = useRef(null);
+  const lastFocusRef = useRef(null); // 창 안에서 마지막으로 포커스가 있던 곳
 
   // 열 때 포커스가 있던 곳(머리의 '멤버' 버튼)을 기억해 두고 닫기 버튼으로 옮긴다 — 닫히면(언마운트) 되돌린다
   useEffect(() => {
@@ -35,11 +36,15 @@ export default function ScrumMembersModal({ boardId, myRole, count, onClose, onC
     return () => { if (opener?.isConnected) opener.focus(); };
   }, []);
 
-  // ESC 닫기 + Tab 순환. 열린 역할 목록이 먼저 받은 Esc(preventDefault로 처리됨 표시)는 목록만 닫는다.
+  // ESC 닫기 + Tab 순환. 먼저 처리된 Esc(preventDefault로 표시)는 창을 닫지 않는다 — 열린 역할 목록은 목록만, 명령 팔레트는
+  // 팔레트만 닫고 포커스는 창 안으로 되찾는다(이때 팔레트는 이미 내려가 있을 수 있어 activeElement로는 층을 가릴 수 없다).
+  // 한글 조합 중 Esc는 조합만 끝낸다 — 팔레트도 이 Esc로 닫히지 않으므로 뒤의 창이 대신 닫히면 안 된다.
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'Escape') {
-        if (!e.defaultPrevented) onClose();
+        if (e.isComposing) return;
+        if (e.defaultPrevented) lastFocusRef.current?.focus();
+        else onClose();
         return;
       }
       if (e.key !== 'Tab' || !dialogRef.current) return;
@@ -69,6 +74,7 @@ export default function ScrumMembersModal({ boardId, myRole, count, onClose, onC
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(e) => e.stopPropagation()}
+        onFocus={(e) => { lastFocusRef.current = e.target; }}
       >
         <header className="ScrumMembers__Head">
           {/* 하루 보기 팀원 목록 제목('팀원 2')과 같은 모양 — 아이콘 없이 이름과 인원 */}
