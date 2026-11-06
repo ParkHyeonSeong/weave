@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useId } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import DropdownPortal from './DropdownPortal';
@@ -17,15 +17,18 @@ import DropdownPortal from './DropdownPortal';
  * @param {string} [className='']
  * @param {string} [ariaLabel] - 화면에 보이는 라벨이 없는 셀렉트(목록 행 안 등)의 접근 가능한 이름
  * @param {boolean} [disabled=false] - 저장 중 등 일시적으로 조작을 막을 때
+ * @param {boolean} [returnFocusOnEscape=false] - Esc로 목록을 닫을 때 포커스를 트리거로 돌린다(키보드로 쓰는 창 안 목록용)
  */
 export default function CustomSelect({
   value, options, onChange, placeholder, size = 'md', className = '',
-  hideArrow = false, ariaLabel, disabled = false,
+  hideArrow = false, ariaLabel, disabled = false, returnFocusOnEscape = false,
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null); // 트리거
+  const triggerRef = useRef(null); // 트리거 버튼(Esc 뒤 포커스 복귀용)
   const dropdownRef = useRef(null); // 포털된 드롭다운
+  const listId = useId(); // 트리거의 aria-controls — 포털된 목록을 찾아갈 수 있게(모달의 Tab 순환 등)
 
   // 외부 클릭 감지 (트리거 + 포털된 드롭다운 둘 다 "내부"로 취급)
   useEffect(() => {
@@ -39,15 +42,21 @@ export default function CustomSelect({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // Escape 키
+  // Escape 키 — 목록만 닫는다. 목록이 떠 있었으면 preventDefault로 '처리됨'을 알려 바깥 창(모달 등)이
+  // 같은 Esc로 함께 닫히지 않게 한다.
   useEffect(() => {
     if (!open) return;
     const handleKey = (e) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key !== 'Escape') return;
+      const shown = !!dropdownRef.current;
+      setOpen(false);
+      if (!shown) return;
+      e.preventDefault();
+      if (returnFocusOnEscape) triggerRef.current?.focus();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [open]);
+  }, [open, returnFocusOnEscape]);
 
   const placeholderText = placeholder ?? t('common.select.placeholder');
   const selected = options.find((o) => String(o.value) === String(value));
@@ -73,10 +82,13 @@ export default function CustomSelect({
     >
       {/* 트리거 */}
       <button
+        ref={triggerRef}
         type="button"
         className="CustomSelect__Trigger"
         onClick={handleTriggerClick}
         aria-label={ariaLabel}
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? listId : undefined}
         disabled={disabled}
       >
         <span className="CustomSelect__Value">
@@ -100,7 +112,7 @@ export default function CustomSelect({
 
       {/* 드롭다운 (body 포털) — 루트 밖에 렌더되므로 size 모디파이어를 드롭다운에 직접 부여 */}
       <DropdownPortal anchorRef={ref} open={isOpen} dropdownRef={dropdownRef}>
-        <div className={`CustomSelect__Dropdown CustomSelect__Dropdown--${size}`}>
+        <div id={listId} className={`CustomSelect__Dropdown CustomSelect__Dropdown--${size}`}>
           {options.map((opt) => (
             <button
               key={String(opt.value)}

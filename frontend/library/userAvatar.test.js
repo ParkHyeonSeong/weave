@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { avatarInitials, userColor, AVATAR_COLORS, avatarMarkup } from './userAvatar.js';
+import { contrastRatio, TEXT_MIN } from './colorContrast.js';
 
 describe('avatarInitials', () => {
   const cases = [
@@ -76,5 +77,42 @@ describe('avatarMarkup', () => {
     expect(m.initials).toBe('AL');
     expect(m.color).toBe('#DC2626');
     expect(m.title).toBe('Ada Lovelace');
+  });
+});
+
+// 화면에 칠하는 색(avatarMarkup.color) — 흰 이니셜이 읽히도록 대비가 낮은 두 팔레트색만 진하게 칠한다.
+// 저장·전송 쪽(AVATAR_COLORS 자리, user_id 배정, 프로필 저장값, awareness 색)은 그대로다.
+describe('avatarMarkup — 화면 표시색', () => {
+  it('팔레트 12색 모두 화면에 칠하는 색은 흰 이니셜과 4.5:1 이상이다', () => {
+    for (const c of AVATAR_COLORS) {
+      const shown = avatarMarkup({ username: 'a', avatar_color: c }).color;
+      expect(contrastRatio('#FFFFFF', shown), `${c} → ${shown}`).toBeGreaterThanOrEqual(TEXT_MIN);
+    }
+  });
+
+  it.each([
+    ['자동 배정 user_id 1(#059669 자리)', { username: 'a', user_id: 1 }, '#047857'],
+    ['자동 배정 user_id 7(#0D9488 자리)', { username: 'a', user_id: 7 }, '#0F766E'],
+    ['직접 고른 저장값 #059669', { username: 'a', user_id: 3, avatar_color: '#059669' }, '#047857'],
+    ['직접 고른 저장값 #0D9488', { username: 'a', user_id: 3, avatar_color: '#0D9488' }, '#0F766E'],
+    ['협업 awareness 모양(name·color)', { name: 'a', userId: 5, color: '#059669', avatar_color: null }, '#047857'],
+    ['팔레트 밖 저장값은 지금처럼 무시하고 user_id 색', { username: 'a', user_id: 1, avatar_color: '#123456' }, '#047857'],
+  ])('%s → 진한 표시색', (_, user, shown) => {
+    expect(avatarMarkup(user).color).toBe(shown);
+  });
+
+  it('나머지 10색과 id 없는 사용자의 회색은 저장값 그대로 칠한다', () => {
+    const unchanged = ['#5E6AD2', '#B45309', '#9333EA', '#BE185D', '#0369A1', '#DC2626', '#A16207', '#7C3AED', '#DB2777', '#475569'];
+    for (const c of unchanged) expect(avatarMarkup({ username: 'a', avatar_color: c }).color).toBe(c);
+    expect(avatarMarkup({ username: 'a' }).color).toBe('#9CA3AF');
+  });
+
+  it('저장·전송 쪽 값은 그대로다 — 팔레트 자리, user_id 배정, 허용 판정(대소문자 구분)', () => {
+    expect(AVATAR_COLORS[1]).toBe('#059669');
+    expect(AVATAR_COLORS[7]).toBe('#0D9488');
+    expect(userColor(1)).toBe('#059669');   // awareness color·백엔드 user_color와 같은 값
+    expect(userColor(7)).toBe('#0D9488');
+    expect(userColor(3, '#0D9488')).toBe('#0D9488');
+    expect(userColor(3, '#0d9488')).toBe(userColor(3));   // 소문자는 지금처럼 팔레트 밖
   });
 });

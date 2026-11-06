@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { act } from 'react';
+import { createRoot } from 'react-dom/client';
 import { buildAvatarDOM, avatarMarkup } from './userAvatar.js';
+import Avatar from '@/components/common/Avatar';
+
+vi.mock('@/library/_axios', () => ({ getBaseURL: () => '' }));
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 describe('buildAvatarDOM', () => {
   it('사진 있으면 baseUrl 접두된 img 렌더', () => {
@@ -35,6 +42,55 @@ describe('buildAvatarDOM', () => {
     const el = buildAvatarDOM({ username: '<img src=x onerror=alert(1)>', user_id: 1 });
     expect(el.querySelector('img')).toBeNull();
     expect(el.innerHTML).not.toContain('<img');
+  });
+});
+
+// 공용 <Avatar>와 협업 커서용 buildAvatarDOM은 같은 사용자를 같은 색으로 칠한다(jsdom은 hex를 rgb()로 돌려준다)
+describe('<Avatar>와 buildAvatarDOM — 같은 표시색', () => {
+  let root;
+  let container;
+  afterEach(() => {
+    if (root) act(() => { root.unmount(); });
+    container?.remove();
+    root = null;
+  });
+  function renderAvatar(user) {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    act(() => { root.render(<Avatar user={user} />); });
+    return container.querySelector('.Avatar');
+  }
+
+  it.each([
+    ['자동 배정 #059669 자리', { username: 'henry', user_id: 1 }, 'rgb(4, 120, 87)'],
+    ['저장값 #0D9488', { username: 'henry', user_id: 3, avatar_color: '#0D9488' }, 'rgb(15, 118, 110)'],
+    ['저장값 #059669', { username: 'henry', user_id: 3, avatar_color: '#059669' }, 'rgb(4, 120, 87)'],
+    ['나머지 색은 그대로(#9333EA)', { username: 'henry', user_id: 3 }, 'rgb(147, 51, 234)'],
+  ])('%s', (_, user, bg) => {
+    expect(buildAvatarDOM(user).style.background).toBe(bg);
+    const el = renderAvatar(user);
+    expect(el.style.background).toBe(bg);
+    expect(el.textContent).toBe('HE');
+  });
+
+  it('사진이 있으면 사진을 먼저 보이고, 깨지면 이니셜과 같은 표시색으로 바뀐다(둘 다)', () => {
+    const user = { username: '김철수', user_id: 7, avatar_url: '/api/uploads/avatars/broken.png' };
+
+    const dom = buildAvatarDOM(user);
+    expect(dom.querySelector('img')).not.toBeNull();
+    expect(dom.style.background).toBe('');
+    dom.querySelector('img').onerror();
+    expect(dom.textContent).toBe('철수');
+    expect(dom.style.background).toBe('rgb(15, 118, 110)');
+
+    const el = renderAvatar(user);
+    expect(el.querySelector('img')).not.toBeNull();
+    expect(el.style.background).toBe('');
+    act(() => { el.querySelector('img').dispatchEvent(new Event('error')); });
+    expect(el.querySelector('img')).toBeNull();
+    expect(el.textContent).toBe('철수');
+    expect(el.style.background).toBe('rgb(15, 118, 110)');
   });
 });
 

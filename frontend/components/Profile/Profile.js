@@ -7,7 +7,7 @@ import AppearanceSection from '@/components/Profile/AppearanceSection';
 import LanguageRegionSection from '@/components/Profile/LanguageRegionSection';
 import { useTranslation } from 'react-i18next';
 import Avatar from '@/components/common/Avatar';
-import { AVATAR_COLORS } from '@/library/userAvatar';
+import { AVATAR_COLORS, avatarDisplayColor } from '@/library/userAvatar';
 import { getError } from '@/library/errorCode';
 import { errorText } from '@/library/errorText';
 
@@ -313,12 +313,13 @@ export default function Profile() {
               >
                 {t('account.avatar.auto')}
               </button>
+              {/* 스와치는 아바타와 같은 화면 표시색으로 칠하고, 고름 판정·저장 요청은 팔레트 값(c) 그대로 */}
               {AVATAR_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   className={`Profile__ColorSwatch ${avatarColor === c ? 'Profile__ColorSwatch--selected' : ''}`}
-                  style={{ background: c }}
+                  style={{ background: avatarDisplayColor(c) }}
                   title={c}
                   onClick={() => handleColorSelect(c)}
                 />

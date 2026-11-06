@@ -112,7 +112,7 @@ const S5_S6_COLOR_EXCEPTIONS = [
   { file: 'styles/components/canvas/typstEditor.scss', selector: '.TypstEditor__Code .yRemoteSelectionHead::after', prop: 'color', value: '#fff', category: 'fixed-on-color',
     reason: 'background가 inherit로 협업자 커서 색을 받는다. 배경이 임의 사용자 색이라 테마 토큰으로 대체할 수 없다.' },
   { file: 'styles/components/canvas/canvasCollabEditor.scss', selector: '.collaboration-cursor__avatar', prop: 'color', value: 'white', category: 'fixed-on-color',
-    reason: 'buildAvatarDOM이 세팅하는 AVATAR_COLORS 12색은 library/userAvatar.js:6 주석대로 흰 텍스트 4.5:1 기준으로 선정됐다. 테마와 무관하게 흰색이 옳다.' },
+    reason: 'buildAvatarDOM이 칠하는 아바타 표시색(library/userAvatar.js avatarDisplayColor)은 흰 텍스트 4.5:1 이상이다. 테마와 무관하게 흰색이 옳다.' },
   { file: 'styles/components/canvas/typstEditor.scss', selector: '.TypstEditor__Page', prop: 'box-shadow', value: 'rgba(0, 0, 0, 0.08)', category: 'overlay-scrim',
     reason: 'print-paper로 고정한 흰 종이를 배경에서 띄우는 그림자다. 아래 표면이 테마 토큰이 아니라 고정 흰색이라 --shadow-* 로 옮기면 다크에서 그림자만 짙어져 종이 가장자리가 탁해진다.' },
   { file: 'styles/components/canvas/typstEditor.scss', selector: '.CanvasPageView__TypstPage', prop: 'box-shadow', value: 'rgba(0, 0, 0, 0.08)', category: 'overlay-scrim',
@@ -124,7 +124,7 @@ const S5_S6_COLOR_EXCEPTIONS = [
 
   // --- S6: profile ---
   { file: 'styles/components/profile/profile.scss', selector: '.Profile__ColorSwatch', prop: 'box-shadow', value: 'rgba(0, 0, 0, 0.06)', category: 'fixed-on-color',
-    reason: '스와치 배경은 Profile.js:317의 style={{ background: c }}로 칠하는 AVATAR_COLORS 팔레트색이다. 밝은 스와치의 경계를 잡는 inset 링이라 테마 불변이다.' },
+    reason: '스와치 배경은 Profile.js의 style={{ background: avatarDisplayColor(c) }}로 칠하는 아바타 표시색이다. 밝은 스와치의 경계를 잡는 inset 링이라 테마 불변이다.' },
   { file: 'styles/components/profile/profile.scss', selector: '.Profile__ColorSwatch--selected', prop: 'border-color', value: '#fff', category: 'fixed-on-color',
     reason: '선택 표시 링이 팔레트색 스와치 위에 직접 얹힌다. 배경이 임의 preset 색이라 테마 토큰으로 바꾸면 밝은 스와치에서 링이 사라진다.' },
   { file: 'styles/components/profile/profile.scss', selector: '.Profile__AvatarOverlay', prop: 'background', value: 'rgba(0, 0, 0, 0.4)', category: 'overlay-scrim',
@@ -1701,6 +1701,14 @@ const S9_EDGE_EXCEPTIONS = [
   { file: 'styles/components/branch/taskDetailPanel.scss', selector: '.TaskDescEditor__Content .tiptap .ResizableImage__Handle', prop: 'border', value: 'white',
     category: 'fixed-on-color',
     reason: '이미지 리사이즈 핸들(보라 사각형) 위 흰 테두리 — 핸들 배경이 --color-primary(보라)라 그 위 테두리는 배경과 함께 정해지는 고정 잉크다. 토큰으로 바꾸면 다크에서 테두리가 사라져 핸들 경계가 안 보인다. MIGRATE가 아니라 fixed-on-color 등록 대상.' },
+  // 아바타 화면 표시색(2026-11-06) — Task 7 판정 뒤에 더한 2건. 흰 이니셜 대비가 4.5:1에 못 미치는 두 팔레트색을
+  // 화면에서만 진하게 칠하는 대응표(library/userAvatar.js AVATAR_DISPLAY_COLORS)의 표시색이다.
+  { file: 'library/userAvatar.js', selector: null, prop: 'AVATAR_COLORS', value: '#047857',
+    category: 'palette-source',
+    reason: '아바타 이니셜 배경의 화면 표시색 — 흰 이니셜과 4.5:1 이상(5.48)이 되도록 고른 고정색이다. 아바타 배경은 흰 글자와 짝이라 테마와 무관하게 같은 색이어야 해 테마 토큰으로 바꿀 수 없다.' },
+  { file: 'library/userAvatar.js', selector: null, prop: 'AVATAR_COLORS', value: '#0F766E',
+    category: 'palette-source',
+    reason: '아바타 이니셜 배경의 화면 표시색 — 흰 이니셜과 4.5:1 이상(5.47)이 되도록 고른 고정색이다. 아바타 배경은 흰 글자와 짝이라 테마와 무관하게 같은 색이어야 해 테마 토큰으로 바꿀 수 없다.' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -7,8 +7,10 @@
 // 훅이 아니라 i18next 인스턴스를 직접 읽는다(errorText.js와 같은 규약).
 import i18next from '@/library/i18n';
 
-// 모든 색이 흰 텍스트와 WCAG AA(4.5:1) 이상 대비를 갖도록 어두운 톤으로 선정.
+// 흰 텍스트와 WCAG AA(4.5:1) 이상 대비를 갖도록 어두운 톤으로 선정 — 4.5에 못 미치는 두 색(emerald-600·teal-600)은
+// 화면에서만 avatarDisplayColor로 한 단계 진하게 칠한다(아래).
 // 7 -> 12색 확대로 userId 해시 충돌 빈도를 낮춤.
+// ⚠️ 이 값·순서는 저장·전송 계약이다(프로필 저장값, 백엔드 허용 목록 user_avatar.py, user_id 배정, 협업 awareness 색).
 export const AVATAR_COLORS = [
   '#5E6AD2', // indigo
   '#059669', // emerald-600
@@ -74,6 +76,17 @@ export function userColor(userId, override) {
   return AVATAR_COLORS[Math.abs(Number(userId)) % AVATAR_COLORS.length];
 }
 
+// 화면 표시색 — 흰 이니셜 대비가 4.5:1에 못 미치는 두 팔레트색만 같은 계열의 한 단계 진한 색으로 칠한다
+// (흰 글자 대비 3.77 → 5.48, 3.74 → 5.47). 저장·전송 쪽 값(userColor·AVATAR_COLORS)은 바꾸지 않는다.
+const AVATAR_DISPLAY_COLORS = new Map([
+  [AVATAR_COLORS[1], '#047857'], // emerald-600 → emerald-700
+  [AVATAR_COLORS[7], '#0F766E'], // teal-600 → teal-700
+]);
+
+export function avatarDisplayColor(color) {
+  return AVATAR_DISPLAY_COLORS.get(color) ?? color;
+}
+
 // 서버가 발급하는 아바타 경로만 사진으로 신뢰한다.
 // (Y.js awareness 등 클라이언트 제어 채널로 외부 URL을 흘려보내
 // 다른 사용자 브라우저가 임의 도메인에 이미지 요청을 하게 되는 것 차단)
@@ -92,7 +105,7 @@ export function avatarMarkup(user, baseUrl = '') {
     name,
     title: name || i18next.t('misc.avatar.unknownUser'),
     initials: avatarInitials(name),
-    color: userColor(id, override),
+    color: avatarDisplayColor(userColor(id, override)),
     src: url ? `${baseUrl}${url}` : null,
   };
 }

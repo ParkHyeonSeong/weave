@@ -2101,6 +2101,7 @@ const en = {
     },
     avatar: {
       unknownUser: 'Unknown',
+      hiddenNames: '{{count}} more: {{names}}',
     },
     rawMode: {
       unsupportedWarning: 'Some formatting ({{items}}) cannot be expressed in markdown and will be simplified',

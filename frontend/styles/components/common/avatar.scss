@@ -50,4 +50,27 @@
       &:hover { background: color-mix(in srgb, var(--color-surface-hover) 95%, var(--color-text)); }
     }
   }
+
+  // +N에 가려진 이름(showHiddenNames) — 칩을 감싼 span이 스택의 한 칸이 된다
+  &__MoreWrap { display: inline-flex; }
+
+  // 이름 창 — DropdownPortal(body 포털, fixed)이 칩 오른쪽 끝에 맞춰 화면 안에 놓는다. 긴 이름은 줄을 바꾼다.
+  &__Names {
+    position: relative;
+    max-width: min(240px, calc(100vw - 16px));
+    margin: 0;
+    padding: 6px 10px;
+    list-style: none;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-bg);
+    box-shadow: var(--shadow-md);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--color-text);
+    overflow-wrap: anywhere;
+
+    // 칩과 창 사이 4px 틈을 덮는 투명한 다리 — 마우스가 창으로 건너가는 동안 닫히지 않는다
+    &::before { content: ''; position: absolute; left: 0; right: 0; bottom: 100%; height: 6px; }
+  }
 }

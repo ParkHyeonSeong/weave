@@ -2099,6 +2099,7 @@ const ko = {
     },
     avatar: {
       unknownUser: '알 수 없음',
+      hiddenNames: '외 {{count}}명: {{names}}',
     },
     rawMode: {
       unsupportedWarning: '일부 서식({{items}})은 markdown으로 표현되지 않아 단순화됩니다',
