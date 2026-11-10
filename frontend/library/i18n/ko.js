@@ -374,6 +374,9 @@ const ko = {
       widen: '{{day}} 넓게 보기',
     },
     carry: {
+      previousFriday: '지난주 금요일({{date}})',
+      previousLoading: '지난주 금요일 할 일을 확인하고 있어요…',
+      previousFailed: '지난주 금요일 할 일을 불러오지 못했어요.',
       button: '{{day}} 할 일 가져오기',
       hint: '끝난 항목은 빼고 가져와요',
       done: '{{day}} 할 일을 가져왔어요.',

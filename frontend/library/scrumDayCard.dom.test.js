@@ -293,11 +293,30 @@ describe('전날 할 일 가져오기', () => {
     refs.hydrateEditor.mockReset();
   });
 
-  it('월요일에는 가져오기 버튼이 없다', () => {
+  it('월요일의 지난주 금요일 원본이 없으면 가져오기 버튼이 없다', () => {
     renderCard({ isMe: true, dayIdx: 0 });
     expect(cell('7:0:plan')).not.toBeNull();
     expect(carryButton()).toBeUndefined();
     expect(doc.share.has('7:-1:plan')).toBe(false);   // 없는 '전날' 칸 키를 만들지도 않는다
+  });
+
+  it('월요일도 내 빈 칸에만 지난주 금요일 가져오기를 제공한다', () => {
+    const previousFriday = { status: 'ready', dateLabel: '11/6', doc: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '금요일 할 일' }] }] } };
+    renderCard({ isMe: true, dayIdx: 0, previousFriday });
+    expect(carryButton()).toBeDefined();
+    renderCard({ isMe: false, dayIdx: 0, previousFriday });
+    expect(carryButton()).toBeUndefined();
+    write(doc, '7:0:plan', '이미 작성한 월요일');
+    renderCard({ isMe: true, dayIdx: 0, previousFriday });
+    expect(carryButton()).toBeUndefined();
+  });
+
+  it('지난주 금요일의 빈 원본에는 버튼이 없고, 읽기 실패는 재시도를 보여준다', () => {
+    renderCard({ isMe: true, dayIdx: 0, previousFriday: { status: 'ready', doc: { type: 'doc', content: [] } } });
+    expect(carryButton()).toBeUndefined();
+    renderCard({ isMe: true, dayIdx: 0, previousFriday: { status: 'error', retry: () => {} } });
+    expect(container.textContent).toContain('scrum.carry.previousFailed');
+    expect(button('common.actions.retry')).toBeDefined();
   });
 
   it('전날이 비어 있으면 버튼이 없다', () => {

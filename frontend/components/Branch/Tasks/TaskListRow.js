@@ -174,142 +174,144 @@ export default function TaskListRow({ task, branchId, taskTypes, workflowStatuse
         )}
       </div>
 
-      {/* 라벨 */}
-      <div className="TaskListRow__Labels">
-        {(task.labels || []).map((label) => {
-          // 행 상태마다 배지 부모가 다르다: 정상·hover는 목록 표면(default),
-          // selected(primary-subtle 워시)·subtask(--color-surface-raised)는 행 자신의 배경이다.
-          // 두 벌을 같이 실어 보내고 storedColor.scss가 행 상태로 고른다 — 정상 행 외관은 불변.
-          const tint = entityTintStyle(label.color, { alpha: '20', raisedSurface: 'task-list-raised' });
-          return (
-            <span
-              key={label.label_id}
-              className={`TaskListRow__Label${tint?.['--et-on'] ? ' EntityTint' : ''}`}
-              style={tint}
-            >
-              {label.label_name}
-            </span>
-          );
-        })}
-      </div>
+      <div className="TaskListRow__Details">
+        {/* 라벨 */}
+        <div className="TaskListRow__Labels">
+          {(task.labels || []).map((label) => {
+            // 행 상태마다 배지 부모가 다르다: 정상·hover는 목록 표면(default),
+            // selected(primary-subtle 워시)·subtask(--color-surface-raised)는 행 자신의 배경이다.
+            // 두 벌을 같이 실어 보내고 storedColor.scss가 행 상태로 고른다 — 정상 행 외관은 불변.
+            const tint = entityTintStyle(label.color, { alpha: '20', raisedSurface: 'task-list-raised' });
+            return (
+              <span
+                key={label.label_id}
+                className={`TaskListRow__Label${tint?.['--et-on'] ? ' EntityTint' : ''}`}
+                style={tint}
+              >
+                {label.label_name}
+              </span>
+            );
+          })}
+        </div>
 
-      {/* 에픽 — 하위태스크는 부모에서 파생(자기 값 없음)이라 편집기를 숨긴다.
-          indent prop이 아닌 parent_task_id 기준: 그룹핑 평면 뷰도 커버 */}
-      {task.parent_task_id != null ? (
-        <div className="TaskListRow__Cell TaskListRow__Cell--epic" />
-      ) : (
-        <div className={`TaskListRow__Cell TaskListRow__Cell--epic ${hasEpic ? '' : 'TaskListRow__Cell--hoverOnly'}`} onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
+        {/* 에픽 — 하위태스크는 부모에서 파생(자기 값 없음)이라 편집기를 숨긴다.
+            indent prop이 아닌 parent_task_id 기준: 그룹핑 평면 뷰도 커버 */}
+        {task.parent_task_id != null ? (
+          <div className="TaskListRow__Cell TaskListRow__Cell--epic" />
+        ) : (
+          <div className={`TaskListRow__Cell TaskListRow__Cell--epic ${hasEpic ? '' : 'TaskListRow__Cell--hoverOnly'}`} onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
+            <CustomSelect
+              value={hasEpic ? String(task.epic_id) : ''}
+              options={epicOptions}
+              onChange={(val) => handleFieldChange('epic_id', val ? Number(val) : null)}
+              size="sm"
+              hideArrow
+              placeholder={t('branchTasks.row.epicPlaceholder')}
+              className={`TaskListRow__Epic ${hasEpic ? '' : 'TaskListRow__Epic--empty'}`}
+            />
+          </div>
+        )}
+
+        {/* 상태 */}
+        <div className="TaskListRow__Cell TaskListRow__Cell--status" onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
           <CustomSelect
-            value={hasEpic ? String(task.epic_id) : ''}
-            options={epicOptions}
-            onChange={(val) => handleFieldChange('epic_id', val ? Number(val) : null)}
+            value={task.status}
+            options={statusOptions}
+            onChange={(val) => handleFieldChange('status', val)}
             size="sm"
             hideArrow
-            placeholder={t('branchTasks.row.epicPlaceholder')}
-            className={`TaskListRow__Epic ${hasEpic ? '' : 'TaskListRow__Epic--empty'}`}
+            className={`TaskListRow__Status TaskListRow__Status--${task.status}`}
           />
         </div>
-      )}
 
-      {/* 상태 */}
-      <div className="TaskListRow__Cell TaskListRow__Cell--status" onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
-        <CustomSelect
-          value={task.status}
-          options={statusOptions}
-          onChange={(val) => handleFieldChange('status', val)}
-          size="sm"
-          hideArrow
-          className={`TaskListRow__Status TaskListRow__Status--${task.status}`}
-        />
-      </div>
-
-      {/* 마감일 */}
-      <span className="TaskListRow__Cell TaskListRow__Cell--dueDate">
-        <span className="TaskListRow__DueDate">
-          {task.due_date ? formatDate(task.due_date) : '-'}
+        {/* 마감일 */}
+        <span className="TaskListRow__Cell TaskListRow__Cell--dueDate">
+          <span className="TaskListRow__DueDate">
+            {task.due_date ? formatDate(task.due_date) : '-'}
+          </span>
         </span>
-      </span>
 
-      {/* 우선순위 */}
-      <div className="TaskListRow__Cell TaskListRow__Cell--priority" onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
-        <CustomSelect
-          value={task.priority || 'low'}
-          options={priorityOptions}
-          onChange={(val) => handleFieldChange('priority', val)}
-          size="sm"
-          hideArrow
-          className={`TaskListRow__Priority TaskListRow__Priority--${task.priority || 'low'}`}
-        />
-      </div>
+        {/* 우선순위 */}
+        <div className="TaskListRow__Cell TaskListRow__Cell--priority" onClick={stopDrag} onMouseDown={stopDrag} onTouchStart={stopDrag}>
+          <CustomSelect
+            value={task.priority || 'low'}
+            options={priorityOptions}
+            onChange={(val) => handleFieldChange('priority', val)}
+            size="sm"
+            hideArrow
+            className={`TaskListRow__Priority TaskListRow__Priority--${task.priority || 'low'}`}
+          />
+        </div>
 
-      {/* 담당자 */}
-      <div
-        className="TaskListRow__AssigneeWrap"
-        ref={assigneeRef}
-        onClick={stopDrag}
-        onMouseDown={stopDrag}
-        onTouchStart={stopDrag}
-      >
-        {(() => {
-          const mainAssignee = (task.assignees || []).find((a) => a.role === 'main');
-          const subCount = (task.assignees || []).filter((a) => a.role === 'sub').length;
-          return (
-            <>
+        {/* 담당자 */}
+        <div
+          className="TaskListRow__AssigneeWrap"
+          ref={assigneeRef}
+          onClick={stopDrag}
+          onMouseDown={stopDrag}
+          onTouchStart={stopDrag}
+        >
+          {(() => {
+            const mainAssignee = (task.assignees || []).find((a) => a.role === 'main');
+            const subCount = (task.assignees || []).filter((a) => a.role === 'sub').length;
+            return (
+              <>
+                <button
+                  type="button"
+                  className={`TaskListRow__Assignee ${!mainAssignee ? 'TaskListRow__Assignee--empty' : ''}`}
+                  title={mainAssignee?.username || t('branchTasks.unassigned')}
+                  onClick={() => setAssigneeOpen((prev) => !prev)}
+                >
+                  {mainAssignee
+                    ? <Avatar user={mainAssignee} size={24} title={mainAssignee.username} />
+                    : <User size={12} />
+                  }
+                </button>
+                {subCount > 0 && (
+                  <span className="TaskListRow__SubCount">+{subCount}</span>
+                )}
+              </>
+            );
+          })()}
+
+          <DropdownPortal anchorRef={assigneeRef} open={assigneeOpen} align="right" dropdownRef={assigneeDropdownRef}>
+            <div className="TaskListRow__AssigneeDropdown">
               <button
                 type="button"
-                className={`TaskListRow__Assignee ${!mainAssignee ? 'TaskListRow__Assignee--empty' : ''}`}
-                title={mainAssignee?.username || t('branchTasks.unassigned')}
-                onClick={() => setAssigneeOpen((prev) => !prev)}
+                className={`TaskListRow__AssigneeOption ${!(task.assignees || []).find((a) => a.role === 'main') ? 'TaskListRow__AssigneeOption--selected' : ''}`}
+                onClick={() => {
+                  const currentSubs = (task.assignees || []).filter((a) => a.role === 'sub').map((a) => a.user_id);
+                  handleFieldChange('assignees', { main: null, sub: currentSubs });
+                  setAssigneeOpen(false);
+                }}
               >
-                {mainAssignee
-                  ? <Avatar user={mainAssignee} size={24} title={mainAssignee.username} />
-                  : <User size={12} />
-                }
+                <span className="TaskListRow__AssigneeAvatar TaskListRow__AssigneeAvatar--empty">
+                  <User size={14} />
+                </span>
+                <span>{t('branchTasks.unassigned')}</span>
               </button>
-              {subCount > 0 && (
-                <span className="TaskListRow__SubCount">+{subCount}</span>
-              )}
-            </>
-          );
-        })()}
 
-        <DropdownPortal anchorRef={assigneeRef} open={assigneeOpen} align="right" dropdownRef={assigneeDropdownRef}>
-          <div className="TaskListRow__AssigneeDropdown">
-            <button
-              type="button"
-              className={`TaskListRow__AssigneeOption ${!(task.assignees || []).find((a) => a.role === 'main') ? 'TaskListRow__AssigneeOption--selected' : ''}`}
-              onClick={() => {
-                const currentSubs = (task.assignees || []).filter((a) => a.role === 'sub').map((a) => a.user_id);
-                handleFieldChange('assignees', { main: null, sub: currentSubs });
-                setAssigneeOpen(false);
-              }}
-            >
-              <span className="TaskListRow__AssigneeAvatar TaskListRow__AssigneeAvatar--empty">
-                <User size={14} />
-              </span>
-              <span>{t('branchTasks.unassigned')}</span>
-            </button>
-
-            {memberList.map((m) => {
-              const isMain = (task.assignees || []).some((a) => a.role === 'main' && a.user_id === m.user_id);
-              return (
-                <button
-                  key={m.user_id}
-                  type="button"
-                  className={`TaskListRow__AssigneeOption ${isMain ? 'TaskListRow__AssigneeOption--selected' : ''}`}
-                  onClick={() => {
-                    const currentSubs = (task.assignees || []).filter((a) => a.role === 'sub' && a.user_id !== m.user_id).map((a) => a.user_id);
-                    handleFieldChange('assignees', { main: m.user_id, sub: currentSubs });
-                    setAssigneeOpen(false);
-                  }}
-                >
-                  <Avatar user={m} size={24} />
-                  <span>{m.username}</span>
-                </button>
-              );
-            })}
-          </div>
-        </DropdownPortal>
+              {memberList.map((m) => {
+                const isMain = (task.assignees || []).some((a) => a.role === 'main' && a.user_id === m.user_id);
+                return (
+                  <button
+                    key={m.user_id}
+                    type="button"
+                    className={`TaskListRow__AssigneeOption ${isMain ? 'TaskListRow__AssigneeOption--selected' : ''}`}
+                    onClick={() => {
+                      const currentSubs = (task.assignees || []).filter((a) => a.role === 'sub' && a.user_id !== m.user_id).map((a) => a.user_id);
+                      handleFieldChange('assignees', { main: m.user_id, sub: currentSubs });
+                      setAssigneeOpen(false);
+                    }}
+                  >
+                    <Avatar user={m} size={24} />
+                    <span>{m.username}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </DropdownPortal>
+        </div>
       </div>
     </div>
   );

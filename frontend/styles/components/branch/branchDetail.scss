@@ -46,6 +46,8 @@
   // -- 탭 --
   &__Tabs {
     display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
     gap: $space-1;
     border-bottom: 1px solid $color-border;
     margin-bottom: $space-5;
@@ -53,6 +55,8 @@
 
   &__Tab {
     display: flex;
+    flex-shrink: 0;
+    white-space: nowrap;
     align-items: center;
     gap: $space-1;
     padding: $space-2 $space-3;

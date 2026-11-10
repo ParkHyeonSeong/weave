@@ -376,6 +376,9 @@ const en = {
       widen: 'Widen {{day}}',
     },
     carry: {
+      previousFriday: 'last Friday ({{date}})',
+      previousLoading: 'Checking last Friday’s plan…',
+      previousFailed: 'Couldn’t load last Friday’s plan.',
       button: "Copy {{day}}'s plan",
       hint: 'Finished items are left out',
       done: "Copied {{day}}'s plan.",

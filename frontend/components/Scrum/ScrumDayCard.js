@@ -28,8 +28,7 @@ function focusIfRequested(requestRef, pane, editor) {
 
 // 전날 할 일을 JSON으로 읽고 끝난 항목을 뺀다(스펙 §6.4·§8). 태스크 상태는 칩 하이드레이션과 같은
 // 조회로 지금 값을 묻는다. 조회가 실패하거나 예외로 끝나면 아무것도 빼지 않는다(failed).
-async function readCarryOver(ydoc, sourceKey) {
-  const source = yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment(sourceKey));
+async function readCarryOver(source) {
   let status;
   try {
     status = await resolveTaskCategories(collectTaskIds(source));
@@ -46,7 +45,7 @@ async function readCarryOver(ydoc, sourceKey) {
 // 실행 취소 기록·포커스가 남는다(스펙 §8). 한 줄 행(slim row)은 그 부모 밖에 둔다.
 // synced: 주간 문서의 첫 동기화. 그 전의 빈 문서로는 썼는지 말하지 않는다 — 작성 상태·'아직 작성 전이에요'·
 // 한 줄 행의 '없어요' 글자·가져오기 버튼을 숨기고, 칸과 '쓰기' 버튼은 그대로 둔다.
-export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open, onToggle, synced }) {
+export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open, onToggle, synced, previousFriday }) {
   const { t } = useTranslation();
   const nameId = useId();
   const userId = member.user_id;
@@ -87,12 +86,17 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
     pin({ plan: showPlan || pane === 'plan', recap: showRecap || pane === 'recap' });
   };
 
-  // 전날 할 일 가져오기(스펙 §6.4·§8): 내 카드 · 이날 할 일이 비어 있음 · 화~금 · 전날 할 일에 내용이 있음.
+  // 내 빈 할 일에만 가져온다. 월요일은 지난주 금요일, 화~금은 같은 주의 전날이다.
   // 첫 동기화 전에는 이날 할 일이 정말 빈지 모르므로 보이지 않는다(서버 내용과 겹쳐 넣지 않게).
   // 전날 칸(${나}:${요일-1}:plan)은 읽기만 하고, 쓰기는 이날 할 일 편집기의 트랜잭션 하나로만 한다.
-  const canCarry = synced && isMe && !hasPlan && dayIdx >= 1
-    && cellHasContent(ydoc, weekCellKey(userId, dayIdx - 1, 'plan'));
-  const prevDayName = dayIdx >= 1 ? t(WEEKDAY_LONG_KEYS[dayIdx - 1]) : '';   // 가져오기 문구의 요일 이름(월요일…)
+  const canCarry = synced && isMe && !hasPlan && (dayIdx === 0
+    ? previousFriday?.status === 'ready' && jsonHasContent(previousFriday.doc)
+    : cellHasContent(ydoc, weekCellKey(userId, dayIdx - 1, 'plan')));
+  const prevDayName = dayIdx === 0
+    ? t('scrum.carry.previousFriday', { date: previousFriday?.dateLabel })
+    : t(WEEKDAY_LONG_KEYS[dayIdx - 1]);
+  const fridayPending = synced && isMe && !hasPlan && dayIdx === 0
+    && ['loading', 'error'].includes(previousFriday?.status);
   const [carryRequest, setCarryRequest] = useState(null);   // { day } — 그날 할 일 편집기가 준비되면 가져온다
   const carrying = useRef(false);                           // 상태를 묻는 중 — 여러 번 눌러도 한 번만 가져온다
 
@@ -100,7 +104,9 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
     if (carrying.current) return;
     carrying.current = true;
     try {
-      const { doc, removed, failed } = await readCarryOver(ydoc, weekCellKey(userId, dayIdx - 1, 'plan'));
+      const source = dayIdx === 0 ? previousFriday.doc
+        : yXmlFragmentToProsemirrorJSON(ydoc.getXmlFragment(weekCellKey(userId, dayIdx - 1, 'plan')));
+      const { doc, removed, failed } = await readCarryOver(source);
       // 묻는 사이 편집기가 사라졌거나(접기·요일 이동) 칸에 누가 이미 썼으면 덮어쓰지 않는다
       if (!editor || editor.isDestroyed || cellHasContent(ydoc, planKey)) return;
       if (!jsonHasContent(doc)) {   // 전부 끝났다 — 빈 문서는 넣지 않고, 띠가 버튼 자리를 대신하니 포커스는 빈 칸으로
@@ -225,6 +231,16 @@ export default function ScrumDayCard({ ydoc, member, members, isMe, dayIdx, open
       </header>
       {open && (
         <div className="ScrumDayCard__Body">
+          {fridayPending && (
+            <div className="ScrumDayCard__Carry" role="status">
+              <span className="ScrumDayCard__CarryHint">
+                {t(previousFriday.status === 'error' ? 'scrum.carry.previousFailed' : 'scrum.carry.previousLoading')}
+              </span>
+              {previousFriday.status === 'error' && (
+                <button type="button" className="ScrumDayCard__CarryBtn" onClick={previousFriday.retry}>{t('common.actions.retry')}</button>
+              )}
+            </div>
+          )}
           {/* 자리가 고정된 슬롯들 — 앞 슬롯이 생기고 없어져도 Panes는 같은 자리에 남는다 */}
           {activeNotice && (
             <div className="ScrumDayCard__Carried" role="status">

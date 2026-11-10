@@ -5,6 +5,8 @@ import ScrumDayCard, { dayCardDomId } from './ScrumDayCard';
 import Avatar from '@/components/common/Avatar';
 import { useWorkspaceDateFormat } from '@/hooks/useDateFormat';
 import useWeekWritten from '@/library/useWeekWritten';
+import useScrumPreviousFriday from '@/library/useScrumPreviousFriday';
+import { cellHasContent, weekCellKey } from '@/library/scrumCellContent';
 import { WEEKDAYS } from '@/library/scrumViewModel';
 import { scrollBehavior } from '@/library/scrollRegion';
 
@@ -42,7 +44,7 @@ function useRailMaxHeight(layoutRef) {
 // memo: 보드뷰는 접속자(presence)가 바뀔 때마다 다시 그려지므로, props가 같으면 카드·편집기까지
 // 내려가지 않게 막는다(ScrumWeekGrid와 같은 이유). 문서 변경은 useWeekWritten이 직접 받는다.
 // synced: 주간 문서의 첫 동기화. 그 전에는 썼는지 말하지 않는다(목록 ✓/작성 전·점 채움/회색·요약·카드 상태).
-function ScrumDayView({ ydoc, members, meId, selectedDay, todayIdx, dates, synced }) {
+function ScrumDayView({ boardId, ydoc, members, meId, selectedDay, todayIdx, dates, synced }) {
   const { t } = useTranslation();
   const { today, formatDateOnly } = useWorkspaceDateFormat();
   const railTitleId = useId();
@@ -64,6 +66,14 @@ function ScrumDayView({ ydoc, members, meId, selectedDay, todayIdx, dates, synce
   const isUpcoming = (d) => !!todayStr && dates[d].date > todayStr;
 
   const iAmMember = members.some((m) => m.user_id === meId);
+  const previousFriday = useScrumPreviousFriday({
+    boardId, monday: dates[0].date, userId: meId,
+    enabled: synced && selectedDay === 0 && iAmMember && !cellHasContent(ydoc, weekCellKey(meId, 0, 'plan')),
+  });
+  const fridaySource = {
+    ...previousFriday,
+    dateLabel: formatDateOnly(previousFriday.date, { month: 'numeric', day: 'numeric' }),
+  };
   const visible = mineOnly ? members.filter((m) => m.user_id === meId) : members;
   const anyFolded = visible.some((m) => folded.has(m.user_id));
 
@@ -182,6 +192,7 @@ function ScrumDayView({ ydoc, members, meId, selectedDay, todayIdx, dates, synce
               open={!folded.has(m.user_id)}
               onToggle={toggleFold}
               synced={synced}
+              previousFriday={m.user_id === meId ? fridaySource : undefined}
             />
           ))}
         </div>

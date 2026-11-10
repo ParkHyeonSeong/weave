@@ -244,16 +244,16 @@ $scrum-accent-text: color-mix(in srgb, var(--color-accent-scrum) 65%, var(--colo
 // 글자는 본문 색(작은 글자의 대비) — 초록은 테두리·바탕·아이콘으로만 낸다.
 .ScrumDayCard__Carry { display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px; padding:10px 20px; background:$color-surface; }
 .ScrumDayCard__CarryBtn {
-  display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 12px;
+  display:inline-flex; align-items:center; gap:6px; min-height:32px; max-width:100%; padding:6px 12px;
   border:1px solid var(--color-accent-scrum); border-radius:8px; background:var(--color-accent-scrum-subtle);
-  font-size:13px; font-weight:600; color:$color-text; white-space:nowrap;
+  font-size:13px; font-weight:600; color:$color-text; white-space:normal; text-align:left;
   transition:background 120ms;
   svg { flex-shrink:0; color:var(--color-accent-scrum); }
   &:hover { background:var(--color-accent-scrum-wash); }
 }
 .ScrumDayCard__CarryHint { font-size:12.5px; color:$color-text-secondary; }
 // 한 줄 행 안에서는 행 버튼 크기에 맞추고, 오른쪽 끝으로 미는 일은 가져오기 버튼이 맡는다
-.ScrumDayCard__Slim .ScrumDayCard__CarryBtn { height:28px; margin-left:auto; padding:0 10px; border-radius:7px; font-size:12.5px; }
+.ScrumDayCard__Slim .ScrumDayCard__CarryBtn { min-height:28px; margin-left:auto; padding:4px 10px; border-radius:7px; font-size:12.5px; }
 .ScrumDayCard__CarryBtn + .ScrumDayCard__Write { margin-left:0; }
 // 가져온 뒤 안내 띠 — 사용자가 칸을 고치거나 되돌리면 닫힌다
 .ScrumDayCard__Carried { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:9px 20px; background:$color-success-bg; font-size:12.5px; color:$color-text; }

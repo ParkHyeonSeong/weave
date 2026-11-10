@@ -1,6 +1,8 @@
 @use '../../variables' as *;
 
 .TaskList {
+  // 상세 패널·사이드바를 제외하고 목록에 실제로 남은 폭으로 행을 배치한다.
+  container: task-list / inline-size;
   // -- 상단 액션 --
   &__Actions {
     display: flex;
@@ -1263,6 +1265,45 @@
   cursor: pointer;
   transition: background $transition-fast;
   user-select: none;
+
+  &__Details {
+    display: contents;
+  }
+
+  @container task-list (max-width: 700px) {
+    display: grid;
+    grid-template-columns: 14px max-content minmax(0, 1fr);
+    row-gap: $space-1;
+
+    .TaskListRow__TitleWrap {
+      min-width: 0;
+    }
+
+    &__Details {
+      grid-column: 2 / -1;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: $space-1 $space-2;
+      min-width: 0;
+    }
+
+    // 모바일에서도 두 번째 줄에서 보조 정보를 읽고 편집할 수 있다.
+    .TaskListRow__Labels {
+      display: flex;
+      max-width: 100%;
+    }
+
+    .TaskListRow__Cell--dueDate,
+    .TaskListRow__Cell--priority {
+      display: block;
+      width: auto;
+    }
+
+    .TaskListRow__Cell--hoverOnly {
+      opacity: 1;
+    }
+  }
 
   @include mobile {
     padding: $space-2 $space-3;

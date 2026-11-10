@@ -8,7 +8,9 @@ import { it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Y from 'yjs';
+import { yXmlFragmentToProsemirrorJSON } from 'y-prosemirror';
 import { fragmentHasContent } from '@/library/scrumCellContent';
+import { resolveTaskCategories } from '@/library/refHydration';
 
 vi.mock('react-i18next', async (importOriginal) => ({
   ...(await importOriginal()),
@@ -46,10 +48,10 @@ let root;
 let container;
 let doc;
 
-function renderCard() {
+function renderCard(props = {}) {
   act(() => {
     root.render(
-      <ScrumDayCard ydoc={doc} member={ME} members={[ME]} isMe dayIdx={2} open synced onToggle={() => {}} />,
+      <ScrumDayCard ydoc={doc} member={ME} members={[ME]} isMe dayIdx={2} open synced onToggle={() => {}} {...props} />,
     );
   });
 }
@@ -60,10 +62,61 @@ const button = (label) => [...container.querySelectorAll('button')].find((b) => 
 const todayInDoc = () => doc.getXmlFragment(TODAY).toString();
 
 beforeEach(() => {
+  resolveTaskCategories.mockResolvedValue({ categoryById: {}, failed: false });
   doc = new Y.Doc();
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+});
+
+it('월요일에 지난주 금요일의 서식·미완료 항목을 가져오고 되돌려도 원본은 유지된다', async () => {
+  const friday = new Y.Doc();
+  const fragment = friday.getXmlFragment('7:4:plan');
+  const list = new Y.XmlElement('taskList');
+  fragment.insert(0, [list]);
+  for (const [checked, text] of [[true, '완료한 일'], [false, '계속할 일']]) {
+    const item = new Y.XmlElement('taskItem');
+    list.insert(list.length, [item]);
+    item.setAttribute('checked', checked);
+    const paragraph = new Y.XmlElement('paragraph');
+    item.insert(0, [paragraph]);
+    const value = new Y.XmlText();
+    paragraph.insert(0, [value]);
+    value.insert(0, text, { bold: {} });
+  }
+  const taskList = new Y.XmlElement('bulletList');
+  fragment.insert(fragment.length, [taskList]);
+  for (const taskId of [11, 12]) {
+    const item = new Y.XmlElement('listItem');
+    taskList.insert(taskList.length, [item]);
+    const p = new Y.XmlElement('paragraph');
+    item.insert(0, [p]);
+    const chip = new Y.XmlElement('taskRef');
+    p.insert(0, [chip]);
+    chip.setAttribute('taskId', taskId);
+    chip.setAttribute('label', `TEST-${taskId}`);
+  }
+  resolveTaskCategories.mockResolvedValue({ categoryById: { 11: 'done', 12: 'in_progress' }, failed: false });
+  const original = fragment.toString();
+  const previousFriday = { status: 'ready', doc: yXmlFragmentToProsemirrorJSON(fragment), dateLabel: '11/6' };
+  renderCard({ dayIdx: 0, previousFriday });
+  await settle();
+  expect(button('scrum.carry.button')).toBeDefined();
+  await act(async () => button('scrum.carry.button').click());
+  await settle();
+  const editor = planEditor();
+  expect(editor.getText()).toContain('계속할 일');
+  expect(editor.getText()).not.toContain('완료한 일');
+  const imported = editor.getJSON();
+  expect(JSON.stringify(imported)).toContain('"bold"');
+  expect(JSON.stringify(imported)).toContain('"taskId":12');
+  expect(JSON.stringify(imported)).not.toContain('"taskId":11');
+  expect(container.textContent).toContain('scrum.carry.doneRemoved');
+  expect(fragment.toString()).toBe(original);
+  await act(async () => button('scrum.carry.undo').click());
+  expect(fragmentHasContent(doc.getXmlFragment('7:0:plan'))).toBe(false);
+  expect(fragment.toString()).toBe(original);
+  friday.destroy();
 });
 
 afterEach(() => {

@@ -43,7 +43,7 @@ export default function ScrumBoardView() {
   // 주간 보드 보기 방식: 기본은 하루 보기, ?view=week면 한 주 보기
   const [view, setView] = useState(() => (urlParam('view') === 'week' ? 'week' : 'day'));
   // 하루 보기에서 고른 요일(0~4). null = 아직 안 채움 → 주차·오늘이 정해지면 한 번 채우고,
-  // 그 뒤에는 다른 주로 가도 유지한다("오늘로"만 오늘 요일로 되돌린다). 한 주 보기의 넓게 보는 요일도 이 값.
+  // 이전 주는 금요일, 다음 주는 월요일로 고른다. 한 주 보기의 넓게 보는 요일도 이 값.
   const [selectedDay, setSelectedDay] = useState(null);
   // 한 주 보기 툴바: 보이는 행(최소 하나는 켜짐)과 전체/나만. 저장하지 않는 화면 안 상태(스펙 §3).
   const [weekRows, setWeekRows] = useState({ plan: true, recap: true });
@@ -115,13 +115,15 @@ export default function ScrumBoardView() {
   // 주 get_or_create → week_id
   useEffect(() => {
     if (!boardId || !workspaceReady || !wk) return;
+    let alive = true;
     setWeekId(null);
     (async () => {
       try {
         const res = await axios.get(`/scrum/${boardId}/weeks/${wk.isoYear}/${wk.isoWeek}`);
-        if (res.data.status) setWeekId(res.data.week.week_id);
+        if (alive && res.data.status) setWeekId(res.data.week.week_id);
       } catch {}
     })();
+    return () => { alive = false; };
   // wk 객체 자체는 deps에 넣지 않는다 — 같은 주 안의 앵커/언어 변경으로 주 요청·Yjs 세션이 다시 열리지 않게.
   }, [boardId, wk?.isoYear, wk?.isoWeek, workspaceReady]);
 
@@ -182,6 +184,10 @@ export default function ScrumBoardView() {
   const jumpWeek = (d) => { if (d) setAnchorDate(d); };
   // "오늘로"는 이번 주로 돌아가면서 오늘 요일도 다시 고른다(주말이면 금요일)
   const goToday = () => { setAnchorDate(null); setSelectedDay(todayDayIndex(workspaceToday())); };
+  const moveWeek = (direction) => {
+    setAnchorDate((a) => shiftYmd(a ?? workspaceToday(), direction * 7));
+    setSelectedDay(direction < 0 ? 4 : 0);
+  };
   // 보드 멤버가 아니면 '나만'은 아무도 안 보이므로 버튼을 숨기고 값도 무시한다(하루 보기와 같은 규칙)
   const iAmMember = members.some((m) => m.user_id === user?.user_id);
   const weekMine = weekMineOnly && iAmMember;
@@ -245,13 +251,13 @@ export default function ScrumBoardView() {
           {tab === 'board' && (
             <>
               <div className="ScrumBoard__WeekNav">
-                <button type="button" onClick={() => setAnchorDate((a) => shiftYmd(a ?? workspaceToday(), -7))} aria-label={t('scrum.board.prevWeek')}><ChevronLeft size={16} /></button>
+                <button type="button" onClick={() => moveWeek(-1)} aria-label={t('scrum.board.prevWeek')}><ChevronLeft size={16} /></button>
                 <DatePicker
                   value={null}
                   onChange={jumpWeek}
                   trigger={<span className="ScrumBoard__WeekLabel">{range}</span>}
                 />
-                <button type="button" onClick={() => setAnchorDate((a) => shiftYmd(a ?? workspaceToday(), 7))} aria-label={t('scrum.board.nextWeek')}><ChevronRight size={16} /></button>
+                <button type="button" onClick={() => moveWeek(1)} aria-label={t('scrum.board.nextWeek')}><ChevronRight size={16} /></button>
                 {isThisWeek ? (
                   <span className="ScrumBoard__ThisWeek">{t('scrum.board.thisWeek')}</span>
                 ) : (
@@ -334,6 +340,7 @@ export default function ScrumBoardView() {
               <div className="ScrumBoard__Empty">{t('scrum.board.noMembers')}</div>
             ) : view === 'day' ? (
               <ScrumDayView
+                boardId={boardId}
                 ydoc={ydoc}
                 members={members}
                 meId={user?.user_id}
